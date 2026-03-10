@@ -37,8 +37,6 @@ export function AppSidebar({
   const location = useLocation();
   const isActive = (url: string) =>
     url === "/carteira" ? location.pathname.startsWith("/carteira") : location.pathname === url;
-    location.pathname === item.url ||
-    item.children?.some((c) => location.pathname === c.url);
 
   return (
     <aside
@@ -48,7 +46,6 @@ export function AppSidebar({
         transition: "width 120ms linear",
       }}
     >
-      {/* Logo */}
       <div className="flex h-14 items-center gap-2 border-b border-[hsl(213,40%,28%)] px-4">
         {!collapsed && (
           <span className="text-base font-bold tracking-tight text-white">Blueberg</span>
@@ -58,77 +55,39 @@ export function AppSidebar({
         )}
       </div>
 
-      {/* Menu */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
         {menuItems.map((item) => {
-          const active = isInSection(item);
+          const active = isActive(item.url);
           const Icon = item.icon;
-          const hasChildren = !!item.children;
-          const isExpanded = expandedMenu === item.title;
 
           return (
-            <div key={item.title}>
-              <Link
-                to={item.url}
-                onClick={(e) => {
-                  if (hasChildren) {
-                    e.preventDefault();
-                    setExpandedMenu(isExpanded ? null : item.title);
-                    if (collapsed) onToggle();
-                  }
-                }}
-                className="group relative flex h-9 items-center gap-3 px-3 text-xs font-medium transition-colors"
-                style={{ transition: "color 120ms linear" }}
-              >
-                {active && (
-                  <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-[hsl(210,100%,60%)]" />
-                )}
-                <Icon
-                  size={18}
-                  strokeWidth={1.5}
-                  className={active ? "text-[hsl(210,100%,60%)] shrink-0" : "text-[hsl(210,25%,60%)] shrink-0 group-hover:text-white"}
-                  style={{ transition: "color 120ms linear" }}
-                />
-                {!collapsed && (
-                  <span
-                    className={`truncate ${active ? "text-white" : "text-[hsl(210,25%,60%)] group-hover:text-white"}`}
-                  >
-                    {item.title}
-                  </span>
-                )}
-                {!collapsed && hasChildren && (
-                  <ChevronDown
-                    size={14}
-                    className={`ml-auto shrink-0 text-[hsl(210,25%,60%)] transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                    style={{ transition: "transform 120ms linear" }}
-                  />
-                )}
-              </Link>
-
-              {hasChildren && isExpanded && !collapsed && (
-                <div className="ml-9 border-l border-[hsl(213,40%,28%)]">
-                  {item.children!.map((child) => (
-                    <Link
-                      key={child.url}
-                      to={child.url}
-                      className={`block py-1.5 pl-3 text-xs transition-colors ${
-                        isActive(child.url)
-                          ? "text-white"
-                          : "text-[hsl(210,25%,60%)] hover:text-white"
-                      }`}
-                      style={{ transition: "color 120ms linear" }}
-                    >
-                      {child.title}
-                    </Link>
-                  ))}
-                </div>
+            <Link
+              key={item.title}
+              to={item.url}
+              className="group relative flex h-9 items-center gap-3 px-3 text-xs font-medium transition-colors"
+              style={{ transition: "color 120ms linear" }}
+            >
+              {active && (
+                <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-[hsl(210,100%,60%)]" />
               )}
-            </div>
+              <Icon
+                size={18}
+                strokeWidth={1.5}
+                className={active ? "text-[hsl(210,100%,60%)] shrink-0" : "text-[hsl(210,25%,60%)] shrink-0 group-hover:text-white"}
+                style={{ transition: "color 120ms linear" }}
+              />
+              {!collapsed && (
+                <span
+                  className={`truncate ${active ? "text-white" : "text-[hsl(210,25%,60%)] group-hover:text-white"}`}
+                >
+                  {item.title}
+                </span>
+              )}
+            </Link>
           );
         })}
       </nav>
 
-      {/* Collapse toggle */}
       <button
         onClick={onToggle}
         className="flex h-10 items-center justify-center border-t border-[hsl(213,40%,28%)] text-[hsl(210,25%,60%)] hover:text-white"
