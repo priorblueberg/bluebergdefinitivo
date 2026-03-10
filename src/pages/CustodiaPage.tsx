@@ -19,6 +19,20 @@ interface CustodiaRow {
   instituicao: string | null;
   emissor: string | null;
   categoria: string;
+  // New columns (blank for now)
+  resgate_total: number | null;
+  status_variavel: string | null;
+  data_calculo: string | null;
+  multiplicador: number | null;
+  amortizacao: number | null;
+  rendimentos: number | null;
+  alocacao_patrimonial: number | null;
+  pu_inicial: number | null;
+  carteira: string | null;
+  data_limite: string | null;
+  sigla_tesouro: string | null;
+  custodia_no_dia: number | null;
+  estrategia: string | null;
 }
 
 export default function CustodiaPage() {
@@ -33,6 +47,9 @@ export default function CustodiaPage() {
           id, codigo_custodia, data_inicio, tipo_movimentacao,
           modalidade, indexador, taxa, valor_investido, preco_unitario,
           quantidade, vencimento, pagamento, nome,
+          resgate_total, status_variavel, data_calculo, multiplicador,
+          amortizacao, rendimentos, alocacao_patrimonial, pu_inicial,
+          carteira, data_limite, sigla_tesouro, custodia_no_dia, estrategia,
           produtos(nome), instituicoes(nome), emissores(nome), categorias(nome)
         `)
         .order("codigo_custodia", { ascending: true });
@@ -57,6 +74,19 @@ export default function CustodiaPage() {
             instituicao: r.instituicoes?.nome ?? null,
             emissor: r.emissores?.nome ?? null,
             categoria: r.categorias?.nome ?? "—",
+            resgate_total: r.resgate_total,
+            status_variavel: r.status_variavel,
+            data_calculo: r.data_calculo,
+            multiplicador: r.multiplicador,
+            amortizacao: r.amortizacao,
+            rendimentos: r.rendimentos,
+            alocacao_patrimonial: r.alocacao_patrimonial,
+            pu_inicial: r.pu_inicial,
+            carteira: r.carteira,
+            data_limite: r.data_limite,
+            sigla_tesouro: r.sigla_tesouro,
+            custodia_no_dia: r.custodia_no_dia,
+            estrategia: r.estrategia,
           }))
         );
       }
@@ -72,6 +102,16 @@ export default function CustodiaPage() {
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
+  const headers = [
+    "Cód. Custódia", "Nome", "Data Início", "Categoria", "Produto",
+    "Tipo Mov.", "Instituição", "Emissor", "Modalidade", "Indexador",
+    "Taxa", "Valor Investido (R$)", "Preço Unit. (R$)", "Quantidade",
+    "Vencimento", "Pagamento",
+    "Resgate Total", "Status Variável", "Data p/ Cálculo", "Multiplicador",
+    "Amortização", "Rendimentos", "Alocação Patrimonial", "PU Inicial",
+    "Carteira", "Data Limite", "Sigla Tesouro", "Custódia no Dia", "Estratégia",
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -83,21 +123,16 @@ export default function CustodiaPage() {
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-primary text-primary-foreground">
-              {[
-                "Cód. Custódia", "Nome", "Data Início", "Categoria", "Produto",
-                "Tipo Mov.", "Instituição", "Emissor", "Modalidade", "Indexador",
-                "Taxa", "Valor Investido (R$)", "Preço Unit. (R$)", "Quantidade",
-                "Vencimento", "Pagamento",
-              ].map((h) => (
+              {headers.map((h) => (
                 <th key={h} className="px-3 py-2 text-left font-medium whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={16} className="px-4 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+              <tr><td colSpan={headers.length} className="px-4 py-8 text-center text-muted-foreground">Carregando...</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={16} className="px-4 py-8 text-center text-muted-foreground">Nenhum registro de custódia encontrado.</td></tr>
+              <tr><td colSpan={headers.length} className="px-4 py-8 text-center text-muted-foreground">Nenhum registro de custódia encontrado.</td></tr>
             ) : (
               rows.map((r, i) => (
                 <tr key={r.id} className={`border-t border-border ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}>
@@ -117,6 +152,19 @@ export default function CustodiaPage() {
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.quantidade)}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
+                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.resgate_total)}</td>
+                  <td className="px-3 py-2 text-foreground">{r.status_variavel ?? "—"}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data_calculo)}</td>
+                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.multiplicador)}</td>
+                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.amortizacao)}</td>
+                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.rendimentos)}</td>
+                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.alocacao_patrimonial)}</td>
+                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.pu_inicial)}</td>
+                  <td className="px-3 py-2 text-foreground">{r.carteira ?? "—"}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data_limite)}</td>
+                  <td className="px-3 py-2 text-foreground">{r.sigla_tesouro ?? "—"}</td>
+                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.custodia_no_dia)}</td>
+                  <td className="px-3 py-2 text-foreground">{r.estrategia ?? "—"}</td>
                 </tr>
               ))
             )}
