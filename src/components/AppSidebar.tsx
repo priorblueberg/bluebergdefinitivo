@@ -35,8 +35,8 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const location = useLocation();
-  const isActive = (url: string) => location.pathname === url;
-  const isInSection = (item: MenuItem) =>
+  const isActive = (url: string) =>
+    url === "/carteira" ? location.pathname.startsWith("/carteira") : location.pathname === url;
     location.pathname === item.url ||
     item.children?.some((c) => location.pathname === c.url);
 
