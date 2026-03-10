@@ -61,22 +61,21 @@ export const CarteiraVisaoGeral = () => (
       <p className="mt-1 text-xs text-muted-foreground">Patrimônio analítico das suas aplicações</p>
     </div>
 
-    {/* Summary Row */}
-    <div className="rounded-md border border-border overflow-hidden">
-      <div className="grid grid-cols-5 bg-primary text-primary-foreground">
-        {summaryItems.map((item) => (
-          <div key={item.label} className="px-4 py-2 text-center text-xs font-medium">
+    {/* Summary Cards */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {summaryItems.map((item) => (
+        <div
+          key={item.label}
+          className="rounded-lg border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
+        >
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             {item.label}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-5 bg-card">
-        {summaryItems.map((item) => (
-          <div key={item.label} className="px-4 py-3 text-center text-sm font-semibold text-foreground">
+          </p>
+          <p className="mt-2 text-lg font-bold text-foreground">
             {item.value}
-          </div>
-        ))}
-      </div>
+          </p>
+        </div>
+      ))}
     </div>
 
     {/* Chart */}
