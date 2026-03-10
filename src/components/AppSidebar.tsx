@@ -20,19 +20,7 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  {
-    title: "Carteira de Investimentos",
-    url: "/carteira",
-    icon: LayoutGrid,
-    children: [
-      { title: "Visão Geral", url: "/carteira" },
-      { title: "Renda Fixa", url: "/carteira/renda-fixa" },
-      { title: "Renda Variável", url: "/carteira/renda-variavel" },
-      { title: "Fundos de Investimentos", url: "/carteira/fundos" },
-      { title: "Tesouro Direto", url: "/carteira/tesouro-direto" },
-      { title: "Análise Individual por Produto", url: "/carteira/analise-individual" },
-    ],
-  },
+  { title: "Carteira de Investimentos", url: "/carteira", icon: LayoutGrid },
   { title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight },
   { title: "Proventos Recebidos", url: "/proventos", icon: DollarSign },
   { title: "Cadastrar Transação", url: "/cadastrar-transacao", icon: Plus },
