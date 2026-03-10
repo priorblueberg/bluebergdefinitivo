@@ -18,6 +18,7 @@ import {
   Usuario,
   Admin,
   Custodia,
+  ControleCarteiras,
 } from "@/pages/AppPages";
 import NotFound from "./pages/NotFound.tsx";
 
