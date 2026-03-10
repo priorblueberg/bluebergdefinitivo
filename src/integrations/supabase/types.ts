@@ -35,6 +35,98 @@ export type Database = {
         }
         Relationships: []
       }
+      custodia: {
+        Row: {
+          categoria_id: string
+          codigo_custodia: number
+          created_at: string
+          data_inicio: string
+          emissor_id: string | null
+          id: string
+          indexador: string | null
+          instituicao_id: string | null
+          modalidade: string | null
+          nome: string | null
+          pagamento: string | null
+          preco_unitario: number | null
+          produto_id: string
+          quantidade: number | null
+          taxa: number | null
+          tipo_movimentacao: string
+          valor_investido: number
+          vencimento: string | null
+        }
+        Insert: {
+          categoria_id: string
+          codigo_custodia: number
+          created_at?: string
+          data_inicio: string
+          emissor_id?: string | null
+          id?: string
+          indexador?: string | null
+          instituicao_id?: string | null
+          modalidade?: string | null
+          nome?: string | null
+          pagamento?: string | null
+          preco_unitario?: number | null
+          produto_id: string
+          quantidade?: number | null
+          taxa?: number | null
+          tipo_movimentacao: string
+          valor_investido: number
+          vencimento?: string | null
+        }
+        Update: {
+          categoria_id?: string
+          codigo_custodia?: number
+          created_at?: string
+          data_inicio?: string
+          emissor_id?: string | null
+          id?: string
+          indexador?: string | null
+          instituicao_id?: string | null
+          modalidade?: string | null
+          nome?: string | null
+          pagamento?: string | null
+          preco_unitario?: number | null
+          produto_id?: string
+          quantidade?: number | null
+          taxa?: number | null
+          tipo_movimentacao?: string
+          valor_investido?: number
+          vencimento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custodia_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custodia_emissor_id_fkey"
+            columns: ["emissor_id"]
+            isOneToOne: false
+            referencedRelation: "emissores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custodia_instituicao_id_fkey"
+            columns: ["instituicao_id"]
+            isOneToOne: false
+            referencedRelation: "instituicoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custodia_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emissores: {
         Row: {
           ativo: boolean
@@ -80,12 +172,14 @@ export type Database = {
       movimentacoes: {
         Row: {
           categoria_id: string
+          codigo_custodia: number | null
           created_at: string
           data: string
           emissor_id: string | null
           id: string
           instituicao_id: string | null
           modalidade: string | null
+          nome_ativo: string | null
           pagamento: string | null
           preco_unitario: number | null
           produto_id: string
@@ -96,12 +190,14 @@ export type Database = {
         }
         Insert: {
           categoria_id: string
+          codigo_custodia?: number | null
           created_at?: string
           data?: string
           emissor_id?: string | null
           id?: string
           instituicao_id?: string | null
           modalidade?: string | null
+          nome_ativo?: string | null
           pagamento?: string | null
           preco_unitario?: number | null
           produto_id: string
@@ -112,12 +208,14 @@ export type Database = {
         }
         Update: {
           categoria_id?: string
+          codigo_custodia?: number | null
           created_at?: string
           data?: string
           emissor_id?: string | null
           id?: string
           instituicao_id?: string | null
           modalidade?: string | null
+          nome_ativo?: string | null
           pagamento?: string | null
           preco_unitario?: number | null
           produto_id?: string
