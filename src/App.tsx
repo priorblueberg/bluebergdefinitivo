@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,7 +31,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute = () => {
   const { user, loading, hasProfile } = useAuth();
 
   if (loading)
@@ -48,7 +48,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   if (!hasProfile) return <Navigate to="/onboarding" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  return <Outlet />;
 };
 
 const OnboardingRoute = () => {
@@ -80,20 +80,24 @@ const App = () => (
           <Route path="/checkout" element={<CheckoutPage />} />
 
           {/* Protected routes */}
-          <Route path="/carteira" element={<ProtectedRoute><CarteiraVisaoGeral /></ProtectedRoute>} />
-          <Route path="/carteira/renda-fixa" element={<ProtectedRoute><CarteiraRendaFixa /></ProtectedRoute>} />
-          <Route path="/carteira/renda-variavel" element={<ProtectedRoute><CarteiraRendaVariavel /></ProtectedRoute>} />
-          <Route path="/carteira/fundos" element={<ProtectedRoute><CarteiraFundos /></ProtectedRoute>} />
-          <Route path="/carteira/tesouro-direto" element={<ProtectedRoute><CarteiraTesouroDireto /></ProtectedRoute>} />
-          <Route path="/carteira/analise-individual" element={<ProtectedRoute><CarteiraAnaliseIndividual /></ProtectedRoute>} />
-          <Route path="/movimentacoes" element={<ProtectedRoute><Movimentacoes /></ProtectedRoute>} />
-          <Route path="/custodia" element={<ProtectedRoute><Custodia /></ProtectedRoute>} />
-          <Route path="/controle-carteiras" element={<ProtectedRoute><ControleCarteiras /></ProtectedRoute>} />
-          <Route path="/proventos" element={<ProtectedRoute><ProventosRecebidos /></ProtectedRoute>} />
-          <Route path="/cadastrar-transacao" element={<ProtectedRoute><CadastrarTransacao /></ProtectedRoute>} />
-          <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-          <Route path="/usuario" element={<ProtectedRoute><Usuario /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/carteira" element={<CarteiraVisaoGeral />} />
+              <Route path="/carteira/renda-fixa" element={<CarteiraRendaFixa />} />
+              <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
+              <Route path="/carteira/fundos" element={<CarteiraFundos />} />
+              <Route path="/carteira/tesouro-direto" element={<CarteiraTesouroDireto />} />
+              <Route path="/carteira/analise-individual" element={<CarteiraAnaliseIndividual />} />
+              <Route path="/movimentacoes" element={<Movimentacoes />} />
+              <Route path="/custodia" element={<Custodia />} />
+              <Route path="/controle-carteiras" element={<ControleCarteiras />} />
+              <Route path="/proventos" element={<ProventosRecebidos />} />
+              <Route path="/cadastrar-transacao" element={<CadastrarTransacao />} />
+              <Route path="/configuracoes" element={<Configuracoes />} />
+              <Route path="/usuario" element={<Usuario />} />
+              <Route path="/admin" element={<Admin />} />
+            </Route>
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
