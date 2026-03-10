@@ -296,6 +296,7 @@ export const ProventosRecebidos = () => <PageStub title="Proventos Recebidos" />
 export { default as CadastrarTransacao } from "./CadastrarTransacaoPage";
 export const Configuracoes = () => <PageStub title="Configurações" />;
 export const Usuario = () => <PageStub title="Usuário" />;
+export { default as Admin } from "./AdminPage";
 
 const PageStub = ({ title }: { title: string }) => (
   <div>

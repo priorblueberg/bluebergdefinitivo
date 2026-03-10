@@ -16,6 +16,7 @@ import {
   CadastrarTransacao,
   Configuracoes,
   Usuario,
+  Admin,
 } from "@/pages/AppPages";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/cadastrar-transacao" element={<CadastrarTransacao />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
             <Route path="/usuario" element={<Usuario />} />
+            <Route path="/admin" element={<Admin />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
