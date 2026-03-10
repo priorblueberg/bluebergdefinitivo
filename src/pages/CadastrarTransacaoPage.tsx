@@ -235,7 +235,7 @@ export default function CadastrarTransacaoPage() {
 
       if (error) throw error;
 
-      // If Aplicação Inicial, also insert into custodia
+      // If Aplicação Inicial, also insert into custodia and update controle_de_carteiras
       if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
         const { error: custError } = await supabase.from("custodia").insert({
           codigo_custodia: codigoCustodia,
@@ -259,6 +259,9 @@ export default function CadastrarTransacaoPage() {
         if (custError) {
           console.error("Erro ao inserir custódia:", custError);
         }
+
+        // Update controle_de_carteiras
+        await syncControleCarteiras(categoriaId);
       }
 
       toast.success("Transação cadastrada com sucesso!");
