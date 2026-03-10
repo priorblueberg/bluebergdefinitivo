@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      calendario_dias_uteis: {
+        Row: {
+          data: string
+          dia_util: boolean
+        }
+        Insert: {
+          data: string
+          dia_util?: boolean
+        }
+        Update: {
+          data?: string
+          dia_util?: boolean
+        }
+        Relationships: []
+      }
       categorias: {
         Row: {
           ativa: boolean
@@ -37,60 +52,99 @@ export type Database = {
       }
       custodia: {
         Row: {
+          alocacao_patrimonial: number | null
+          amortizacao: number | null
+          carteira: string | null
           categoria_id: string
           codigo_custodia: number
           created_at: string
+          custodia_no_dia: number | null
+          data_calculo: string | null
           data_inicio: string
+          data_limite: string | null
           emissor_id: string | null
+          estrategia: string | null
           id: string
           indexador: string | null
           instituicao_id: string | null
           modalidade: string | null
+          multiplicador: number | null
           nome: string | null
           pagamento: string | null
           preco_unitario: number | null
           produto_id: string
+          pu_inicial: number | null
           quantidade: number | null
+          rendimentos: number | null
+          resgate_total: number | null
+          sigla_tesouro: string | null
+          status_variavel: string | null
           taxa: number | null
           tipo_movimentacao: string
           valor_investido: number
           vencimento: string | null
         }
         Insert: {
+          alocacao_patrimonial?: number | null
+          amortizacao?: number | null
+          carteira?: string | null
           categoria_id: string
           codigo_custodia: number
           created_at?: string
+          custodia_no_dia?: number | null
+          data_calculo?: string | null
           data_inicio: string
+          data_limite?: string | null
           emissor_id?: string | null
+          estrategia?: string | null
           id?: string
           indexador?: string | null
           instituicao_id?: string | null
           modalidade?: string | null
+          multiplicador?: number | null
           nome?: string | null
           pagamento?: string | null
           preco_unitario?: number | null
           produto_id: string
+          pu_inicial?: number | null
           quantidade?: number | null
+          rendimentos?: number | null
+          resgate_total?: number | null
+          sigla_tesouro?: string | null
+          status_variavel?: string | null
           taxa?: number | null
           tipo_movimentacao: string
           valor_investido: number
           vencimento?: string | null
         }
         Update: {
+          alocacao_patrimonial?: number | null
+          amortizacao?: number | null
+          carteira?: string | null
           categoria_id?: string
           codigo_custodia?: number
           created_at?: string
+          custodia_no_dia?: number | null
+          data_calculo?: string | null
           data_inicio?: string
+          data_limite?: string | null
           emissor_id?: string | null
+          estrategia?: string | null
           id?: string
           indexador?: string | null
           instituicao_id?: string | null
           modalidade?: string | null
+          multiplicador?: number | null
           nome?: string | null
           pagamento?: string | null
           preco_unitario?: number | null
           produto_id?: string
+          pu_inicial?: number | null
           quantidade?: number | null
+          rendimentos?: number | null
+          resgate_total?: number | null
+          sigla_tesouro?: string | null
+          status_variavel?: string | null
           taxa?: number | null
           tipo_movimentacao?: string
           valor_investido?: number
@@ -177,15 +231,18 @@ export type Database = {
           data: string
           emissor_id: string | null
           id: string
+          indexador: string | null
           instituicao_id: string | null
           modalidade: string | null
           nome_ativo: string | null
           pagamento: string | null
           preco_unitario: number | null
           produto_id: string
+          quantidade: number | null
           taxa: number | null
           tipo_movimentacao: string
           valor: number
+          valor_extrato: string | null
           vencimento: string | null
         }
         Insert: {
@@ -195,15 +252,18 @@ export type Database = {
           data?: string
           emissor_id?: string | null
           id?: string
+          indexador?: string | null
           instituicao_id?: string | null
           modalidade?: string | null
           nome_ativo?: string | null
           pagamento?: string | null
           preco_unitario?: number | null
           produto_id: string
+          quantidade?: number | null
           taxa?: number | null
           tipo_movimentacao: string
           valor: number
+          valor_extrato?: string | null
           vencimento?: string | null
         }
         Update: {
@@ -213,15 +273,18 @@ export type Database = {
           data?: string
           emissor_id?: string | null
           id?: string
+          indexador?: string | null
           instituicao_id?: string | null
           modalidade?: string | null
           nome_ativo?: string | null
           pagamento?: string | null
           preco_unitario?: number | null
           produto_id?: string
+          quantidade?: number | null
           taxa?: number | null
           tipo_movimentacao?: string
           valor?: number
+          valor_extrato?: string | null
           vencimento?: string | null
         }
         Relationships: [

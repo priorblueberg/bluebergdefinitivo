@@ -68,7 +68,7 @@ export default function CadastrarTransacaoPage() {
   const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
   const [produtoId, setProdutoId] = useState("");
   const [valor, setValor] = useState("");
-  const [precoUnitario, setPrecoUnitario] = useState("");
+  const [precoUnitario, setPrecoUnitario] = useState("1000");
   const [instituicaoId, setInstituicaoId] = useState("");
   const [emissorId, setEmissorId] = useState("");
   const [modalidade, setModalidade] = useState("");
@@ -140,7 +140,7 @@ export default function CadastrarTransacaoPage() {
     setData(new Date().toISOString().slice(0, 10));
     setProdutoId("");
     setValor("");
-    setPrecoUnitario("");
+    setPrecoUnitario("1000");
     setInstituicaoId("");
     setEmissorId("");
     setModalidade("");
@@ -150,7 +150,12 @@ export default function CadastrarTransacaoPage() {
   };
 
   const handleSubmit = async () => {
-    if (!categoriaId || !tipoMovimentacao || !produtoId || !valor || !data) {
+    // All fields required
+    if (
+      !categoriaId || !tipoMovimentacao || !produtoId || !valor || !data ||
+      !precoUnitario || !instituicaoId || !emissorId || !modalidade || !taxa ||
+      !pagamento || !vencimento
+    ) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -197,7 +202,16 @@ export default function CadastrarTransacaoPage() {
       }
 
       const valorNum = parseFloat(valor.replace(",", "."));
-      const puNum = precoUnitario ? parseFloat(precoUnitario.replace(",", ".")) : null;
+      const puNum = parseFloat(precoUnitario.replace(",", "."));
+      const taxaNum = parseFloat(taxa.replace(",", "."));
+      const quantidade = puNum > 0 ? valorNum / puNum : null;
+
+      // Build valor_extrato: "R$ 200.000,00 (R$ 1.000,00 x 10)"
+      const fmtBR = (v: number) =>
+        v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const valorExtrato = quantidade != null
+        ? `R$ ${fmtBR(valorNum)} (R$ ${fmtBR(puNum)} x ${fmtBR(quantidade)})`
+        : `R$ ${fmtBR(valorNum)}`;
 
       const { error } = await supabase.from("movimentacoes").insert({
         categoria_id: categoriaId,
@@ -206,37 +220,38 @@ export default function CadastrarTransacaoPage() {
         produto_id: produtoId,
         valor: valorNum,
         preco_unitario: puNum,
-        instituicao_id: instituicaoId || null,
-        emissor_id: emissorId || null,
-        modalidade: modalidade || null,
-        taxa: taxa ? parseFloat(taxa.replace(",", ".")) : null,
-        pagamento: pagamento || null,
-        vencimento: vencimento || null,
+        instituicao_id: instituicaoId,
+        emissor_id: emissorId,
+        modalidade,
+        taxa: taxaNum,
+        pagamento,
+        vencimento,
         nome_ativo: nomeAtivo,
         codigo_custodia: nomeAtivo ? codigoCustodia : null,
+        indexador: null,
+        quantidade,
+        valor_extrato: valorExtrato,
       });
 
       if (error) throw error;
 
       // If Aplicação Inicial, also insert into custodia
       if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
-        const quantidade = puNum && puNum > 0 ? valorNum / puNum : null;
-
         const { error: custError } = await supabase.from("custodia").insert({
           codigo_custodia: codigoCustodia,
           data_inicio: data,
           produto_id: produtoId,
           tipo_movimentacao: tipoFinal,
-          instituicao_id: instituicaoId || null,
-          modalidade: modalidade || null,
+          instituicao_id: instituicaoId,
+          modalidade,
           indexador: null,
-          taxa: taxa ? parseFloat(taxa.replace(",", ".")) : null,
+          taxa: taxaNum,
           valor_investido: valorNum,
           preco_unitario: puNum,
           quantidade,
-          vencimento: vencimento || null,
-          emissor_id: emissorId || null,
-          pagamento: pagamento || null,
+          vencimento,
+          emissor_id: emissorId,
+          pagamento,
           nome: nomeAtivo,
           categoria_id: categoriaId,
         });
@@ -352,7 +367,7 @@ export default function CadastrarTransacaoPage() {
                 </div>
               </Field>
 
-              <Field label="Preço Unitário">
+              <Field label="Preço Unitário (R$)" required>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                     R$
@@ -369,7 +384,7 @@ export default function CadastrarTransacaoPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Instituição">
+              <Field label="Instituição" required>
                 <NativeSelect
                   value={instituicaoId}
                   onChange={setInstituicaoId}
@@ -381,7 +396,7 @@ export default function CadastrarTransacaoPage() {
                 />
               </Field>
 
-              <Field label="Emissor">
+              <Field label="Emissor" required>
                 <NativeSelect
                   value={emissorId}
                   onChange={setEmissorId}
@@ -395,7 +410,7 @@ export default function CadastrarTransacaoPage() {
             </div>
 
             <div className="grid grid-cols-4 gap-4">
-              <Field label="Modalidade">
+              <Field label="Modalidade" required>
                 <NativeSelect
                   value={modalidade}
                   onChange={setModalidade}
@@ -408,7 +423,7 @@ export default function CadastrarTransacaoPage() {
                 />
               </Field>
 
-              <Field label="Taxa">
+              <Field label="Taxa" required>
                 <div className="relative">
                   <input
                     type="text"
@@ -423,7 +438,7 @@ export default function CadastrarTransacaoPage() {
                 </div>
               </Field>
 
-              <Field label="Pagamento">
+              <Field label="Pagamento" required>
                 <NativeSelect
                   value={pagamento}
                   onChange={setPagamento}
@@ -435,7 +450,7 @@ export default function CadastrarTransacaoPage() {
                 />
               </Field>
 
-              <Field label="Vencimento">
+              <Field label="Vencimento" required>
                 <input
                   type="date"
                   value={vencimento}
