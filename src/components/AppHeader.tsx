@@ -33,18 +33,18 @@ export function AppHeader() {
         {/* Date block */}
         <div className="flex items-center gap-2 text-xs">
           <span className="text-muted-foreground">Posição em:</span>
-          <div className="flex items-center gap-1 border border-border px-2 py-1 bg-background">
+          <div className="flex items-center gap-1 rounded-md border border-border px-2 py-1 bg-background">
             <input
               ref={inputRef}
               type="text"
               value={inputValue}
               onChange={handleInputChange}
-              className="w-[80px] bg-transparent text-foreground text-xs font-ui outline-none"
+              className="w-[80px] bg-transparent text-foreground text-xs outline-none"
               placeholder="dd/mm/aaaa"
             />
             <button
               onClick={() => setCalendarOpen(!calendarOpen)}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-primary"
               style={{ transition: "color 120ms linear" }}
             >
               <CalendarIcon size={14} strokeWidth={1.5} />
@@ -53,13 +53,12 @@ export function AppHeader() {
         </div>
 
         {/* Notifications */}
-        <button className="relative text-muted-foreground hover:text-foreground" style={{ transition: "color 120ms linear" }}>
+        <button className="relative text-muted-foreground hover:text-primary" style={{ transition: "color 120ms linear" }}>
           <Bell size={18} strokeWidth={1.5} />
           <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
         </button>
       </header>
 
-      {/* Calendar expands below header, pushing content */}
       {calendarOpen && (
         <div className="border-b border-border bg-card flex justify-end px-4 py-2">
           <Calendar

@@ -1,5 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&family=Source+Sans+Pro:wght@400;600;700&display=swap');
-@import url("https://fonts.googleapis.com/css2?family=Inter&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,54 +6,50 @@
 
 @layer base {
   :root {
-    /* Blueberg Definitivo — Cofre Digital */
-    --background: 210 33% 6%;         /* #0A0F14 */
-    --foreground: 210 30% 91%;        /* #E1E8EF */
+    /* Blueberg — White layout with blue accents */
+    --background: 0 0% 97%;              /* #F7F7F7 light gray bg */
+    --foreground: 215 25% 20%;            /* #283545 dark text */
 
-    --card: 210 33% 10%;             /* #101A23 */
-    --card-foreground: 210 30% 91%;
+    --card: 0 0% 100%;                    /* #FFFFFF */
+    --card-foreground: 215 25% 20%;
 
-    --popover: 210 33% 10%;
-    --popover-foreground: 210 30% 91%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 20%;
 
-    --primary: 210 100% 60%;          /* #339DFF */
-    --primary-foreground: 210 33% 6%;
+    --primary: 210 100% 45%;              /* #0066E6 strong blue */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 33% 10%;
-    --secondary-foreground: 210 30% 91%;
+    --secondary: 210 40% 96%;             /* light blue tint */
+    --secondary-foreground: 215 25% 20%;
 
-    --muted: 210 25% 14%;
-    --muted-foreground: 210 22% 43%;  /* #586F83 */
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 15% 50%;
 
-    --accent: 210 100% 60%;
-    --accent-foreground: 210 33% 6%;
+    --accent: 210 100% 45%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 30% 91%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 210 28% 23%;            /* #2A3C4D */
-    --input: 210 28% 23%;
-    --ring: 210 100% 60%;
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 210 100% 45%;
 
-    --radius: 0.25rem;
+    --radius: 0.375rem;
 
-    --sidebar-background: 210 33% 10%;
+    /* Sidebar — stays blue/dark */
+    --sidebar-background: 213 60% 20%;    /* #14304A deep blue */
     --sidebar-foreground: 210 30% 91%;
-    --sidebar-primary: 210 100% 60%;
-    --sidebar-primary-foreground: 210 33% 6%;
-    --sidebar-accent: 210 25% 14%;
+    --sidebar-primary: 210 100% 60%;      /* #339DFF */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 213 50% 26%;
     --sidebar-accent-foreground: 210 30% 91%;
-    --sidebar-border: 210 28% 23%;
+    --sidebar-border: 213 40% 28%;
     --sidebar-ring: 210 100% 60%;
-    --sidebar-muted-foreground: 210 22% 43%;
+    --sidebar-muted-foreground: 210 25% 60%;
 
     /* Fonts */
-    --font-ui: 'Roboto Mono', monospace;
-    --font-data: 'Source Sans Pro', sans-serif;
-    --font-sans: Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-  }
-  .dark {
-    --font-sans: Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
   }
 }
 
@@ -65,13 +60,8 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-ui);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Data display font */
-  .font-data {
-    font-family: var(--font-data);
   }
 }

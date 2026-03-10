@@ -43,9 +43,9 @@ const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="border border-border bg-card px-3 py-2 text-xs">
+      <div className="rounded-md border border-border bg-card px-3 py-2 text-xs shadow-sm">
         <p className="text-foreground">{label}</p>
-        <p className="text-primary font-data">Investimentos: {payload[0].value}%</p>
+        <p className="text-primary font-semibold">Investimentos: {payload[0].value}%</p>
       </div>
     );
   }
@@ -54,14 +54,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export const CarteiraVisaoGeral = () => (
   <div className="space-y-6">
-    {/* Title */}
     <div>
-      <h1 className="text-lg font-medium text-foreground">Carteira de Investimentos</h1>
-      <p className="mt-1 text-xs text-muted-foreground font-data">Patrimônio analítico das suas aplicações</p>
+      <h1 className="text-lg font-semibold text-foreground">Carteira de Investimentos</h1>
+      <p className="mt-1 text-xs text-muted-foreground">Patrimônio analítico das suas aplicações</p>
     </div>
 
     {/* Summary Row */}
-    <div className="border border-border">
+    <div className="rounded-md border border-border overflow-hidden">
       <div className="grid grid-cols-5 bg-primary text-primary-foreground">
         {summaryItems.map((item) => (
           <div key={item.label} className="px-4 py-2 text-center text-xs font-medium">
@@ -71,7 +70,7 @@ export const CarteiraVisaoGeral = () => (
       </div>
       <div className="grid grid-cols-5 bg-card">
         {summaryItems.map((item) => (
-          <div key={item.label} className="px-4 py-3 text-center text-sm font-data text-foreground">
+          <div key={item.label} className="px-4 py-3 text-center text-sm font-semibold text-foreground">
             {item.value}
           </div>
         ))}
@@ -79,40 +78,40 @@ export const CarteiraVisaoGeral = () => (
     </div>
 
     {/* Chart */}
-    <div className="border border-border bg-card p-6">
-      <h2 className="text-sm font-medium text-foreground">Histórico de Rentabilidade</h2>
-      <p className="mt-1 text-xs text-muted-foreground font-data">
+    <div className="rounded-md border border-border bg-card p-6">
+      <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
         Rentabilidade Bruta e CDI, Compra e Venda CDI, Bonificação e Subscrição
       </p>
       <div className="mt-4 h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(210, 28%, 23%)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 88%)" />
             <XAxis
               dataKey="month"
-              tick={{ fontSize: 11, fill: "hsl(210, 22%, 43%)", fontFamily: "Roboto Mono" }}
-              axisLine={{ stroke: "hsl(210, 28%, 23%)" }}
+              tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
+              axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "hsl(210, 22%, 43%)", fontFamily: "Roboto Mono" }}
-              axisLine={{ stroke: "hsl(210, 28%, 23%)" }}
+              tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
+              axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
               tickLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend
               iconType="plainline"
-              wrapperStyle={{ fontSize: 11, fontFamily: "Roboto Mono" }}
+              wrapperStyle={{ fontSize: 11 }}
               formatter={(value: string) => <span className="text-muted-foreground">{value}</span>}
             />
             <Line
               type="monotone"
               dataKey="investimentos"
               name="Investimentos"
-              stroke="hsl(210, 100%, 60%)"
+              stroke="hsl(210, 100%, 45%)"
               strokeWidth={2}
-              dot={{ r: 3, fill: "hsl(210, 100%, 60%)", strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: "hsl(210, 100%, 60%)", strokeWidth: 0 }}
+              dot={{ r: 3, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -120,17 +119,16 @@ export const CarteiraVisaoGeral = () => (
     </div>
 
     {/* Table */}
-    <div className="border border-border bg-card p-6">
-      <h2 className="text-sm font-medium text-foreground">Tabela de Rentabilidade</h2>
-      <p className="mt-1 text-xs text-muted-foreground font-data">
+    <div className="rounded-md border border-border bg-card p-6">
+      <h2 className="text-sm font-semibold text-foreground">Tabela de Rentabilidade</h2>
+      <p className="mt-1 text-xs text-muted-foreground">
         Informações da rentabilidade por ano e meses
       </p>
       <div className="mt-4 overflow-x-auto">
-        {/* Year header */}
-        <div className="bg-muted px-4 py-2 text-xs font-medium text-foreground">
+        <div className="bg-muted rounded-t-md px-4 py-2 text-xs font-medium text-foreground">
           Ano: 2025
         </div>
-        <table className="w-full text-xs font-data">
+        <table className="w-full text-xs">
           <thead>
             <tr className="bg-primary text-primary-foreground">
               <th className="px-3 py-2 text-left font-medium">Rentabilidade</th>
@@ -142,7 +140,7 @@ export const CarteiraVisaoGeral = () => (
           <tbody>
             {tableData.map((row, i) => (
               <tr key={row.label} className={i % 2 === 0 ? "bg-card" : "bg-muted/30"}>
-                <td className="px-3 py-2 text-foreground font-medium font-ui">{row.label}</td>
+                <td className="px-3 py-2 text-foreground font-medium">{row.label}</td>
                 {row.values.map((v, j) => (
                   <td key={j} className="px-3 py-2 text-center text-foreground">{v}</td>
                 ))}
@@ -168,6 +166,6 @@ export const Usuario = () => <PageStub title="Usuário" />;
 
 const PageStub = ({ title }: { title: string }) => (
   <div>
-    <h1 className="text-lg font-medium text-foreground">{title}</h1>
+    <h1 className="text-lg font-semibold text-foreground">{title}</h1>
   </div>
 );
