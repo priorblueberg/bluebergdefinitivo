@@ -291,12 +291,13 @@ const AnaliseIndividualPage = () => {
 };
 
 export const CarteiraAnaliseIndividual = () => <AnaliseIndividualPage />;
-export const Movimentacoes = () => <PageStub title="Movimentações" />;
+export { default as Movimentacoes } from "./MovimentacoesPage";
 export const ProventosRecebidos = () => <PageStub title="Proventos Recebidos" />;
 export { default as CadastrarTransacao } from "./CadastrarTransacaoPage";
 export const Configuracoes = () => <PageStub title="Configurações" />;
 export const Usuario = () => <PageStub title="Usuário" />;
 export { default as Admin } from "./AdminPage";
+export { default as Custodia } from "./CustodiaPage";
 
 const PageStub = ({ title }: { title: string }) => (
   <div>

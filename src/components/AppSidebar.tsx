@@ -2,6 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import {
   LayoutGrid,
   ArrowLeftRight,
+  Vault,
   DollarSign,
   Plus,
   Settings,
@@ -21,6 +22,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { title: "Carteira de Investimentos", url: "/carteira", icon: LayoutGrid },
   { title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight },
+  { title: "Custódia", url: "/custodia", icon: Vault },
   { title: "Proventos Recebidos", url: "/proventos", icon: DollarSign },
   { title: "Cadastrar Transação", url: "/cadastrar-transacao", icon: Plus },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
