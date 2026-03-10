@@ -20,6 +20,9 @@ export default function AdminPage() {
       const { error: movErr } = await supabase.from("movimentacoes").delete().gte("created_at", "1970-01-01");
       if (movErr) throw movErr;
 
+      const { error: cartErr } = await supabase.from("controle_de_carteiras").delete().gte("created_at", "1970-01-01");
+      if (cartErr) throw cartErr;
+
       toast.success("Todos os registros foram excluídos com sucesso.");
     } catch (err: any) {
       console.error(err);

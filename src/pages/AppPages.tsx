@@ -298,6 +298,7 @@ export const Configuracoes = () => <PageStub title="Configurações" />;
 export const Usuario = () => <PageStub title="Usuário" />;
 export { default as Admin } from "./AdminPage";
 export { default as Custodia } from "./CustodiaPage";
+export { default as ControleCarteiras } from "./ControleCarteirasPage";
 
 const PageStub = ({ title }: { title: string }) => (
   <div>
