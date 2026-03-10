@@ -11,11 +11,19 @@ export function AppHeader() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setInputValue(val);
-    const parsed = parse(val, "dd/MM/yyyy", new Date());
-    if (isValid(parsed)) {
-      setDate(parsed);
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
+    let formatted = raw;
+    if (raw.length > 2 && raw.length <= 4) {
+      formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
+    } else if (raw.length > 4) {
+      formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
+    }
+    setInputValue(formatted);
+    if (raw.length === 8) {
+      const parsed = parse(formatted, "dd/MM/yyyy", new Date());
+      if (isValid(parsed)) {
+        setDate(parsed);
+      }
     }
   };
 
