@@ -2,6 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import {
   LayoutGrid,
   ArrowLeftRight,
+  Vault,
   DollarSign,
   Plus,
   Settings,
