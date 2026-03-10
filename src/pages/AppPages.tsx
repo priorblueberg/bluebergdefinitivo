@@ -1,3 +1,5 @@
+import { useState, useMemo } from "react";
+import { Search, ChevronUp, ChevronDown } from "lucide-react";
 import {
   LineChart,
   Line,
