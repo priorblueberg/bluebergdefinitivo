@@ -1,4 +1,4 @@
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
   ArrowLeftRight,
@@ -11,7 +11,10 @@ import {
   Briefcase,
   ChevronsLeft,
   ChevronsRight,
+  LogOut,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface MenuItem {
   title: string;
