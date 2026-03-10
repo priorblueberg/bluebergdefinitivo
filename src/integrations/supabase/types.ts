@@ -14,7 +14,181 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      categorias: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      emissores: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      instituicoes: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      movimentacoes: {
+        Row: {
+          categoria_id: string
+          created_at: string
+          data: string
+          emissor_id: string | null
+          id: string
+          instituicao_id: string | null
+          modalidade: string | null
+          pagamento: string | null
+          preco_unitario: number | null
+          produto_id: string
+          taxa: number | null
+          tipo_movimentacao: string
+          valor: number
+          vencimento: string | null
+        }
+        Insert: {
+          categoria_id: string
+          created_at?: string
+          data?: string
+          emissor_id?: string | null
+          id?: string
+          instituicao_id?: string | null
+          modalidade?: string | null
+          pagamento?: string | null
+          preco_unitario?: number | null
+          produto_id: string
+          taxa?: number | null
+          tipo_movimentacao: string
+          valor: number
+          vencimento?: string | null
+        }
+        Update: {
+          categoria_id?: string
+          created_at?: string
+          data?: string
+          emissor_id?: string | null
+          id?: string
+          instituicao_id?: string | null
+          modalidade?: string | null
+          pagamento?: string | null
+          preco_unitario?: number | null
+          produto_id?: string
+          taxa?: number | null
+          tipo_movimentacao?: string
+          valor?: number
+          vencimento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_emissor_id_fkey"
+            columns: ["emissor_id"]
+            isOneToOne: false
+            referencedRelation: "emissores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_instituicao_id_fkey"
+            columns: ["instituicao_id"]
+            isOneToOne: false
+            referencedRelation: "instituicoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produtos: {
+        Row: {
+          ativo: boolean
+          categoria_id: string
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria_id: string
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria_id?: string
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produtos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
