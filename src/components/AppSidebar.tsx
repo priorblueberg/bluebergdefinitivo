@@ -7,7 +7,6 @@ import {
   Plus,
   Settings,
   User,
-  ChevronDown,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
