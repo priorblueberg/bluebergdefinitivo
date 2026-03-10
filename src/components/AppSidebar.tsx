@@ -43,8 +43,15 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isActive = (url: string) =>
     url === "/carteira" ? location.pathname.startsWith("/carteira") : location.pathname === url;
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Sessão encerrada.");
+    navigate("/auth");
+  };
 
   return (
     <aside
