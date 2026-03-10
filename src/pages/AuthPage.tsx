@@ -18,7 +18,11 @@ const AuthPage = () => {
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast.error(error.message);
+      if (error.message?.toLowerCase().includes("invalid login credentials")) {
+        toast.error("E-mail ou senha incorretos. Verifique seus dados e tente novamente.");
+      } else {
+        toast.error(error.message);
+      }
     } else {
       toast.success("Login realizado com sucesso!");
       navigate("/carteira");

@@ -16,11 +16,19 @@ const CadastroPage = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    // Check if user already exists by trying to sign in first
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: "___check___" });
+    if (signInError?.message?.toLowerCase().includes("invalid login credentials")) {
+      // Could be existing user with wrong password or new user - proceed with signup
+    } else if (!signInError) {
+      // Unlikely with dummy password, but handle
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: window.location.origin },
     });
+
     if (error) {
       if (
         error.message?.toLowerCase().includes("already registered") ||
@@ -31,9 +39,13 @@ const CadastroPage = () => {
       } else {
         toast.error(error.message);
       }
-    } else {
-      toast.success("Cadastro realizado! Verifique seu e-mail para confirmar a conta.");
+    } else if (data?.user?.identities?.length === 0) {
+      // Auto-confirm enabled: Supabase returns empty identities for existing users
+      toast.error("Este e-mail já está cadastrado. Faça login para continuar.");
       navigate("/auth");
+    } else {
+      toast.success("Conta criada com sucesso!");
+      navigate("/onboarding");
     }
     setLoading(false);
   };

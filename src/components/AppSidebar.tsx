@@ -103,13 +103,21 @@ export function AppSidebar({
         })}
       </nav>
 
-      <button
-        onClick={onToggle}
-        className="flex h-10 items-center justify-center border-t border-[hsl(213,40%,28%)] text-[hsl(210,25%,60%)] hover:text-white"
-        style={{ transition: "color 120ms linear" }}
-      >
-        {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
-      </button>
+      <div className="border-t border-[hsl(213,40%,28%)]">
+        <button
+          onClick={handleLogout}
+          className="group flex h-9 w-full items-center gap-3 px-3 text-xs font-medium text-[hsl(210,25%,60%)] hover:text-white transition-colors"
+        >
+          <LogOut size={18} strokeWidth={1.5} className="shrink-0" />
+          {!collapsed && <span className="truncate">Sair</span>}
+        </button>
+        <button
+          onClick={onToggle}
+          className="flex h-10 w-full items-center justify-center text-[hsl(210,25%,60%)] hover:text-white transition-colors"
+        >
+          {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+        </button>
+      </div>
     </aside>
   );
 }
