@@ -25,6 +25,7 @@ const menuItems: MenuItem[] = [
   { title: "Cadastrar Transação", url: "/cadastrar-transacao", icon: Plus },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Usuário", url: "/usuario", icon: User },
+  { title: "Admin", url: "/admin", icon: Shield },
 ];
 
 export function AppSidebar({
