@@ -157,7 +157,7 @@ export const CarteiraRendaFixa = () => <PageStub title="Renda Fixa" />;
 export const CarteiraRendaVariavel = () => <PageStub title="Renda Variável" />;
 export const CarteiraFundos = () => <PageStub title="Fundos de Investimentos" />;
 export const CarteiraTesouroDireto = () => <PageStub title="Tesouro Direto" />;
-export const CarteiraAnaliseIndividual = () => <PageStub title="Análise Individual por Produto" />;
+export const CarteiraAnaliseIndividual = () => <AnaliseIndividualPage />;
 export const Movimentacoes = () => <PageStub title="Movimentações" />;
 export const ProventosRecebidos = () => <PageStub title="Proventos Recebidos" />;
 export const CadastrarTransacao = () => <PageStub title="Cadastrar Transação" />;
