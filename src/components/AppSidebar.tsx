@@ -35,8 +35,6 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const location = useLocation();
-  const [expandedMenu, setExpandedMenu] = useState<string | null>("Carteira de Investimentos");
-
   const isActive = (url: string) => location.pathname === url;
   const isInSection = (item: MenuItem) =>
     location.pathname === item.url ||
