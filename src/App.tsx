@@ -17,6 +17,7 @@ import {
   Configuracoes,
   Usuario,
   Admin,
+  Custodia,
 } from "@/pages/AppPages";
 import NotFound from "./pages/NotFound.tsx";
 
