@@ -50,6 +50,50 @@ export type Database = {
         }
         Relationships: []
       }
+      controle_de_carteiras: {
+        Row: {
+          categoria_id: string
+          created_at: string
+          data_calculo: string | null
+          data_inicio: string | null
+          data_limite: string | null
+          id: string
+          nome_carteira: string
+          resgate_total: string | null
+          status: string
+        }
+        Insert: {
+          categoria_id: string
+          created_at?: string
+          data_calculo?: string | null
+          data_inicio?: string | null
+          data_limite?: string | null
+          id?: string
+          nome_carteira: string
+          resgate_total?: string | null
+          status?: string
+        }
+        Update: {
+          categoria_id?: string
+          created_at?: string
+          data_calculo?: string | null
+          data_inicio?: string | null
+          data_limite?: string | null
+          id?: string
+          nome_carteira?: string
+          resgate_total?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "controle_de_carteiras_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custodia: {
         Row: {
           alocacao_patrimonial: number | null

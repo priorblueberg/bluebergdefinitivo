@@ -55,6 +55,113 @@ function buildNomeAtivo(
     .join(" ");
 }
 
+async function syncControleCarteiras(categoriaId: string) {
+  // Get categoria name
+  const { data: catData } = await supabase.from("categorias").select("nome").eq("id", categoriaId).single();
+  const categoriaNome = catData?.nome || "Desconhecida";
+
+  // Get aggregated data from custodia for this categoria
+  const { data: custodiaRows } = await supabase
+    .from("custodia")
+    .select("data_inicio, data_limite, resgate_total, data_calculo")
+    .eq("categoria_id", categoriaId);
+
+  if (!custodiaRows || custodiaRows.length === 0) return;
+
+  const dates = (field: string) =>
+    custodiaRows.map((r: any) => r[field]).filter(Boolean).sort();
+
+  const dataInicio = dates("data_inicio")[0] || null;
+  const dataLimite = dates("data_limite").reverse()[0] || null;
+  const resgateTotal = dates("resgate_total").reverse()[0] || null;
+  const dataCalculo = dates("data_calculo").reverse()[0] || null;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const status = resgateTotal && resgateTotal > today ? "Ativa" : (resgateTotal ? "Encerrada" : "Ativa");
+
+  // Check if carteira record exists for this categoria
+  const { data: existing } = await supabase
+    .from("controle_de_carteiras")
+    .select("id")
+    .eq("categoria_id", categoriaId)
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    await supabase.from("controle_de_carteiras").update({
+      data_inicio: dataInicio,
+      data_limite: dataLimite,
+      resgate_total: resgateTotal,
+      data_calculo: dataCalculo,
+      status,
+    }).eq("id", existing[0].id);
+  } else {
+    await supabase.from("controle_de_carteiras").insert({
+      categoria_id: categoriaId,
+      nome_carteira: categoriaNome,
+      data_inicio: dataInicio,
+      data_limite: dataLimite,
+      resgate_total: resgateTotal,
+      data_calculo: dataCalculo,
+      status,
+    });
+  }
+
+  // Also sync "Investimentos" (general) record
+  await syncCarteiraGeral();
+}
+
+async function syncCarteiraGeral() {
+  const { data: allCustodia } = await supabase
+    .from("custodia")
+    .select("data_inicio, data_limite, resgate_total, data_calculo");
+
+  if (!allCustodia || allCustodia.length === 0) return;
+
+  const dates = (field: string) =>
+    allCustodia.map((r: any) => r[field]).filter(Boolean).sort();
+
+  const dataInicio = dates("data_inicio")[0] || null;
+  const dataLimite = dates("data_limite").reverse()[0] || null;
+  const resgateTotal = dates("resgate_total").reverse()[0] || null;
+  const dataCalculo = dates("data_calculo").reverse()[0] || null;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const status = resgateTotal && resgateTotal > today ? "Ativa" : (resgateTotal ? "Encerrada" : "Ativa");
+
+  // Use a special "general" categoria_id — we'll use the first categoria as placeholder
+  // Check if "Investimentos" record exists
+  const { data: existing } = await supabase
+    .from("controle_de_carteiras")
+    .select("id")
+    .eq("nome_carteira", "Investimentos")
+    .limit(1);
+
+  // We need a valid categoria_id for FK — get the first one
+  const { data: firstCat } = await supabase.from("categorias").select("id").limit(1);
+  const catId = firstCat?.[0]?.id;
+  if (!catId) return;
+
+  if (existing && existing.length > 0) {
+    await supabase.from("controle_de_carteiras").update({
+      data_inicio: dataInicio,
+      data_limite: dataLimite,
+      resgate_total: resgateTotal,
+      data_calculo: dataCalculo,
+      status,
+    }).eq("id", existing[0].id);
+  } else {
+    await supabase.from("controle_de_carteiras").insert({
+      categoria_id: catId,
+      nome_carteira: "Investimentos",
+      data_inicio: dataInicio,
+      data_limite: dataLimite,
+      resgate_total: resgateTotal,
+      data_calculo: dataCalculo,
+      status,
+    });
+  }
+}
+
 export default function CadastrarTransacaoPage() {
   // lookup data
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -235,7 +342,7 @@ export default function CadastrarTransacaoPage() {
 
       if (error) throw error;
 
-      // If Aplicação Inicial, also insert into custodia
+      // If Aplicação Inicial, also insert into custodia and update controle_de_carteiras
       if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
         const { error: custError } = await supabase.from("custodia").insert({
           codigo_custodia: codigoCustodia,
@@ -259,6 +366,9 @@ export default function CadastrarTransacaoPage() {
         if (custError) {
           console.error("Erro ao inserir custódia:", custError);
         }
+
+        // Update controle_de_carteiras
+        await syncControleCarteiras(categoriaId);
       }
 
       toast.success("Transação cadastrada com sucesso!");
