@@ -39,6 +39,22 @@ const PAGAMENTO_OPTIONS = [
 
 const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
 
+function buildNomeAtivo(
+  produtoNome: string,
+  emissorNome: string,
+  modalidade: string,
+  taxa: string,
+  vencimento: string
+): string {
+  const taxaFormatted = taxa ? `${taxa.replace(".", ",")}%` : "";
+  const vencFormatted = vencimento
+    ? new Date(vencimento + "T00:00:00").toLocaleDateString("pt-BR")
+    : "";
+  return [produtoNome, emissorNome, modalidade, taxaFormatted, vencFormatted ? `- ${vencFormatted}` : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export default function CadastrarTransacaoPage() {
   // lookup data
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -61,7 +77,7 @@ export default function CadastrarTransacaoPage() {
   const [vencimento, setVencimento] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Derived: is Renda Fixa selected?
+  // Derived
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
 
@@ -139,29 +155,104 @@ export default function CadastrarTransacaoPage() {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from("movimentacoes").insert({
-      categoria_id: categoriaId,
-      tipo_movimentacao: tipoMovimentacao,
-      data,
-      produto_id: produtoId,
-      valor: parseFloat(valor.replace(",", ".")),
-      preco_unitario: precoUnitario
-        ? parseFloat(precoUnitario.replace(",", "."))
-        : null,
-      instituicao_id: instituicaoId || null,
-      emissor_id: emissorId || null,
-      modalidade: modalidade || null,
-      taxa: taxa ? parseFloat(taxa.replace(",", ".")) : null,
-      pagamento: pagamento || null,
-      vencimento: vencimento || null,
-    });
-    setSubmitting(false);
-    if (error) {
-      toast.error("Erro ao cadastrar transação.");
-      console.error(error);
-    } else {
+
+    try {
+      // Build nome_ativo for Renda Fixa
+      const produtoNome = produtos.find((p) => p.id === produtoId)?.nome || "";
+      const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
+      const nomeAtivo = isRendaFixa
+        ? buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento)
+        : null;
+
+      // Check if nome_ativo already exists in movimentacoes to determine codigo_custodia
+      let codigoCustodia: number;
+      let tipoFinal = tipoMovimentacao;
+
+      if (nomeAtivo) {
+        const { data: existing } = await supabase
+          .from("movimentacoes")
+          .select("codigo_custodia")
+          .eq("nome_ativo", nomeAtivo)
+          .not("codigo_custodia", "is", null)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          // Nome found — reuse existing codigo_custodia
+          codigoCustodia = existing[0].codigo_custodia!;
+        } else {
+          // Nome not found — generate new codigo_custodia = max + 1
+          const { data: maxRow } = await supabase
+            .from("movimentacoes")
+            .select("codigo_custodia")
+            .not("codigo_custodia", "is", null)
+            .order("codigo_custodia", { ascending: false })
+            .limit(1);
+
+          const maxCodigo = maxRow && maxRow.length > 0 ? (maxRow[0].codigo_custodia ?? 99) : 99;
+          codigoCustodia = maxCodigo + 1;
+          tipoFinal = "Aplicação Inicial";
+        }
+      } else {
+        codigoCustodia = 0;
+      }
+
+      const valorNum = parseFloat(valor.replace(",", "."));
+      const puNum = precoUnitario ? parseFloat(precoUnitario.replace(",", ".")) : null;
+
+      const { error } = await supabase.from("movimentacoes").insert({
+        categoria_id: categoriaId,
+        tipo_movimentacao: tipoFinal,
+        data,
+        produto_id: produtoId,
+        valor: valorNum,
+        preco_unitario: puNum,
+        instituicao_id: instituicaoId || null,
+        emissor_id: emissorId || null,
+        modalidade: modalidade || null,
+        taxa: taxa ? parseFloat(taxa.replace(",", ".")) : null,
+        pagamento: pagamento || null,
+        vencimento: vencimento || null,
+        nome_ativo: nomeAtivo,
+        codigo_custodia: nomeAtivo ? codigoCustodia : null,
+      });
+
+      if (error) throw error;
+
+      // If Aplicação Inicial, also insert into custodia
+      if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
+        const quantidade = puNum && puNum > 0 ? valorNum / puNum : null;
+
+        const { error: custError } = await supabase.from("custodia").insert({
+          codigo_custodia: codigoCustodia,
+          data_inicio: data,
+          produto_id: produtoId,
+          tipo_movimentacao: tipoFinal,
+          instituicao_id: instituicaoId || null,
+          modalidade: modalidade || null,
+          indexador: null,
+          taxa: taxa ? parseFloat(taxa.replace(",", ".")) : null,
+          valor_investido: valorNum,
+          preco_unitario: puNum,
+          quantidade,
+          vencimento: vencimento || null,
+          emissor_id: emissorId || null,
+          pagamento: pagamento || null,
+          nome: nomeAtivo,
+          categoria_id: categoriaId,
+        });
+
+        if (custError) {
+          console.error("Erro ao inserir custódia:", custError);
+        }
+      }
+
       toast.success("Transação cadastrada com sucesso!");
       resetForm();
+    } catch (err: any) {
+      toast.error("Erro ao cadastrar transação.");
+      console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
