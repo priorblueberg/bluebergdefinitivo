@@ -1,4 +1,4 @@
-import { useLocation, Link, useNavigate } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import {
   LayoutGrid,
   ArrowLeftRight,
@@ -6,21 +6,16 @@ import {
   DollarSign,
   Plus,
   Settings,
-  User,
   Shield,
   Briefcase,
   ChevronsLeft,
   ChevronsRight,
-  LogOut,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 interface MenuItem {
   title: string;
   url: string;
   icon: React.ElementType;
-  children?: { title: string; url: string }[];
 }
 
 const menuItems: MenuItem[] = [
@@ -31,7 +26,6 @@ const menuItems: MenuItem[] = [
   { title: "Proventos Recebidos", url: "/proventos", icon: DollarSign },
   { title: "Cadastrar Transação", url: "/cadastrar-transacao", icon: Plus },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
-  { title: "Usuário", url: "/usuario", icon: User },
   { title: "Admin", url: "/admin", icon: Shield },
 ];
 
@@ -43,15 +37,8 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const location = useLocation();
-  const navigate = useNavigate();
   const isActive = (url: string) =>
     url === "/carteira" ? location.pathname.startsWith("/carteira") : location.pathname === url;
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success("Sessão encerrada.");
-    navigate("/auth");
-  };
 
   return (
     <aside
@@ -104,13 +91,6 @@ export function AppSidebar({
       </nav>
 
       <div className="border-t border-[hsl(213,40%,28%)]">
-        <button
-          onClick={handleLogout}
-          className="group flex h-9 w-full items-center gap-3 px-3 text-xs font-medium text-[hsl(210,25%,60%)] hover:text-white transition-colors"
-        >
-          <LogOut size={18} strokeWidth={1.5} className="shrink-0" />
-          {!collapsed && <span className="truncate">Sair</span>}
-        </button>
         <button
           onClick={onToggle}
           className="flex h-10 w-full items-center justify-center text-[hsl(210,25%,60%)] hover:text-white transition-colors"
