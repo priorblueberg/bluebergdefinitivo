@@ -16,6 +16,7 @@ import {
   CadastrarTransacao,
   Configuracoes,
   Usuario,
+  Admin,
 } from "@/pages/AppPages";
 import NotFound from "./pages/NotFound.tsx";
 
