@@ -8,6 +8,7 @@ import {
   Settings,
   User,
   Shield,
+  Briefcase,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
