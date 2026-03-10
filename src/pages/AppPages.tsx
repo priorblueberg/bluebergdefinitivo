@@ -293,7 +293,7 @@ const AnaliseIndividualPage = () => {
 export const CarteiraAnaliseIndividual = () => <AnaliseIndividualPage />;
 export const Movimentacoes = () => <PageStub title="Movimentações" />;
 export const ProventosRecebidos = () => <PageStub title="Proventos Recebidos" />;
-export const CadastrarTransacao = () => <PageStub title="Cadastrar Transação" />;
+export { default as CadastrarTransacao } from "./CadastrarTransacaoPage";
 export const Configuracoes = () => <PageStub title="Configurações" />;
 export const Usuario = () => <PageStub title="Usuário" />;
 
