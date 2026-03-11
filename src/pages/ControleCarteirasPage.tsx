@@ -21,6 +21,7 @@ const fmtDate = (d: string | null) => {
 export default function ControleCarteirasPage() {
   const [rows, setRows] = useState<CarteiraRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { appliedVersion } = useDataReferencia();
 
   useEffect(() => {
     supabase
