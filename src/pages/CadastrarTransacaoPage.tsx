@@ -40,28 +40,47 @@ const PAGAMENTO_OPTIONS = [
 
 const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
 
+const INDEXADOR_OPTIONS = ["% do CDI", "CDI+", "IPCA+", "IGP-M+"];
+
 function buildNomeAtivo(
   produtoNome: string,
   emissorNome: string,
   modalidade: string,
   taxa: string,
-  vencimento: string
+  vencimento: string,
+  indexador: string
 ): string {
   const taxaFormatted = taxa ? `${taxa.replace(".", ",")}%` : "";
   const vencFormatted = vencimento
     ? new Date(vencimento + "T00:00:00").toLocaleDateString("pt-BR")
     : "";
-  return [produtoNome, emissorNome, modalidade, taxaFormatted, vencFormatted ? `- ${vencFormatted}` : ""]
+
+  if (modalidade === "Prefixado") {
+    // CDB Banco Master Prefixado 12% a.a. - 31/12/2027
+    return [produtoNome, emissorNome, modalidade, taxaFormatted ? `${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  // Pós Fixado
+  if (indexador === "% do CDI") {
+    // CDB Banco Master Pós Fixado 110% do CDI - 31/12/2027
+    return [produtoNome, emissorNome, modalidade, taxaFormatted, "do", indexador.replace("% do ", ""), vencFormatted ? `- ${vencFormatted}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  // CDI+, IPCA+, IGP-M+
+  // CDB Banco Master Pós Fixado CDI+ 2% - 31/12/2027
+  return [produtoNome, emissorNome, modalidade, indexador, taxaFormatted, vencFormatted ? `- ${vencFormatted}` : ""]
     .filter(Boolean)
     .join(" ");
 }
 
 async function syncControleCarteiras(categoriaId: string, userId: string) {
-  // Get categoria name
   const { data: catData } = await supabase.from("categorias").select("nome").eq("id", categoriaId).single();
   const categoriaNome = catData?.nome || "Desconhecida";
 
-  // Get aggregated data from custodia for this categoria
   const { data: custodiaRows } = await supabase
     .from("custodia")
     .select("data_inicio, data_limite, resgate_total, data_calculo")
@@ -81,7 +100,6 @@ async function syncControleCarteiras(categoriaId: string, userId: string) {
   const today = new Date().toISOString().slice(0, 10);
   const status = resgateTotal && resgateTotal > today ? "Ativa" : (resgateTotal ? "Encerrada" : "Ativa");
 
-  // Check if carteira record exists for this categoria
   const { data: existing } = await supabase
     .from("controle_de_carteiras")
     .select("id")
@@ -110,7 +128,6 @@ async function syncControleCarteiras(categoriaId: string, userId: string) {
     });
   }
 
-  // Also sync "Investimentos" (general) record
   await syncCarteiraGeral(userId);
 }
 
@@ -133,8 +150,6 @@ async function syncCarteiraGeral(userId: string) {
   const today = new Date().toISOString().slice(0, 10);
   const status = resgateTotal && resgateTotal > today ? "Ativa" : (resgateTotal ? "Encerrada" : "Ativa");
 
-  // Use a special "general" categoria_id — we'll use the first categoria as placeholder
-  // Check if "Investimentos" record exists
   const { data: existing } = await supabase
     .from("controle_de_carteiras")
     .select("id")
@@ -142,7 +157,6 @@ async function syncCarteiraGeral(userId: string) {
     .eq("user_id", userId)
     .limit(1);
 
-  // We need a valid categoria_id for FK — get the first one
   const { data: firstCat } = await supabase.from("categorias").select("id").limit(1);
   const catId = firstCat?.[0]?.id;
   if (!catId) return;
@@ -171,7 +185,6 @@ async function syncCarteiraGeral(userId: string) {
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
-  // lookup data
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [instituicoes, setInstituicoes] = useState<Instituicao[]>([]);
@@ -179,14 +192,15 @@ export default function CadastrarTransacaoPage() {
 
   // form state
   const [categoriaId, setCategoriaId] = useState("");
+  const [produtoId, setProdutoId] = useState("");
   const [tipoMovimentacao, setTipoMovimentacao] = useState("");
   const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
-  const [produtoId, setProdutoId] = useState("");
   const [valor, setValor] = useState("");
   const [precoUnitario, setPrecoUnitario] = useState("1000");
   const [instituicaoId, setInstituicaoId] = useState("");
   const [emissorId, setEmissorId] = useState("");
   const [modalidade, setModalidade] = useState("");
+  const [indexador, setIndexador] = useState("");
   const [taxa, setTaxa] = useState("");
   const [pagamento, setPagamento] = useState("No Vencimento");
   const [vencimento, setVencimento] = useState("");
@@ -195,6 +209,7 @@ export default function CadastrarTransacaoPage() {
   // Derived
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
+  const isPosFixado = modalidade === "Pós Fixado";
 
   // Load categorias on mount
   useEffect(() => {
@@ -246,19 +261,20 @@ export default function CadastrarTransacaoPage() {
   }, []);
 
   // Step visibility
-  const showTipoMovimentacao = !!categoriaId && isRendaFixa;
+  const showTipoMovimentacao = !!categoriaId && !!produtoId && isRendaFixa;
   const showFields = showTipoMovimentacao && tipoMovimentacao === "Aplicação";
 
   const resetForm = () => {
     setCategoriaId("");
+    setProdutoId("");
     setTipoMovimentacao("");
     setData(new Date().toISOString().slice(0, 10));
-    setProdutoId("");
     setValor("");
     setPrecoUnitario("1000");
     setInstituicaoId("");
     setEmissorId("");
     setModalidade("");
+    setIndexador("");
     setTaxa("");
     setPagamento("No Vencimento");
     setVencimento("");
@@ -270,26 +286,31 @@ export default function CadastrarTransacaoPage() {
       return;
     }
 
-    // All fields required
-    const fields = { categoriaId, tipoMovimentacao, produtoId, valor, data, precoUnitario, instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento };
-    const emptyFields = Object.entries(fields).filter(([, v]) => !v).map(([k]) => k);
-    
+    const requiredFields: Record<string, string> = {
+      categoriaId, tipoMovimentacao, produtoId, valor, data, precoUnitario,
+      instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento,
+    };
+
+    if (isPosFixado) {
+      requiredFields.indexador = indexador;
+    }
+
+    const emptyFields = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
+
     if (emptyFields.length > 0) {
-      console.log("Campos vazios:", emptyFields, fields);
+      console.log("Campos vazios:", emptyFields, requiredFields);
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
     setSubmitting(true);
 
     try {
-      // Build nome_ativo for Renda Fixa
       const produtoNome = produtos.find((p) => p.id === produtoId)?.nome || "";
       const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
       const nomeAtivo = isRendaFixa
-        ? buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento)
+        ? buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador)
         : null;
 
-      // Check if nome_ativo already exists in movimentacoes to determine codigo_custodia
       let codigoCustodia: number;
       let tipoFinal = tipoMovimentacao;
 
@@ -302,10 +323,8 @@ export default function CadastrarTransacaoPage() {
           .limit(1);
 
         if (existing && existing.length > 0) {
-          // Nome found — reuse existing codigo_custodia
           codigoCustodia = existing[0].codigo_custodia!;
         } else {
-          // Nome not found — generate new codigo_custodia = max + 1
           const { data: maxRow } = await supabase
             .from("movimentacoes")
             .select("codigo_custodia")
@@ -326,7 +345,6 @@ export default function CadastrarTransacaoPage() {
       const taxaNum = parseFloat(taxa.replace(",", "."));
       const quantidade = puNum > 0 ? valorNum / puNum : null;
 
-      // Build valor_extrato: "R$ 200.000,00 (R$ 1.000,00 x 10)"
       const fmtBR = (v: number) =>
         v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const valorExtrato = quantidade != null
@@ -348,7 +366,7 @@ export default function CadastrarTransacaoPage() {
         vencimento,
         nome_ativo: nomeAtivo,
         codigo_custodia: nomeAtivo ? codigoCustodia : null,
-        indexador: null,
+        indexador: isPosFixado ? indexador : null,
         quantidade,
         valor_extrato: valorExtrato,
         user_id: user?.id,
@@ -356,7 +374,6 @@ export default function CadastrarTransacaoPage() {
 
       if (error) throw error;
 
-      // If Aplicação Inicial, also insert into custodia and update controle_de_carteiras
       if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
         const { error: custError } = await supabase.from("custodia").insert({
           codigo_custodia: codigoCustodia,
@@ -365,7 +382,7 @@ export default function CadastrarTransacaoPage() {
           tipo_movimentacao: tipoFinal,
           instituicao_id: instituicaoId,
           modalidade,
-          indexador: null,
+          indexador: isPosFixado ? indexador : null,
           taxa: taxaNum,
           valor_investido: valorNum,
           preco_unitario: puNum,
@@ -382,7 +399,6 @@ export default function CadastrarTransacaoPage() {
           console.error("Erro ao inserir custódia:", custError);
         }
 
-        // Update controle_de_carteiras
         await syncControleCarteiras(categoriaId, user!.id);
       }
 
@@ -418,25 +434,39 @@ export default function CadastrarTransacaoPage() {
 
       {/* Form card */}
       <div className="rounded-md border border-border bg-card p-6 max-w-2xl space-y-5">
-        {/* 1 — Categoria */}
-        <Field label="Categoria do Produto" required>
-          <NativeSelect
-            value={categoriaId}
-            onChange={(v) => {
-              setCategoriaId(v);
-              setTipoMovimentacao("");
-              setProdutoId("");
-            }}
-            placeholder="Selecione uma categoria"
-            options={categorias.map((c) => ({
-              value: c.id,
-              label: c.nome,
-              disabled: c.nome !== "Renda Fixa",
-            }))}
-          />
-        </Field>
+        {/* Step 1 — Categoria + Produto */}
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Categoria do Produto" required>
+            <NativeSelect
+              value={categoriaId}
+              onChange={(v) => {
+                setCategoriaId(v);
+                setTipoMovimentacao("");
+                setProdutoId("");
+              }}
+              placeholder="Selecione uma categoria"
+              options={categorias.map((c) => ({
+                value: c.id,
+                label: c.nome,
+                disabled: c.nome !== "Renda Fixa",
+              }))}
+            />
+          </Field>
 
-        {/* 2 — Tipo de Movimentação */}
+          <Field label="Produto" required>
+            <NativeSelect
+              value={produtoId}
+              onChange={setProdutoId}
+              placeholder="Selecione"
+              options={produtos.map((p) => ({
+                value: p.id,
+                label: p.nome,
+              }))}
+            />
+          </Field>
+        </div>
+
+        {/* Step 2 — Tipo de Movimentação */}
         {showTipoMovimentacao && (
           <Field label="Tipo de Movimentação" required>
             <NativeSelect
@@ -452,9 +482,10 @@ export default function CadastrarTransacaoPage() {
           </Field>
         )}
 
-        {/* 3 — Remaining fields */}
+        {/* Step 3 — Remaining fields */}
         {showFields && (
           <>
+            {/* Row 1: Data, Valor, Preço Unitário, Vencimento */}
             <div className="grid grid-cols-4 gap-4">
               <Field label="Data" required>
                 <input
@@ -462,18 +493,6 @@ export default function CadastrarTransacaoPage() {
                   value={data}
                   onChange={(e) => setData(e.target.value)}
                   className="input-field"
-                />
-              </Field>
-
-              <Field label="Produto" required>
-                <NativeSelect
-                  value={produtoId}
-                  onChange={setProdutoId}
-                  placeholder="Selecione"
-                  options={produtos.map((p) => ({
-                    value: p.id,
-                    label: p.nome,
-                  }))}
                 />
               </Field>
 
@@ -506,8 +525,18 @@ export default function CadastrarTransacaoPage() {
                   />
                 </div>
               </Field>
+
+              <Field label="Vencimento" required>
+                <input
+                  type="date"
+                  value={vencimento}
+                  onChange={(e) => setVencimento(e.target.value)}
+                  className="input-field"
+                />
+              </Field>
             </div>
 
+            {/* Row 2: Instituição, Emissor */}
             <div className="grid grid-cols-2 gap-4">
               <Field label="Instituição" required>
                 <NativeSelect
@@ -534,19 +563,36 @@ export default function CadastrarTransacaoPage() {
               </Field>
             </div>
 
-            <div className="grid grid-cols-4 gap-4">
+            {/* Row 3: Modalidade, (Indexador if Pós Fixado), Taxa, Pagamento */}
+            <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
               <Field label="Modalidade" required>
                 <NativeSelect
                   value={modalidade}
-                  onChange={setModalidade}
+                  onChange={(v) => {
+                    setModalidade(v);
+                    if (v !== "Pós Fixado") setIndexador("");
+                  }}
                   placeholder="Selecione"
                   options={MODALIDADE_OPTIONS.map((m) => ({
                     value: m,
                     label: m,
-                    disabled: m !== "Prefixado",
                   }))}
                 />
               </Field>
+
+              {isPosFixado && (
+                <Field label="Indexador" required>
+                  <NativeSelect
+                    value={indexador}
+                    onChange={setIndexador}
+                    placeholder="Selecione"
+                    options={INDEXADOR_OPTIONS.map((idx) => ({
+                      value: idx,
+                      label: idx,
+                    }))}
+                  />
+                </Field>
+              )}
 
               <Field label="Taxa" required>
                 <div className="relative">
@@ -572,15 +618,6 @@ export default function CadastrarTransacaoPage() {
                     value: p,
                     label: p,
                   }))}
-                />
-              </Field>
-
-              <Field label="Vencimento" required>
-                <input
-                  type="date"
-                  value={vencimento}
-                  onChange={(e) => setVencimento(e.target.value)}
-                  className="input-field"
                 />
               </Field>
             </div>
