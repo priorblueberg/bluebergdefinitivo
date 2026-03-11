@@ -316,7 +316,7 @@ export default function CadastrarTransacaoPage() {
         if (error) throw error;
 
         // Sync custodia and controle_de_carteiras
-        await fullSyncAfterMovimentacao(editId!, categoriaId, user!.id);
+        await fullSyncAfterMovimentacao(editId!, categoriaId, user!.id, dataReferenciaISO);
 
         toast.success("Transação atualizada com sucesso!");
         navigate("/movimentacoes");
