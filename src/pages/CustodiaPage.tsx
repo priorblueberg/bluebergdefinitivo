@@ -91,7 +91,7 @@ export default function CustodiaPage() {
       }
       setLoading(false);
     })();
-  }, []);
+  }, [appliedVersion]);
 
   const fmt = (v: number | null) =>
     v != null

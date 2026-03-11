@@ -44,7 +44,7 @@ export default function ControleCarteirasPage() {
         }
         setLoading(false);
       });
-  }, []);
+  }, [appliedVersion]);
 
   const headers = ["Carteira", "Data Início", "Data Limite", "Resgate Total", "Data Cálculo", "Status"];
 
