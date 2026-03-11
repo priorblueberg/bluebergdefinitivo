@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, PlusCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 interface Categoria {
