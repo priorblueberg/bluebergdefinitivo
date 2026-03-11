@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 
 interface Categoria {
   id: string;
