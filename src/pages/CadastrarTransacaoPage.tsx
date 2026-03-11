@@ -419,6 +419,10 @@ export default function CadastrarTransacaoPage() {
         }).eq("id", editId);
 
         if (error) throw error;
+
+        // Sync custodia and controle_de_carteiras
+        await fullSyncAfterMovimentacao(editId!, categoriaId, user!.id);
+
         toast.success("Transação atualizada com sucesso!");
         navigate("/movimentacoes");
       } else {
