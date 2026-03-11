@@ -44,10 +44,27 @@ interface CarteiraInfo {
 export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
   const { appliedVersion } = useDataReferencia();
 
   useEffect(() => {
     (async () => {
+      // Buscar dados da carteira Renda Fixa
+      const { data: carteiraData } = await supabase
+        .from("controle_de_carteiras")
+        .select("nome_carteira, status, data_inicio, data_calculo, categorias(nome)")
+        .eq("categorias.nome", "Renda Fixa")
+        .maybeSingle();
+
+      if (carteiraData) {
+        setCarteiraInfo({
+          nome_carteira: carteiraData.nome_carteira,
+          status: carteiraData.status,
+          data_inicio: carteiraData.data_inicio,
+          data_calculo: carteiraData.data_calculo,
+        });
+      }
+
       const { data, error } = await supabase
         .from("custodia")
         .select(`
