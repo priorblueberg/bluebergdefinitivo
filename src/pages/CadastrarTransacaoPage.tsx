@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
 
 interface Categoria {
   id: string;
@@ -45,7 +46,6 @@ const INDEXADOR_OPTIONS = ["% do CDI", "CDI+", "IPCA+", "IGP-M+"];
 
 // ── Currency formatting helpers ──
 function formatCurrency(value: string): string {
-  // Remove tudo que não é dígito
   const digits = value.replace(/\D/g, "");
   if (!digits) return "";
   const num = parseInt(digits, 10);
@@ -57,7 +57,6 @@ function formatCurrency(value: string): string {
 }
 
 function parseCurrencyToNumber(value: string): number {
-  // "1.234,56" -> 1234.56
   const cleaned = value.replace(/\./g, "").replace(",", ".");
   return parseFloat(cleaned) || 0;
 }
@@ -92,112 +91,6 @@ function buildNomeAtivo(
   return [produtoNome, emissorNome, modalidade, indexador, taxaFormatted, vencFormatted ? `- ${vencFormatted}` : ""]
     .filter(Boolean)
     .join(" ");
-}
-
-async function syncControleCarteiras(categoriaId: string, userId: string) {
-  const { data: catData } = await supabase.from("categorias").select("nome").eq("id", categoriaId).single();
-  const categoriaNome = catData?.nome || "Desconhecida";
-
-  const { data: custodiaRows } = await supabase
-    .from("custodia")
-    .select("data_inicio, data_limite, resgate_total, data_calculo")
-    .eq("categoria_id", categoriaId)
-    .eq("user_id", userId);
-
-  if (!custodiaRows || custodiaRows.length === 0) return;
-
-  const dates = (field: string) =>
-    custodiaRows.map((r: any) => r[field]).filter(Boolean).sort();
-
-  const dataInicio = dates("data_inicio")[0] || null;
-  const dataLimite = dates("data_limite").reverse()[0] || null;
-  const resgateTotal = dates("resgate_total").reverse()[0] || null;
-  const dataCalculo = dates("data_calculo").reverse()[0] || null;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const status = resgateTotal && resgateTotal > today ? "Ativa" : (resgateTotal ? "Encerrada" : "Ativa");
-
-  const { data: existing } = await supabase
-    .from("controle_de_carteiras")
-    .select("id")
-    .eq("categoria_id", categoriaId)
-    .eq("user_id", userId)
-    .limit(1);
-
-  if (existing && existing.length > 0) {
-    await supabase.from("controle_de_carteiras").update({
-      data_inicio: dataInicio,
-      data_limite: dataLimite,
-      resgate_total: resgateTotal,
-      data_calculo: dataCalculo,
-      status,
-    }).eq("id", existing[0].id);
-  } else {
-    await supabase.from("controle_de_carteiras").insert({
-      categoria_id: categoriaId,
-      nome_carteira: categoriaNome,
-      data_inicio: dataInicio,
-      data_limite: dataLimite,
-      resgate_total: resgateTotal,
-      data_calculo: dataCalculo,
-      status,
-      user_id: userId,
-    });
-  }
-
-  await syncCarteiraGeral(userId);
-}
-
-async function syncCarteiraGeral(userId: string) {
-  const { data: allCustodia } = await supabase
-    .from("custodia")
-    .select("data_inicio, data_limite, resgate_total, data_calculo")
-    .eq("user_id", userId);
-
-  if (!allCustodia || allCustodia.length === 0) return;
-
-  const dates = (field: string) =>
-    allCustodia.map((r: any) => r[field]).filter(Boolean).sort();
-
-  const dataInicio = dates("data_inicio")[0] || null;
-  const dataLimite = dates("data_limite").reverse()[0] || null;
-  const resgateTotal = dates("resgate_total").reverse()[0] || null;
-  const dataCalculo = dates("data_calculo").reverse()[0] || null;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const status = resgateTotal && resgateTotal > today ? "Ativa" : (resgateTotal ? "Encerrada" : "Ativa");
-
-  const { data: existing } = await supabase
-    .from("controle_de_carteiras")
-    .select("id")
-    .eq("nome_carteira", "Investimentos")
-    .eq("user_id", userId)
-    .limit(1);
-
-  const { data: firstCat } = await supabase.from("categorias").select("id").limit(1);
-  const catId = firstCat?.[0]?.id;
-  if (!catId) return;
-
-  if (existing && existing.length > 0) {
-    await supabase.from("controle_de_carteiras").update({
-      data_inicio: dataInicio,
-      data_limite: dataLimite,
-      resgate_total: resgateTotal,
-      data_calculo: dataCalculo,
-      status,
-    }).eq("id", existing[0].id);
-  } else {
-    await supabase.from("controle_de_carteiras").insert({
-      categoria_id: catId,
-      nome_carteira: "Investimentos",
-      data_inicio: dataInicio,
-      data_limite: dataLimite,
-      resgate_total: resgateTotal,
-      data_calculo: dataCalculo,
-      status,
-      user_id: userId,
-    });
-  }
 }
 
 export default function CadastrarTransacaoPage() {
@@ -419,6 +312,10 @@ export default function CadastrarTransacaoPage() {
         }).eq("id", editId);
 
         if (error) throw error;
+
+        // Sync custodia and controle_de_carteiras
+        await fullSyncAfterMovimentacao(editId!, categoriaId, user!.id);
+
         toast.success("Transação atualizada com sucesso!");
         navigate("/movimentacoes");
       } else {
@@ -475,39 +372,19 @@ export default function CadastrarTransacaoPage() {
 
         if (error) throw error;
 
-        if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
-          // Determine alocacao_patrimonial and data_limite based on category
-          const categoriaNome = categoriaSelecionada?.nome || "";
-          const isRendaFixaCat = categoriaNome === "Renda Fixa";
+        // Fetch the inserted row id to sync
+        const { data: inserted } = await supabase
+          .from("movimentacoes")
+          .select("id")
+          .eq("codigo_custodia", nomeAtivo ? codigoCustodia : -1)
+          .eq("user_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
 
-          const { error: custError } = await supabase.from("custodia").insert({
-            codigo_custodia: codigoCustodia,
-            data_inicio: data,
-            produto_id: produtoId,
-            tipo_movimentacao: tipoFinal,
-            instituicao_id: instituicaoId,
-            modalidade,
-            indexador: isPosFixado ? indexador : null,
-            taxa: taxaNum,
-            valor_investido: valorNum,
-            preco_unitario: puNum,
-            quantidade,
-            vencimento,
-            emissor_id: emissorId,
-            pagamento,
-            nome: nomeAtivo,
-            categoria_id: categoriaId,
-            user_id: user?.id,
-            data_limite: isRendaFixaCat ? vencimento : null,
-            alocacao_patrimonial: isRendaFixaCat ? "Renda Fixa" : null,
-          });
+        const insertedId = inserted?.[0]?.id || null;
 
-          if (custError) {
-            console.error("Erro ao inserir custódia:", custError);
-          }
-
-          await syncControleCarteiras(categoriaId, user!.id);
-        }
+        // Sync custodia and controle_de_carteiras
+        await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id);
 
         toast.success("Transação cadastrada com sucesso!");
         resetForm();

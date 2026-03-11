@@ -3,6 +3,7 @@ import { ArrowUpDown, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,6 +95,14 @@ export default function MovimentacoesPage() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
+
+    // Fetch movimentacao details before deleting (for sync)
+    const { data: movData } = await supabase
+      .from("movimentacoes")
+      .select("codigo_custodia, categoria_id, user_id")
+      .eq("id", deleteId)
+      .single();
+
     const { error } = await supabase.from("movimentacoes").delete().eq("id", deleteId);
     if (error) {
       toast.error("Erro ao excluir movimentação.");
@@ -101,6 +110,15 @@ export default function MovimentacoesPage() {
     } else {
       toast.success("Movimentação excluída com sucesso.");
       setRows((prev) => prev.filter((r) => r.id !== deleteId));
+
+      // Sync custodia and controle_de_carteiras
+      if (movData) {
+        await fullSyncAfterDelete(
+          movData.codigo_custodia,
+          movData.categoria_id,
+          movData.user_id!
+        );
+      }
     }
     setDeleteId(null);
   };
