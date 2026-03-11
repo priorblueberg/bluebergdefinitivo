@@ -34,6 +34,13 @@ interface CustodiaRow {
   estrategia: string | null;
 }
 
+interface CarteiraInfo {
+  nome_carteira: string;
+  status: string;
+  data_inicio: string | null;
+  data_calculo: string | null;
+}
+
 export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>([]);
   const [loading, setLoading] = useState(true);
