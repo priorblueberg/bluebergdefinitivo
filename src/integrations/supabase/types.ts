@@ -61,6 +61,7 @@ export type Database = {
           nome_carteira: string
           resgate_total: string | null
           status: string
+          user_id: string | null
         }
         Insert: {
           categoria_id: string
@@ -72,6 +73,7 @@ export type Database = {
           nome_carteira: string
           resgate_total?: string | null
           status?: string
+          user_id?: string | null
         }
         Update: {
           categoria_id?: string
@@ -83,6 +85,7 @@ export type Database = {
           nome_carteira?: string
           resgate_total?: string | null
           status?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -125,6 +128,7 @@ export type Database = {
           status_variavel: string | null
           taxa: number | null
           tipo_movimentacao: string
+          user_id: string | null
           valor_investido: number
           vencimento: string | null
         }
@@ -158,6 +162,7 @@ export type Database = {
           status_variavel?: string | null
           taxa?: number | null
           tipo_movimentacao: string
+          user_id?: string | null
           valor_investido: number
           vencimento?: string | null
         }
@@ -191,6 +196,7 @@ export type Database = {
           status_variavel?: string | null
           taxa?: number | null
           tipo_movimentacao?: string
+          user_id?: string | null
           valor_investido?: number
           vencimento?: string | null
         }
@@ -285,6 +291,7 @@ export type Database = {
           quantidade: number | null
           taxa: number | null
           tipo_movimentacao: string
+          user_id: string | null
           valor: number
           valor_extrato: string | null
           vencimento: string | null
@@ -306,6 +313,7 @@ export type Database = {
           quantidade?: number | null
           taxa?: number | null
           tipo_movimentacao: string
+          user_id?: string | null
           valor: number
           valor_extrato?: string | null
           vencimento?: string | null
@@ -327,6 +335,7 @@ export type Database = {
           quantidade?: number | null
           taxa?: number | null
           tipo_movimentacao?: string
+          user_id?: string | null
           valor?: number
           valor_extrato?: string | null
           vencimento?: string | null
@@ -398,6 +407,7 @@ export type Database = {
         Row: {
           created_at: string
           data_nascimento: string | null
+          email: string | null
           id: string
           nome_completo: string
           user_id: string
@@ -405,6 +415,7 @@ export type Database = {
         Insert: {
           created_at?: string
           data_nascimento?: string | null
+          email?: string | null
           id?: string
           nome_completo: string
           user_id: string
@@ -412,6 +423,7 @@ export type Database = {
         Update: {
           created_at?: string
           data_nascimento?: string | null
+          email?: string | null
           id?: string
           nome_completo?: string
           user_id?: string
@@ -423,7 +435,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_email_exists: { Args: { p_email: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
