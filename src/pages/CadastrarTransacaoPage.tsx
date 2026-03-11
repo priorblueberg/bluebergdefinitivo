@@ -170,6 +170,7 @@ async function syncCarteiraGeral(userId: string) {
 }
 
 export default function CadastrarTransacaoPage() {
+  const { user } = useAuth();
   // lookup data
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
