@@ -117,7 +117,8 @@ async function syncControleCarteiras(categoriaId: string, userId: string) {
 async function syncCarteiraGeral(userId: string) {
   const { data: allCustodia } = await supabase
     .from("custodia")
-    .select("data_inicio, data_limite, resgate_total, data_calculo");
+    .select("data_inicio, data_limite, resgate_total, data_calculo")
+    .eq("user_id", userId);
 
   if (!allCustodia || allCustodia.length === 0) return;
 
