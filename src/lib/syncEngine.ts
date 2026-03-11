@@ -109,7 +109,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     user_id: mov.user_id,
     data_limite: dataLimite,
     alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : null,
-    resgate_total: null as any, // Will store as date string in numeric field - see note below
+    resgate_total: resgateTotal,
     data_calculo: dataCalculo,
   };
 
