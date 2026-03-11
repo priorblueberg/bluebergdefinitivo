@@ -346,6 +346,7 @@ export default function CadastrarTransacaoPage() {
         indexador: null,
         quantidade,
         valor_extrato: valorExtrato,
+        user_id: user?.id,
       });
 
       if (error) throw error;
