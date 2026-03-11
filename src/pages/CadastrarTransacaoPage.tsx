@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
 
 interface Categoria {
   id: string;
