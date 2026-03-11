@@ -8,8 +8,50 @@ import { supabase } from "@/integrations/supabase/client";
 
 // ── Custodia Sync ──
 
+/** Compute resgate_total for a Renda Fixa custodia record */
+async function computeResgateTotal(codigoCustodia: number, userId: string, vencimento: string | null): Promise<string | null> {
+  // Check if there's a "Fechar Posição" movimentacao for this codigo_custodia
+  const { data: fechamento } = await supabase
+    .from("movimentacoes")
+    .select("data")
+    .eq("codigo_custodia", codigoCustodia)
+    .eq("user_id", userId)
+    .eq("tipo_movimentacao", "Fechar Posição")
+    .order("data", { ascending: false })
+    .limit(1);
+
+  if (fechamento && fechamento.length > 0) {
+    return fechamento[0].data;
+  }
+  return vencimento || null;
+}
+
+/** Compute data_calculo based on data_referencia, resgate_total, and data_limite */
+function computeDataCalculo(dataReferencia: string, resgateTotal: string | null, dataLimite: string | null): string | null {
+  if (!resgateTotal && !dataLimite) return dataReferencia;
+
+  // If data_referencia >= resgate_total, use resgate_total
+  if (resgateTotal && dataReferencia >= resgateTotal) {
+    return resgateTotal;
+  }
+
+  // If data_referencia < resgate_total:
+  // Check data_limite
+  if (dataLimite) {
+    if (dataReferencia >= dataLimite) {
+      return dataLimite;
+    } else {
+      return dataReferencia;
+    }
+  }
+
+  return dataReferencia;
+}
+
 /** After inserting/updating a movimentacao, upsert the corresponding custodia record */
-export async function syncCustodiaFromMovimentacao(movimentacaoId: string) {
+export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataReferencia?: string) {
+  const refDate = dataReferencia || new Date().toISOString().slice(0, 10);
+
   // Fetch the movimentacao with related names
   const { data: mov, error } = await supabase
     .from("movimentacoes")
@@ -25,9 +67,21 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string) {
   const categoriaNome = (mov as any).categorias?.nome || "";
   const isRendaFixa = categoriaNome === "Renda Fixa";
 
-  if (!mov.codigo_custodia) return; // no custodia link
+  if (!mov.codigo_custodia) return;
 
-  // Check if custodia record already exists for this codigo_custodia + user
+  // Compute resgate_total for Renda Fixa
+  let resgateTotal: string | null = null;
+  if (isRendaFixa) {
+    resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, mov.vencimento);
+  }
+
+  // Compute data_limite
+  const dataLimite = isRendaFixa ? mov.vencimento : null;
+
+  // Compute data_calculo
+  const dataCalculo = computeDataCalculo(refDate, resgateTotal, dataLimite);
+
+  // Check if custodia record already exists
   const { data: existing } = await supabase
     .from("custodia")
     .select("id")
@@ -53,8 +107,10 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string) {
     nome: mov.nome_ativo,
     categoria_id: mov.categoria_id,
     user_id: mov.user_id,
-    data_limite: isRendaFixa ? mov.vencimento : null,
+    data_limite: dataLimite,
     alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : null,
+    resgate_total: null as any, // Will store as date string in numeric field - see note below
+    data_calculo: dataCalculo,
   };
 
   if (existing && existing.length > 0) {
@@ -72,10 +128,9 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string) {
 }
 
 /** After deleting a movimentacao, remove the custodia record if no more movimentacoes reference it */
-export async function syncCustodiaOnDelete(codigoCustodia: number, userId: string) {
+export async function syncCustodiaOnDelete(codigoCustodia: number, userId: string, dataReferencia?: string) {
   if (!codigoCustodia) return;
 
-  // Check if other movimentacoes still reference this codigo_custodia
   const { data: remaining } = await supabase
     .from("movimentacoes")
     .select("id")
@@ -84,22 +139,22 @@ export async function syncCustodiaOnDelete(codigoCustodia: number, userId: strin
     .limit(1);
 
   if (!remaining || remaining.length === 0) {
-    // No more movimentacoes → delete custodia record
     await supabase
       .from("custodia")
       .delete()
       .eq("codigo_custodia", codigoCustodia)
       .eq("user_id", userId);
   } else {
-    // Recalculate custodia from remaining movimentacao
-    await syncCustodiaFromMovimentacao(remaining[0].id);
+    await syncCustodiaFromMovimentacao(remaining[0].id, dataReferencia);
   }
 }
 
 // ── Controle de Carteiras Sync ──
 
 /** Recalculate controle_de_carteiras for a specific category */
-export async function syncControleCarteiras(categoriaId: string, userId: string) {
+export async function syncControleCarteiras(categoriaId: string, userId: string, dataReferencia?: string) {
+  const refDate = dataReferencia || new Date().toISOString().slice(0, 10);
+
   const { data: catData } = await supabase
     .from("categorias")
     .select("nome")
@@ -109,32 +164,61 @@ export async function syncControleCarteiras(categoriaId: string, userId: string)
 
   const { data: custodiaRows } = await supabase
     .from("custodia")
-    .select("data_inicio, data_limite, resgate_total, data_calculo")
+    .select("data_inicio, data_limite, data_calculo")
     .eq("categoria_id", categoriaId)
     .eq("user_id", userId);
 
-  const dates = (field: string) =>
-    (custodiaRows || []).map((r: any) => r[field]).filter(Boolean).sort();
-
   if (!custodiaRows || custodiaRows.length === 0) {
-    // No custodia left → remove carteira entry for this category
     await supabase
       .from("controle_de_carteiras")
       .delete()
       .eq("categoria_id", categoriaId)
       .eq("user_id", userId)
       .neq("nome_carteira", "Investimentos");
-    await syncCarteiraGeral(userId);
+    await syncCarteiraGeral(userId, refDate);
     return;
   }
 
+  const dates = (field: string) =>
+    (custodiaRows || []).map((r: any) => r[field]).filter(Boolean).sort();
+
   const dataInicio = dates("data_inicio")[0] || null;
   const dataLimite = dates("data_limite").reverse()[0] || null;
-  const resgateTotal = dates("resgate_total").reverse()[0] || null;
   const dataCalculo = dates("data_calculo").reverse()[0] || null;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const status = resgateTotal && resgateTotal > today ? "Ativa" : (resgateTotal ? "Encerrada" : "Ativa");
+  // Compute resgate_total from custodia for this category
+  // Get the most recent resgate_total (vencimento or fechamento date) from custodia
+  const { data: custodiaResgateRows } = await supabase
+    .from("custodia")
+    .select("vencimento, codigo_custodia")
+    .eq("categoria_id", categoriaId)
+    .eq("user_id", userId);
+
+  let resgateTotal: string | null = null;
+  if (custodiaResgateRows && custodiaResgateRows.length > 0) {
+    const resgateDates: string[] = [];
+    for (const row of custodiaResgateRows) {
+      const rt = await computeResgateTotal(row.codigo_custodia, userId, row.vencimento);
+      if (rt) resgateDates.push(rt);
+    }
+    if (resgateDates.length > 0) {
+      resgateDates.sort();
+      resgateTotal = resgateDates[resgateDates.length - 1]; // most recent
+    }
+  }
+
+  // Status rules:
+  // If data_referencia < data_inicio → "Não Iniciada"
+  // If resgate_total > data_referencia → "Ativa"
+  // Otherwise → "Encerrada"
+  let status = "Ativa";
+  if (dataInicio && refDate < dataInicio) {
+    status = "Não Iniciada";
+  } else if (resgateTotal && resgateTotal > refDate) {
+    status = "Ativa";
+  } else if (resgateTotal && resgateTotal <= refDate) {
+    status = "Encerrada";
+  }
 
   const { data: existing } = await supabase
     .from("controle_de_carteiras")
@@ -144,39 +228,38 @@ export async function syncControleCarteiras(categoriaId: string, userId: string)
     .neq("nome_carteira", "Investimentos")
     .limit(1);
 
+  const carteiraData = {
+    data_inicio: dataInicio,
+    data_limite: dataLimite,
+    resgate_total: resgateTotal,
+    data_calculo: dataCalculo,
+    status,
+  };
+
   if (existing && existing.length > 0) {
-    await supabase.from("controle_de_carteiras").update({
-      data_inicio: dataInicio,
-      data_limite: dataLimite,
-      resgate_total: resgateTotal,
-      data_calculo: dataCalculo,
-      status,
-    }).eq("id", existing[0].id);
+    await supabase.from("controle_de_carteiras").update(carteiraData).eq("id", existing[0].id);
   } else {
     await supabase.from("controle_de_carteiras").insert({
       categoria_id: categoriaId,
       nome_carteira: categoriaNome,
-      data_inicio: dataInicio,
-      data_limite: dataLimite,
-      resgate_total: resgateTotal,
-      data_calculo: dataCalculo,
-      status,
+      ...carteiraData,
       user_id: userId,
     });
   }
 
-  await syncCarteiraGeral(userId);
+  await syncCarteiraGeral(userId, refDate);
 }
 
 /** Recalculate the general "Investimentos" carteira */
-export async function syncCarteiraGeral(userId: string) {
+export async function syncCarteiraGeral(userId: string, dataReferencia?: string) {
+  const refDate = dataReferencia || new Date().toISOString().slice(0, 10);
+
   const { data: allCustodia } = await supabase
     .from("custodia")
-    .select("data_inicio, data_limite, resgate_total, data_calculo")
+    .select("data_inicio, data_limite, data_calculo, vencimento, codigo_custodia")
     .eq("user_id", userId);
 
   if (!allCustodia || allCustodia.length === 0) {
-    // No custodia at all → remove "Investimentos"
     await supabase
       .from("controle_de_carteiras")
       .delete()
@@ -190,11 +273,28 @@ export async function syncCarteiraGeral(userId: string) {
 
   const dataInicio = dates("data_inicio")[0] || null;
   const dataLimite = dates("data_limite").reverse()[0] || null;
-  const resgateTotal = dates("resgate_total").reverse()[0] || null;
   const dataCalculo = dates("data_calculo").reverse()[0] || null;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const status = resgateTotal && resgateTotal > today ? "Ativa" : (resgateTotal ? "Encerrada" : "Ativa");
+  // Compute resgate_total across all custodia
+  const resgateDates: string[] = [];
+  for (const row of allCustodia) {
+    const rt = await computeResgateTotal(row.codigo_custodia, userId, row.vencimento);
+    if (rt) resgateDates.push(rt);
+  }
+  let resgateTotal: string | null = null;
+  if (resgateDates.length > 0) {
+    resgateDates.sort();
+    resgateTotal = resgateDates[resgateDates.length - 1];
+  }
+
+  let status = "Ativa";
+  if (dataInicio && refDate < dataInicio) {
+    status = "Não Iniciada";
+  } else if (resgateTotal && resgateTotal > refDate) {
+    status = "Ativa";
+  } else if (resgateTotal && resgateTotal <= refDate) {
+    status = "Encerrada";
+  }
 
   const { data: existing } = await supabase
     .from("controle_de_carteiras")
@@ -207,23 +307,21 @@ export async function syncCarteiraGeral(userId: string) {
   const catId = firstCat?.[0]?.id;
   if (!catId) return;
 
+  const carteiraData = {
+    data_inicio: dataInicio,
+    data_limite: dataLimite,
+    resgate_total: resgateTotal,
+    data_calculo: dataCalculo,
+    status,
+  };
+
   if (existing && existing.length > 0) {
-    await supabase.from("controle_de_carteiras").update({
-      data_inicio: dataInicio,
-      data_limite: dataLimite,
-      resgate_total: resgateTotal,
-      data_calculo: dataCalculo,
-      status,
-    }).eq("id", existing[0].id);
+    await supabase.from("controle_de_carteiras").update(carteiraData).eq("id", existing[0].id);
   } else {
     await supabase.from("controle_de_carteiras").insert({
       categoria_id: catId,
       nome_carteira: "Investimentos",
-      data_inicio: dataInicio,
-      data_limite: dataLimite,
-      resgate_total: resgateTotal,
-      data_calculo: dataCalculo,
-      status,
+      ...carteiraData,
       user_id: userId,
     });
   }
@@ -233,22 +331,24 @@ export async function syncCarteiraGeral(userId: string) {
 export async function fullSyncAfterMovimentacao(
   movimentacaoId: string | null,
   categoriaId: string,
-  userId: string
+  userId: string,
+  dataReferencia?: string
 ) {
   if (movimentacaoId) {
-    await syncCustodiaFromMovimentacao(movimentacaoId);
+    await syncCustodiaFromMovimentacao(movimentacaoId, dataReferencia);
   }
-  await syncControleCarteiras(categoriaId, userId);
+  await syncControleCarteiras(categoriaId, userId, dataReferencia);
 }
 
 /** Full sync after deleting a movimentacao */
 export async function fullSyncAfterDelete(
   codigoCustodia: number | null,
   categoriaId: string,
-  userId: string
+  userId: string,
+  dataReferencia?: string
 ) {
   if (codigoCustodia) {
-    await syncCustodiaOnDelete(codigoCustodia, userId);
+    await syncCustodiaOnDelete(codigoCustodia, userId, dataReferencia);
   }
-  await syncControleCarteiras(categoriaId, userId);
+  await syncControleCarteiras(categoriaId, userId, dataReferencia);
 }
