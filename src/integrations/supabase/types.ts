@@ -122,7 +122,7 @@ export type Database = {
           pu_inicial: number | null
           quantidade: number | null
           rendimentos: number | null
-          resgate_total: number | null
+          resgate_total: string | null
           sigla_tesouro: string | null
           status_variavel: string | null
           taxa: number | null
@@ -155,7 +155,7 @@ export type Database = {
           pu_inicial?: number | null
           quantidade?: number | null
           rendimentos?: number | null
-          resgate_total?: number | null
+          resgate_total?: string | null
           sigla_tesouro?: string | null
           status_variavel?: string | null
           taxa?: number | null
@@ -188,7 +188,7 @@ export type Database = {
           pu_inicial?: number | null
           quantidade?: number | null
           rendimentos?: number | null
-          resgate_total?: number | null
+          resgate_total?: string | null
           sigla_tesouro?: string | null
           status_variavel?: string | null
           taxa?: number | null
