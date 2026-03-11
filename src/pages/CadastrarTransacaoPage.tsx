@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 
 interface Categoria {
   id: string;
@@ -95,6 +96,7 @@ function buildNomeAtivo(
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
+  const { dataReferenciaISO } = useDataReferencia();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
@@ -314,7 +316,7 @@ export default function CadastrarTransacaoPage() {
         if (error) throw error;
 
         // Sync custodia and controle_de_carteiras
-        await fullSyncAfterMovimentacao(editId!, categoriaId, user!.id);
+        await fullSyncAfterMovimentacao(editId!, categoriaId, user!.id, dataReferenciaISO);
 
         toast.success("Transação atualizada com sucesso!");
         navigate("/movimentacoes");
@@ -384,7 +386,7 @@ export default function CadastrarTransacaoPage() {
         const insertedId = inserted?.[0]?.id || null;
 
         // Sync custodia and controle_de_carteiras
-        await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id);
+        await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id, dataReferenciaISO);
 
         toast.success("Transação cadastrada com sucesso!");
         resetForm();

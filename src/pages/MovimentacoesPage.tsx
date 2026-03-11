@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +45,7 @@ const COLUMNS: { key: SortField; label: string }[] = [
 
 export default function MovimentacoesPage() {
   const navigate = useNavigate();
+  const { dataReferenciaISO } = useDataReferencia();
   const [rows, setRows] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>("data");
@@ -116,7 +118,8 @@ export default function MovimentacoesPage() {
         await fullSyncAfterDelete(
           movData.codigo_custodia,
           movData.categoria_id,
-          movData.user_id!
+          movData.user_id!,
+          dataReferenciaISO
         );
       }
     }
