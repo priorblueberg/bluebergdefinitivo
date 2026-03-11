@@ -56,7 +56,7 @@ function buildNomeAtivo(
     .join(" ");
 }
 
-async function syncControleCarteiras(categoriaId: string) {
+async function syncControleCarteiras(categoriaId: string, userId: string) {
   // Get categoria name
   const { data: catData } = await supabase.from("categorias").select("nome").eq("id", categoriaId).single();
   const categoriaNome = catData?.nome || "Desconhecida";
