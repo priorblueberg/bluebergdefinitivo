@@ -386,7 +386,7 @@ export default function CadastrarTransacaoPage() {
         const insertedId = inserted?.[0]?.id || null;
 
         // Sync custodia and controle_de_carteiras
-        await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id);
+        await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id, dataReferenciaISO);
 
         toast.success("Transação cadastrada com sucesso!");
         resetForm();

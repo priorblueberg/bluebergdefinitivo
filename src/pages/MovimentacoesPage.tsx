@@ -118,7 +118,8 @@ export default function MovimentacoesPage() {
         await fullSyncAfterDelete(
           movData.codigo_custodia,
           movData.categoria_id,
-          movData.user_id!
+          movData.user_id!,
+          dataReferenciaISO
         );
       }
     }
