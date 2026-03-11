@@ -479,39 +479,19 @@ export default function CadastrarTransacaoPage() {
 
         if (error) throw error;
 
-        if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
-          // Determine alocacao_patrimonial and data_limite based on category
-          const categoriaNome = categoriaSelecionada?.nome || "";
-          const isRendaFixaCat = categoriaNome === "Renda Fixa";
+        // Fetch the inserted row id to sync
+        const { data: inserted } = await supabase
+          .from("movimentacoes")
+          .select("id")
+          .eq("codigo_custodia", nomeAtivo ? codigoCustodia : -1)
+          .eq("user_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
 
-          const { error: custError } = await supabase.from("custodia").insert({
-            codigo_custodia: codigoCustodia,
-            data_inicio: data,
-            produto_id: produtoId,
-            tipo_movimentacao: tipoFinal,
-            instituicao_id: instituicaoId,
-            modalidade,
-            indexador: isPosFixado ? indexador : null,
-            taxa: taxaNum,
-            valor_investido: valorNum,
-            preco_unitario: puNum,
-            quantidade,
-            vencimento,
-            emissor_id: emissorId,
-            pagamento,
-            nome: nomeAtivo,
-            categoria_id: categoriaId,
-            user_id: user?.id,
-            data_limite: isRendaFixaCat ? vencimento : null,
-            alocacao_patrimonial: isRendaFixaCat ? "Renda Fixa" : null,
-          });
+        const insertedId = inserted?.[0]?.id || null;
 
-          if (custError) {
-            console.error("Erro ao inserir custódia:", custError);
-          }
-
-          await syncControleCarteiras(categoriaId, user!.id);
-        }
+        // Sync custodia and controle_de_carteiras
+        await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id);
 
         toast.success("Transação cadastrada com sucesso!");
         resetForm();
