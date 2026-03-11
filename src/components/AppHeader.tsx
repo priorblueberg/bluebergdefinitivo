@@ -49,6 +49,21 @@ export function AppHeader() {
     setCalendarOpen(false);
   };
 
+  const handleApply = async () => {
+    if (!user) return;
+    setApplying(true);
+    try {
+      await recalculateAllForDataReferencia(user.id, dataReferenciaISO);
+      applyDataReferencia();
+      toast.success("Data de referência aplicada com sucesso");
+    } catch (err) {
+      console.error("Erro ao aplicar data de referência", err);
+      toast.error("Erro ao aplicar data de referência");
+    } finally {
+      setApplying(false);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate("/auth");
