@@ -3,6 +3,7 @@ import { ArrowLeft, PlusCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 interface Categoria {
   id: string;
@@ -42,6 +43,25 @@ const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
 
 const INDEXADOR_OPTIONS = ["% do CDI", "CDI+", "IPCA+", "IGP-M+"];
 
+// ── Currency formatting helpers ──
+function formatCurrency(value: string): string {
+  // Remove tudo que não é dígito
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const num = parseInt(digits, 10);
+  const formatted = (num / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return formatted;
+}
+
+function parseCurrencyToNumber(value: string): number {
+  // "1.234,56" -> 1234.56
+  const cleaned = value.replace(/\./g, "").replace(",", ".");
+  return parseFloat(cleaned) || 0;
+}
+
 function buildNomeAtivo(
   produtoNome: string,
   emissorNome: string,
@@ -56,7 +76,6 @@ function buildNomeAtivo(
     : "";
 
   if (modalidade === "Prefixado") {
-    // CDB Banco Master Prefixado 12% a.a. - 31/12/2027
     return [produtoNome, emissorNome, modalidade, taxaFormatted ? `${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
       .filter(Boolean)
       .join(" ");
@@ -64,14 +83,12 @@ function buildNomeAtivo(
 
   // Pós Fixado
   if (indexador === "% do CDI") {
-    // CDB Banco Master Pós Fixado 110% do CDI - 31/12/2027
     return [produtoNome, emissorNome, modalidade, taxaFormatted, "do", indexador.replace("% do ", ""), vencFormatted ? `- ${vencFormatted}` : ""]
       .filter(Boolean)
       .join(" ");
   }
 
   // CDI+, IPCA+, IGP-M+
-  // CDB Banco Master Pós Fixado CDI+ 2% - 31/12/2027
   return [produtoNome, emissorNome, modalidade, indexador, taxaFormatted, vencFormatted ? `- ${vencFormatted}` : ""]
     .filter(Boolean)
     .join(" ");
@@ -185,6 +202,10 @@ async function syncCarteiraGeral(userId: string) {
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [instituicoes, setInstituicoes] = useState<Instituicao[]>([]);
@@ -196,7 +217,7 @@ export default function CadastrarTransacaoPage() {
   const [tipoMovimentacao, setTipoMovimentacao] = useState("");
   const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
   const [valor, setValor] = useState("");
-  const [precoUnitario, setPrecoUnitario] = useState("1000");
+  const [precoUnitario, setPrecoUnitario] = useState("1.000,00");
   const [instituicaoId, setInstituicaoId] = useState("");
   const [emissorId, setEmissorId] = useState("");
   const [modalidade, setModalidade] = useState("");
@@ -205,11 +226,13 @@ export default function CadastrarTransacaoPage() {
   const [pagamento, setPagamento] = useState("No Vencimento");
   const [vencimento, setVencimento] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editLoaded, setEditLoaded] = useState(false);
 
   // Derived
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
   const isPosFixado = modalidade === "Pós Fixado";
+  const isEditing = !!editId;
 
   // Load categorias on mount
   useEffect(() => {
@@ -260,6 +283,40 @@ export default function CadastrarTransacaoPage() {
       });
   }, []);
 
+  // Load edit data
+  useEffect(() => {
+    if (!editId || editLoaded || categorias.length === 0) return;
+
+    (async () => {
+      const { data: mov } = await supabase
+        .from("movimentacoes")
+        .select("*")
+        .eq("id", editId)
+        .single();
+
+      if (!mov) {
+        toast.error("Movimentação não encontrada.");
+        navigate("/movimentacoes");
+        return;
+      }
+
+      setCategoriaId(mov.categoria_id);
+      setProdutoId(mov.produto_id);
+      setTipoMovimentacao(mov.tipo_movimentacao);
+      setData(mov.data);
+      setValor(mov.valor ? formatCurrency(Math.round(mov.valor * 100).toString()) : "");
+      setPrecoUnitario(mov.preco_unitario ? formatCurrency(Math.round(mov.preco_unitario * 100).toString()) : "1.000,00");
+      setInstituicaoId(mov.instituicao_id || "");
+      setEmissorId(mov.emissor_id || "");
+      setModalidade(mov.modalidade || "");
+      setIndexador(mov.indexador || "");
+      setTaxa(mov.taxa ? String(mov.taxa) : "");
+      setPagamento(mov.pagamento || "No Vencimento");
+      setVencimento(mov.vencimento || "");
+      setEditLoaded(true);
+    })();
+  }, [editId, editLoaded, categorias]);
+
   // Step visibility
   const showTipoMovimentacao = !!categoriaId && !!produtoId && isRendaFixa;
   const showFields = showTipoMovimentacao && tipoMovimentacao === "Aplicação";
@@ -270,7 +327,7 @@ export default function CadastrarTransacaoPage() {
     setTipoMovimentacao("");
     setData(new Date().toISOString().slice(0, 10));
     setValor("");
-    setPrecoUnitario("1000");
+    setPrecoUnitario("1.000,00");
     setInstituicaoId("");
     setEmissorId("");
     setModalidade("");
@@ -278,6 +335,9 @@ export default function CadastrarTransacaoPage() {
     setTaxa("");
     setPagamento("No Vencimento");
     setVencimento("");
+    if (isEditing) {
+      navigate("/movimentacoes");
+    }
   };
 
   const handleSubmit = async () => {
@@ -302,6 +362,24 @@ export default function CadastrarTransacaoPage() {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
+
+    // Validate business day
+    const { data: diaUtil } = await supabase
+      .from("calendario_dias_uteis")
+      .select("dia_util")
+      .eq("data", data)
+      .single();
+
+    if (!diaUtil) {
+      toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido.");
+      return;
+    }
+
+    if (!diaUtil.dia_util) {
+      toast.error("A Data de Transação deve ser um dia útil.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -311,37 +389,8 @@ export default function CadastrarTransacaoPage() {
         ? buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador)
         : null;
 
-      let codigoCustodia: number;
-      let tipoFinal = tipoMovimentacao;
-
-      if (nomeAtivo) {
-        const { data: existing } = await supabase
-          .from("movimentacoes")
-          .select("codigo_custodia")
-          .eq("nome_ativo", nomeAtivo)
-          .not("codigo_custodia", "is", null)
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          codigoCustodia = existing[0].codigo_custodia!;
-        } else {
-          const { data: maxRow } = await supabase
-            .from("movimentacoes")
-            .select("codigo_custodia")
-            .not("codigo_custodia", "is", null)
-            .order("codigo_custodia", { ascending: false })
-            .limit(1);
-
-          const maxCodigo = maxRow && maxRow.length > 0 ? (maxRow[0].codigo_custodia ?? 99) : 99;
-          codigoCustodia = maxCodigo + 1;
-          tipoFinal = "Aplicação Inicial";
-        }
-      } else {
-        codigoCustodia = 0;
-      }
-
-      const valorNum = parseFloat(valor.replace(",", "."));
-      const puNum = parseFloat(precoUnitario.replace(",", "."));
+      const valorNum = parseCurrencyToNumber(valor);
+      const puNum = parseCurrencyToNumber(precoUnitario);
       const taxaNum = parseFloat(taxa.replace(",", "."));
       const quantidade = puNum > 0 ? valorNum / puNum : null;
 
@@ -351,61 +400,120 @@ export default function CadastrarTransacaoPage() {
         ? `R$ ${fmtBR(valorNum)} (R$ ${fmtBR(puNum)} x ${fmtBR(quantidade)})`
         : `R$ ${fmtBR(valorNum)}`;
 
-      const { error } = await supabase.from("movimentacoes").insert({
-        categoria_id: categoriaId,
-        tipo_movimentacao: tipoFinal,
-        data,
-        produto_id: produtoId,
-        valor: valorNum,
-        preco_unitario: puNum,
-        instituicao_id: instituicaoId,
-        emissor_id: emissorId,
-        modalidade,
-        taxa: taxaNum,
-        pagamento,
-        vencimento,
-        nome_ativo: nomeAtivo,
-        codigo_custodia: nomeAtivo ? codigoCustodia : null,
-        indexador: isPosFixado ? indexador : null,
-        quantidade,
-        valor_extrato: valorExtrato,
-        user_id: user?.id,
-      });
-
-      if (error) throw error;
-
-      if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
-        const { error: custError } = await supabase.from("custodia").insert({
-          codigo_custodia: codigoCustodia,
-          data_inicio: data,
-          produto_id: produtoId,
-          tipo_movimentacao: tipoFinal,
-          instituicao_id: instituicaoId,
-          modalidade,
-          indexador: isPosFixado ? indexador : null,
-          taxa: taxaNum,
-          valor_investido: valorNum,
+      if (isEditing) {
+        // Update existing
+        const { error } = await supabase.from("movimentacoes").update({
+          data,
+          valor: valorNum,
           preco_unitario: puNum,
-          quantidade,
-          vencimento,
+          instituicao_id: instituicaoId,
           emissor_id: emissorId,
+          modalidade,
+          taxa: taxaNum,
           pagamento,
-          nome: nomeAtivo,
+          vencimento,
+          nome_ativo: nomeAtivo,
+          indexador: isPosFixado ? indexador : null,
+          quantidade,
+          valor_extrato: valorExtrato,
+        }).eq("id", editId);
+
+        if (error) throw error;
+        toast.success("Transação atualizada com sucesso!");
+        navigate("/movimentacoes");
+      } else {
+        // Insert new
+        let codigoCustodia: number;
+        let tipoFinal = tipoMovimentacao;
+
+        if (nomeAtivo) {
+          const { data: existing } = await supabase
+            .from("movimentacoes")
+            .select("codigo_custodia")
+            .eq("nome_ativo", nomeAtivo)
+            .not("codigo_custodia", "is", null)
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            codigoCustodia = existing[0].codigo_custodia!;
+          } else {
+            const { data: maxRow } = await supabase
+              .from("movimentacoes")
+              .select("codigo_custodia")
+              .not("codigo_custodia", "is", null)
+              .order("codigo_custodia", { ascending: false })
+              .limit(1);
+
+            const maxCodigo = maxRow && maxRow.length > 0 ? (maxRow[0].codigo_custodia ?? 99) : 99;
+            codigoCustodia = maxCodigo + 1;
+            tipoFinal = "Aplicação Inicial";
+          }
+        } else {
+          codigoCustodia = 0;
+        }
+
+        const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: categoriaId,
+          tipo_movimentacao: tipoFinal,
+          data,
+          produto_id: produtoId,
+          valor: valorNum,
+          preco_unitario: puNum,
+          instituicao_id: instituicaoId,
+          emissor_id: emissorId,
+          modalidade,
+          taxa: taxaNum,
+          pagamento,
+          vencimento,
+          nome_ativo: nomeAtivo,
+          codigo_custodia: nomeAtivo ? codigoCustodia : null,
+          indexador: isPosFixado ? indexador : null,
+          quantidade,
+          valor_extrato: valorExtrato,
           user_id: user?.id,
         });
 
-        if (custError) {
-          console.error("Erro ao inserir custódia:", custError);
+        if (error) throw error;
+
+        if (tipoFinal === "Aplicação Inicial" && nomeAtivo) {
+          // Determine alocacao_patrimonial and data_limite based on category
+          const categoriaNome = categoriaSelecionada?.nome || "";
+          const isRendaFixaCat = categoriaNome === "Renda Fixa";
+
+          const { error: custError } = await supabase.from("custodia").insert({
+            codigo_custodia: codigoCustodia,
+            data_inicio: data,
+            produto_id: produtoId,
+            tipo_movimentacao: tipoFinal,
+            instituicao_id: instituicaoId,
+            modalidade,
+            indexador: isPosFixado ? indexador : null,
+            taxa: taxaNum,
+            valor_investido: valorNum,
+            preco_unitario: puNum,
+            quantidade,
+            vencimento,
+            emissor_id: emissorId,
+            pagamento,
+            nome: nomeAtivo,
+            categoria_id: categoriaId,
+            user_id: user?.id,
+            data_limite: isRendaFixaCat ? vencimento : null,
+            alocacao_patrimonial: isRendaFixaCat ? "Renda Fixa" : null,
+          });
+
+          if (custError) {
+            console.error("Erro ao inserir custódia:", custError);
+          }
+
+          await syncControleCarteiras(categoriaId, user!.id);
         }
 
-        await syncControleCarteiras(categoriaId, user!.id);
+        toast.success("Transação cadastrada com sucesso!");
+        resetForm();
       }
-
-      toast.success("Transação cadastrada com sucesso!");
-      resetForm();
     } catch (err: any) {
-      toast.error("Erro ao cadastrar transação.");
+      toast.error(isEditing ? "Erro ao atualizar transação." : "Erro ao cadastrar transação.");
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -424,10 +532,10 @@ export default function CadastrarTransacaoPage() {
         </button>
         <div>
           <h1 className="text-lg font-semibold text-foreground">
-            Nova Transação
+            {isEditing ? "Editar Transação" : "Nova Transação"}
           </h1>
           <p className="text-xs text-muted-foreground">
-            Cadastre uma nova movimentação
+            {isEditing ? "Altere os dados da movimentação" : "Cadastre uma nova movimentação"}
           </p>
         </div>
       </div>
@@ -440,11 +548,13 @@ export default function CadastrarTransacaoPage() {
             <NativeSelect
               value={categoriaId}
               onChange={(v) => {
+                if (isEditing) return;
                 setCategoriaId(v);
                 setTipoMovimentacao("");
                 setProdutoId("");
               }}
               placeholder="Selecione uma categoria"
+              disabled={isEditing}
               options={categorias.map((c) => ({
                 value: c.id,
                 label: c.nome,
@@ -458,6 +568,7 @@ export default function CadastrarTransacaoPage() {
               value={produtoId}
               onChange={setProdutoId}
               placeholder="Selecione"
+              disabled={isEditing}
               options={produtos.map((p) => ({
                 value: p.id,
                 label: p.nome,
@@ -473,6 +584,7 @@ export default function CadastrarTransacaoPage() {
               value={tipoMovimentacao}
               onChange={setTipoMovimentacao}
               placeholder="Selecione o tipo de movimentação"
+              disabled={isEditing}
               options={TIPOS_MOVIMENTACAO.map((t) => ({
                 value: t,
                 label: t,
@@ -487,7 +599,7 @@ export default function CadastrarTransacaoPage() {
           <>
             {/* Row 1: Data, Valor, Preço Unitário, Vencimento */}
             <div className="grid grid-cols-4 gap-4">
-              <Field label="Data" required>
+              <Field label="Data de Transação" required>
                 <input
                   type="date"
                   value={data}
@@ -504,7 +616,7 @@ export default function CadastrarTransacaoPage() {
                   <input
                     type="text"
                     value={valor}
-                    onChange={(e) => setValor(e.target.value)}
+                    onChange={(e) => setValor(formatCurrency(e.target.value))}
                     placeholder="0,00"
                     className="input-field pl-9"
                   />
@@ -519,7 +631,7 @@ export default function CadastrarTransacaoPage() {
                   <input
                     type="text"
                     value={precoUnitario}
-                    onChange={(e) => setPrecoUnitario(e.target.value)}
+                    onChange={(e) => setPrecoUnitario(formatCurrency(e.target.value))}
                     placeholder="1.000,00"
                     className="input-field pl-9"
                   />
@@ -638,7 +750,7 @@ export default function CadastrarTransacaoPage() {
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
               >
                 <PlusCircle size={16} />
-                {submitting ? "Enviando..." : "Enviar"}
+                {submitting ? "Enviando..." : isEditing ? "Salvar Alterações" : "Enviar"}
               </button>
             </div>
           </>
@@ -675,17 +787,20 @@ function NativeSelect({
   onChange,
   placeholder,
   options,
+  disabled,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   options: { value: string; label: string; disabled?: boolean }[];
+  disabled?: boolean;
 }) {
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="input-field"
+      disabled={disabled}
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (

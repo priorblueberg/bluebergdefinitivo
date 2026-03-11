@@ -99,9 +99,8 @@ export type Database = {
       }
       custodia: {
         Row: {
-          alocacao_patrimonial: number | null
+          alocacao_patrimonial: string | null
           amortizacao: number | null
-          carteira: string | null
           categoria_id: string
           codigo_custodia: number
           created_at: string
@@ -133,9 +132,8 @@ export type Database = {
           vencimento: string | null
         }
         Insert: {
-          alocacao_patrimonial?: number | null
+          alocacao_patrimonial?: string | null
           amortizacao?: number | null
-          carteira?: string | null
           categoria_id: string
           codigo_custodia: number
           created_at?: string
@@ -167,9 +165,8 @@ export type Database = {
           vencimento?: string | null
         }
         Update: {
-          alocacao_patrimonial?: number | null
+          alocacao_patrimonial?: string | null
           amortizacao?: number | null
-          carteira?: string | null
           categoria_id?: string
           codigo_custodia?: number
           created_at?: string

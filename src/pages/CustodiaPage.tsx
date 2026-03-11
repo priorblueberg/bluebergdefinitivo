@@ -19,16 +19,14 @@ interface CustodiaRow {
   instituicao: string | null;
   emissor: string | null;
   categoria: string;
-  // New columns (blank for now)
   resgate_total: number | null;
   status_variavel: string | null;
   data_calculo: string | null;
   multiplicador: number | null;
   amortizacao: number | null;
   rendimentos: number | null;
-  alocacao_patrimonial: number | null;
+  alocacao_patrimonial: string | null;
   pu_inicial: number | null;
-  carteira: string | null;
   data_limite: string | null;
   sigla_tesouro: string | null;
   custodia_no_dia: number | null;
@@ -49,7 +47,7 @@ export default function CustodiaPage() {
           quantidade, vencimento, pagamento, nome,
           resgate_total, status_variavel, data_calculo, multiplicador,
           amortizacao, rendimentos, alocacao_patrimonial, pu_inicial,
-          carteira, data_limite, sigla_tesouro, custodia_no_dia, estrategia,
+          data_limite, sigla_tesouro, custodia_no_dia, estrategia,
           produtos(nome), instituicoes(nome), emissores(nome), categorias(nome)
         `)
         .order("codigo_custodia", { ascending: true });
@@ -82,7 +80,6 @@ export default function CustodiaPage() {
             rendimentos: r.rendimentos,
             alocacao_patrimonial: r.alocacao_patrimonial,
             pu_inicial: r.pu_inicial,
-            carteira: r.carteira,
             data_limite: r.data_limite,
             sigla_tesouro: r.sigla_tesouro,
             custodia_no_dia: r.custodia_no_dia,
@@ -109,7 +106,7 @@ export default function CustodiaPage() {
     "Vencimento", "Pagamento",
     "Resgate Total", "Status Variável", "Data p/ Cálculo", "Multiplicador",
     "Amortização", "Rendimentos", "Alocação Patrimonial", "PU Inicial",
-    "Carteira", "Data Limite", "Sigla Tesouro", "Custódia no Dia", "Estratégia",
+    "Data Limite", "Sigla Tesouro", "Custódia no Dia", "Estratégia",
   ];
 
   return (
@@ -158,9 +155,8 @@ export default function CustodiaPage() {
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.multiplicador)}</td>
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.amortizacao)}</td>
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.rendimentos)}</td>
-                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.alocacao_patrimonial)}</td>
+                  <td className="px-3 py-2 text-foreground">{r.alocacao_patrimonial ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.pu_inicial)}</td>
-                  <td className="px-3 py-2 text-foreground">{r.carteira ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data_limite)}</td>
                   <td className="px-3 py-2 text-foreground">{r.sigla_tesouro ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.custodia_no_dia)}</td>
