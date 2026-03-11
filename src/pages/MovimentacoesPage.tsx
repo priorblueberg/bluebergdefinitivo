@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Movimentacao {
   id: string;
@@ -30,41 +42,45 @@ const COLUMNS: { key: SortField; label: string }[] = [
 ];
 
 export default function MovimentacoesPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>("data");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    const { data, error } = await supabase
+      .from("movimentacoes")
+      .select(`
+        id, created_at, data, tipo_movimentacao,
+        pagamento, vencimento, nome_ativo,
+        valor_extrato,
+        categorias(nome), instituicoes(nome)
+      `)
+      .order("data", { ascending: false });
+
+    if (!error && data) {
+      setRows(
+        data.map((r: any) => ({
+          id: r.id,
+          created_at: r.created_at,
+          data: r.data,
+          tipo_movimentacao: r.tipo_movimentacao,
+          pagamento: r.pagamento,
+          vencimento: r.vencimento,
+          nome_ativo: r.nome_ativo,
+          categoria: r.categorias?.nome ?? "—",
+          instituicao: r.instituicoes?.nome ?? null,
+          valor_extrato: r.valor_extrato,
+        }))
+      );
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from("movimentacoes")
-        .select(`
-          id, created_at, data, tipo_movimentacao,
-          pagamento, vencimento, nome_ativo,
-          valor_extrato,
-          categorias(nome), instituicoes(nome)
-        `)
-        .order("data", { ascending: false });
-
-      if (!error && data) {
-        setRows(
-          data.map((r: any) => ({
-            id: r.id,
-            created_at: r.created_at,
-            data: r.data,
-            tipo_movimentacao: r.tipo_movimentacao,
-            pagamento: r.pagamento,
-            vencimento: r.vencimento,
-            nome_ativo: r.nome_ativo,
-            categoria: r.categorias?.nome ?? "—",
-            instituicao: r.instituicoes?.nome ?? null,
-            valor_extrato: r.valor_extrato,
-          }))
-        );
-      }
-      setLoading(false);
-    })();
+    fetchData();
   }, []);
 
   const handleSort = (field: SortField) => {
@@ -74,6 +90,23 @@ export default function MovimentacoesPage() {
       setSortField(field);
       setSortDir("asc");
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from("movimentacoes").delete().eq("id", deleteId);
+    if (error) {
+      toast.error("Erro ao excluir movimentação.");
+      console.error(error);
+    } else {
+      toast.success("Movimentação excluída com sucesso.");
+      setRows((prev) => prev.filter((r) => r.id !== deleteId));
+    }
+    setDeleteId(null);
+  };
+
+  const handleEdit = (id: string) => {
+    navigate(`/cadastrar-transacao?edit=${id}`);
   };
 
   const sortedRows = [...rows].sort((a, b) => {
@@ -86,7 +119,7 @@ export default function MovimentacoesPage() {
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
-  const colSpan = COLUMNS.length;
+  const colSpan = COLUMNS.length + 1;
 
   return (
     <div className="space-y-6">
@@ -111,6 +144,7 @@ export default function MovimentacoesPage() {
                   </span>
                 </th>
               ))}
+              <th className="px-3 py-2 text-center font-medium whitespace-nowrap">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -129,12 +163,43 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.valor_extrato ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-center">
+                    <button
+                      onClick={() => handleEdit(r.id)}
+                      className="text-muted-foreground hover:text-foreground transition-colors mr-2"
+                      title="Editar"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(r.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta movimentação? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
