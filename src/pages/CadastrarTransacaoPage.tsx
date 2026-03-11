@@ -164,6 +164,7 @@ async function syncCarteiraGeral(userId: string) {
       resgate_total: resgateTotal,
       data_calculo: dataCalculo,
       status,
+      user_id: userId,
     });
   }
 }
