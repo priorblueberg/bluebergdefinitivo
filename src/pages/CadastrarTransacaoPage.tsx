@@ -499,7 +499,7 @@ export default function CadastrarTransacaoPage() {
             categoria_id: categoriaId,
             user_id: user?.id,
             data_limite: isRendaFixaCat ? vencimento : null,
-            alocacao_patrimonial: isRendaFixaCat ? null : null,
+            alocacao_patrimonial: isRendaFixaCat ? "Renda Fixa" : null,
           });
 
           if (custError) {
