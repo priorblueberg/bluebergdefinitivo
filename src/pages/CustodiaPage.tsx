@@ -52,8 +52,8 @@ export default function CustodiaPage() {
       // Buscar dados da carteira Renda Fixa
       const { data: carteiraData } = await supabase
         .from("controle_de_carteiras")
-        .select("nome_carteira, status, data_inicio, data_calculo, categorias(nome)")
-        .eq("categorias.nome", "Renda Fixa")
+        .select("nome_carteira, status, data_inicio, data_calculo")
+        .eq("nome_carteira", "Renda Fixa")
         .maybeSingle();
 
       if (carteiraData) {
