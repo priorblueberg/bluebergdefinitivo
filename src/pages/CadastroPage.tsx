@@ -16,20 +16,28 @@ const CadastroPage = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Check if email already exists in profiles
-    const { data: exists } = await supabase.rpc("check_email_exists", { p_email: email });
-
-    if (exists) {
-      toast.error("Este e-mail já está cadastrado. Faça login para continuar.");
-      setLoading(false);
-      navigate("/auth");
-      return;
-    }
-
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      toast.error(error.message);
+      if (error.message?.toLowerCase().includes("user already registered")) {
+        // User exists in auth but maybe has no profile - try signing in
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+          toast.error("Este e-mail já está cadastrado. Faça login para continuar.");
+          navigate("/auth");
+        } else {
+          const { data: hasProfile } = await supabase.rpc("check_email_exists", { p_email: email });
+          if (hasProfile) {
+            toast.success("Login realizado com sucesso!");
+            navigate("/carteira");
+          } else {
+            toast.success("Complete seu cadastro!");
+            navigate("/onboarding");
+          }
+        }
+      } else {
+        toast.error(error.message);
+      }
     } else if (data?.user?.identities?.length === 0) {
       toast.error("Este e-mail já está cadastrado. Faça login para continuar.");
       navigate("/auth");
