@@ -378,7 +378,7 @@ export default function CadastrarTransacaoPage() {
         }
 
         // Update controle_de_carteiras
-        await syncControleCarteiras(categoriaId);
+        await syncControleCarteiras(categoriaId, user!.id);
       }
 
       toast.success("Transação cadastrada com sucesso!");
