@@ -34,13 +34,37 @@ interface CustodiaRow {
   estrategia: string | null;
 }
 
+interface CarteiraInfo {
+  nome_carteira: string;
+  status: string;
+  data_inicio: string | null;
+  data_calculo: string | null;
+}
+
 export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
   const { appliedVersion } = useDataReferencia();
 
   useEffect(() => {
     (async () => {
+      // Buscar dados da carteira Renda Fixa
+      const { data: carteiraData } = await supabase
+        .from("controle_de_carteiras")
+        .select("nome_carteira, status, data_inicio, data_calculo, categorias(nome)")
+        .eq("categorias.nome", "Renda Fixa")
+        .maybeSingle();
+
+      if (carteiraData) {
+        setCarteiraInfo({
+          nome_carteira: carteiraData.nome_carteira,
+          status: carteiraData.status,
+          data_inicio: carteiraData.data_inicio,
+          data_calculo: carteiraData.data_calculo,
+        });
+      }
+
       const { data, error } = await supabase
         .from("custodia")
         .select(`
@@ -101,6 +125,32 @@ export default function CustodiaPage() {
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
+  const renderCarteiraMessage = () => {
+    if (!carteiraInfo) return null;
+    if (carteiraInfo.status === "Ativa") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
+        </p>
+      );
+    }
+    if (carteiraInfo.status === "Não Iniciada") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Data selecionada anterior ao início dos seus investimentos em Renda Fixa
+        </p>
+      );
+    }
+    if (carteiraInfo.status === "Encerrada") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Carteira Encerrada em {fmtDate(carteiraInfo.data_calculo)}
+        </p>
+      );
+    }
+    return null;
+  };
+
   const headers = [
     "Cód. Custódia", "Nome", "Data Início", "Categoria", "Produto",
     "Tipo Mov.", "Instituição", "Emissor", "Modalidade", "Indexador",
@@ -114,8 +164,8 @@ export default function CustodiaPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Custódia</h1>
-        <p className="text-xs text-muted-foreground">Visão de momento dos produtos em carteira</p>
+        <h1 className="text-lg font-semibold text-foreground">Renda Fixa</h1>
+        {renderCarteiraMessage()}
       </div>
 
       <div className="rounded-md border border-border overflow-x-auto">
