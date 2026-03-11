@@ -164,8 +164,8 @@ export default function CustodiaPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Custódia</h1>
-        <p className="text-xs text-muted-foreground">Visão de momento dos produtos em carteira</p>
+        <h1 className="text-lg font-semibold text-foreground">Renda Fixa</h1>
+        {renderCarteiraMessage()}
       </div>
 
       <div className="rounded-md border border-border overflow-x-auto">
