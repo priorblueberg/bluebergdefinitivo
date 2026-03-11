@@ -109,6 +109,15 @@ export function AppHeader() {
                 <CalendarIcon size={14} strokeWidth={1.5} />
               </button>
             </div>
+            <button
+              onClick={handleApply}
+              disabled={applying}
+              className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              style={{ transition: "background-color 120ms linear" }}
+            >
+              <Check size={12} strokeWidth={2} />
+              {applying ? "Aplicando..." : "Aplicar"}
+            </button>
           </div>
 
           {/* Notifications */}
