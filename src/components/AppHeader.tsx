@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
-import { format, parse, isValid } from "date-fns";
+import { format, parse, isValid, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bell, CalendarIcon, ChevronDown } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function AppHeader() {
-  const [date, setDate] = useState<Date>(new Date());
-  const [inputValue, setInputValue] = useState(format(new Date(), "dd/MM/yyyy"));
+  const { dataReferencia, setDataReferencia } = useDataReferencia();
+  const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
@@ -32,14 +33,14 @@ export function AppHeader() {
     if (raw.length === 8) {
       const parsed = parse(formatted, "dd/MM/yyyy", new Date());
       if (isValid(parsed)) {
-        setDate(parsed);
+        setDataReferencia(parsed);
       }
     }
   };
 
   const handleDateSelect = (d: Date | undefined) => {
     if (d) {
-      setDate(d);
+      setDataReferencia(d);
       setInputValue(format(d, "dd/MM/yyyy"));
     }
     setCalendarOpen(false);
@@ -104,7 +105,7 @@ export function AppHeader() {
         <div className="border-b border-border bg-card flex justify-end px-4 py-2">
           <Calendar
             mode="single"
-            selected={date}
+            selected={dataReferencia}
             onSelect={handleDateSelect}
             locale={ptBR}
             className="pointer-events-auto"
