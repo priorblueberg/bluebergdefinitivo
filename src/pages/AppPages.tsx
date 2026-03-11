@@ -54,105 +54,200 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export const CarteiraVisaoGeral = () => (
-  <div className="space-y-6">
-    <div>
-      <h1 className="text-lg font-semibold text-foreground">Carteira de Investimentos</h1>
-      <p className="mt-1 text-xs text-muted-foreground">Patrimônio analítico das suas aplicações</p>
-    </div>
+export const CarteiraVisaoGeral = () => {
+  const [carteiraInfo, setCarteiraInfo] = useState<{
+    nome_carteira: string;
+    status: string;
+    data_inicio: string | null;
+    data_calculo: string | null;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const { appliedVersion } = useDataReferencia();
+  const navigate = useNavigate();
 
-    {/* Summary Cards */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      {summaryItems.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-lg border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
-        >
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            {item.label}
-          </p>
-          <p className="mt-2 text-lg font-bold text-foreground">
-            {item.value}
-          </p>
-        </div>
-      ))}
-    </div>
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("controle_de_carteiras")
+        .select("nome_carteira, status, data_inicio, data_calculo")
+        .eq("nome_carteira", "Investimentos")
+        .maybeSingle();
 
-    {/* Chart */}
-    <div className="rounded-md border border-border bg-card p-6">
-      <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Rentabilidade Bruta e CDI, Compra e Venda CDI, Bonificação e Subscrição
-      </p>
-      <div className="mt-4 h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 88%)" />
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
-              axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
-              axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
-              tickLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              iconType="plainline"
-              wrapperStyle={{ fontSize: 11 }}
-              formatter={(value: string) => <span className="text-muted-foreground">{value}</span>}
-            />
-            <Line
-              type="monotone"
-              dataKey="investimentos"
-              name="Investimentos"
-              stroke="hsl(210, 100%, 45%)"
-              strokeWidth={2}
-              dot={{ r: 3, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+      if (data) {
+        setCarteiraInfo(data);
+        setNotFound(false);
+      } else {
+        setCarteiraInfo(null);
+        setNotFound(true);
+      }
+      setLoading(false);
+    })();
+  }, [appliedVersion]);
+
+  const fmtDate = (d: string | null) =>
+    d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted-foreground">Carregando...</p>
       </div>
-    </div>
+    );
+  }
 
-    {/* Table */}
-    <div className="rounded-md border border-border bg-card p-6">
-      <h2 className="text-sm font-semibold text-foreground">Tabela de Rentabilidade</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Informações da rentabilidade por ano e meses
-      </p>
-      <div className="mt-4 overflow-x-auto">
-        <div className="bg-muted rounded-t-md px-4 py-2 text-xs font-medium text-foreground">
-          Ano: 2025
+  if (notFound) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Carteira de Investimentos</h1>
         </div>
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-primary text-primary-foreground">
-              <th className="px-3 py-2 text-left font-medium">Rentabilidade</th>
-              {months.map((m) => (
-                <th key={m} className="px-3 py-2 text-center font-medium">{m}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tableData.map((row, i) => (
-              <tr key={row.label} className={i % 2 === 0 ? "bg-card" : "bg-muted/30"}>
-                <td className="px-3 py-2 text-foreground font-medium">{row.label}</td>
-                {row.values.map((v, j) => (
-                  <td key={j} className="px-3 py-2 text-center text-foreground">{v}</td>
-                ))}
-              </tr>
+        <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+          <p className="text-muted-foreground">Você ainda não possui investimentos cadastrados.</p>
+          <button
+            onClick={() => navigate("/cadastrar-transacao")}
+            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            Cadastrar primeira operação
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const renderStatusMessage = () => {
+    if (!carteiraInfo) return null;
+    if (carteiraInfo.status === "Ativa") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
+        </p>
+      );
+    }
+    if (carteiraInfo.status === "Não Iniciada") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Data selecionada anterior ao início dos seus investimentos
+        </p>
+      );
+    }
+    if (carteiraInfo.status === "Encerrada") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Carteira Encerrada em {fmtDate(carteiraInfo.data_calculo)}
+        </p>
+      );
+    }
+    return null;
+  };
+
+  const showContent = carteiraInfo?.status === "Ativa";
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-lg font-semibold text-foreground">Carteira de Investimentos</h1>
+        {renderStatusMessage()}
+      </div>
+
+      {showContent && (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {summaryItems.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-lg border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-lg font-bold text-foreground">
+                  {item.value}
+                </p>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+
+          {/* Chart */}
+          <div className="rounded-md border border-border bg-card p-6">
+            <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Rentabilidade Bruta e CDI, Compra e Venda CDI, Bonificação e Subscrição
+            </p>
+            <div className="mt-4 h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 88%)" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
+                    axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
+                    axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend
+                    iconType="plainline"
+                    wrapperStyle={{ fontSize: 11 }}
+                    formatter={(value: string) => <span className="text-muted-foreground">{value}</span>}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="investimentos"
+                    name="Investimentos"
+                    stroke="hsl(210, 100%, 45%)"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-md border border-border bg-card p-6">
+            <h2 className="text-sm font-semibold text-foreground">Tabela de Rentabilidade</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Informações da rentabilidade por ano e meses
+            </p>
+            <div className="mt-4 overflow-x-auto">
+              <div className="bg-muted rounded-t-md px-4 py-2 text-xs font-medium text-foreground">
+                Ano: 2025
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-primary text-primary-foreground">
+                    <th className="px-3 py-2 text-left font-medium">Rentabilidade</th>
+                    {months.map((m) => (
+                      <th key={m} className="px-3 py-2 text-center font-medium">{m}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableData.map((row, i) => (
+                    <tr key={row.label} className={i % 2 === 0 ? "bg-card" : "bg-muted/30"}>
+                      <td className="px-3 py-2 text-foreground font-medium">{row.label}</td>
+                      {row.values.map((v, j) => (
+                        <td key={j} className="px-3 py-2 text-center text-foreground">{v}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 export const CarteiraRendaFixa = () => <PageStub title="Renda Fixa" />;
 export const CarteiraRendaVariavel = () => <PageStub title="Renda Variável" />;
