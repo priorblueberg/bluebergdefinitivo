@@ -125,6 +125,32 @@ export default function CustodiaPage() {
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
+  const renderCarteiraMessage = () => {
+    if (!carteiraInfo) return null;
+    if (carteiraInfo.status === "Ativa") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
+        </p>
+      );
+    }
+    if (carteiraInfo.status === "Não Iniciada") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Data selecionada anterior ao início dos seus investimentos em Renda Fixa
+        </p>
+      );
+    }
+    if (carteiraInfo.status === "Encerrada") {
+      return (
+        <p className="text-sm text-muted-foreground mt-1">
+          Carteira Encerrada em {fmtDate(carteiraInfo.data_calculo)}
+        </p>
+      );
+    }
+    return null;
+  };
+
   const headers = [
     "Cód. Custódia", "Nome", "Data Início", "Categoria", "Produto",
     "Tipo Mov.", "Instituição", "Emissor", "Modalidade", "Indexador",
