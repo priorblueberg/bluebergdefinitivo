@@ -145,7 +145,7 @@ export const CarteiraVisaoGeral = () => {
     return null;
   };
 
-  const showContent = carteiraInfo?.status === "Ativa";
+  const showContent = carteiraInfo?.status === "Ativa" || carteiraInfo?.status === "Encerrada";
 
   return (
     <div className="space-y-6">
