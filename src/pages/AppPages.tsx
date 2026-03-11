@@ -131,7 +131,7 @@ export const CarteiraVisaoGeral = () => {
     if (carteiraInfo.status === "Não Iniciada") {
       return (
         <p className="text-sm text-muted-foreground mt-1">
-          Data selecionada anterior ao início dos seus investimentos
+          Data selecionada anterior ao início dos seus investimentos. Início em {fmtDate(carteiraInfo.data_inicio)}
         </p>
       );
     }
@@ -145,7 +145,7 @@ export const CarteiraVisaoGeral = () => {
     return null;
   };
 
-  const showContent = carteiraInfo?.status === "Ativa";
+  const showContent = carteiraInfo?.status === "Ativa" || carteiraInfo?.status === "Encerrada";
 
   return (
     <div className="space-y-6">
