@@ -111,10 +111,10 @@ async function syncControleCarteiras(categoriaId: string, userId: string) {
   }
 
   // Also sync "Investimentos" (general) record
-  await syncCarteiraGeral();
+  await syncCarteiraGeral(userId);
 }
 
-async function syncCarteiraGeral() {
+async function syncCarteiraGeral(userId: string) {
   const { data: allCustodia } = await supabase
     .from("custodia")
     .select("data_inicio, data_limite, resgate_total, data_calculo");
