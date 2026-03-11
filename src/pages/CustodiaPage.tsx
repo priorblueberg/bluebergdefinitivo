@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 
 interface CustodiaRow {
   id: string;
@@ -36,6 +37,7 @@ interface CustodiaRow {
 export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { appliedVersion } = useDataReferencia();
 
   useEffect(() => {
     (async () => {
@@ -89,7 +91,7 @@ export default function CustodiaPage() {
       }
       setLoading(false);
     })();
-  }, []);
+  }, [appliedVersion]);
 
   const fmt = (v: number | null) =>
     v != null

@@ -1,11 +1,13 @@
 import { useState, useRef } from "react";
 import { format, parse, isValid, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CalendarIcon, ChevronDown } from "lucide-react";
+import { Bell, CalendarIcon, ChevronDown, Check } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
+import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +16,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function AppHeader() {
-  const { dataReferencia, setDataReferencia } = useDataReferencia();
+  const { dataReferencia, setDataReferencia, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
+  const [applying, setApplying] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
@@ -44,6 +47,21 @@ export function AppHeader() {
       setInputValue(format(d, "dd/MM/yyyy"));
     }
     setCalendarOpen(false);
+  };
+
+  const handleApply = async () => {
+    if (!user) return;
+    setApplying(true);
+    try {
+      await recalculateAllForDataReferencia(user.id, dataReferenciaISO);
+      applyDataReferencia();
+      toast.success("Data de referência aplicada com sucesso");
+    } catch (err) {
+      console.error("Erro ao aplicar data de referência", err);
+      toast.error("Erro ao aplicar data de referência");
+    } finally {
+      setApplying(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -91,6 +109,15 @@ export function AppHeader() {
                 <CalendarIcon size={14} strokeWidth={1.5} />
               </button>
             </div>
+            <button
+              onClick={handleApply}
+              disabled={applying}
+              className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              style={{ transition: "background-color 120ms linear" }}
+            >
+              <Check size={12} strokeWidth={2} />
+              {applying ? "Aplicando..." : "Aplicar"}
+            </button>
           </div>
 
           {/* Notifications */}

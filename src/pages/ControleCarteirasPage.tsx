@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 
 interface CarteiraRow {
   id: string;
@@ -20,6 +21,7 @@ const fmtDate = (d: string | null) => {
 export default function ControleCarteirasPage() {
   const [rows, setRows] = useState<CarteiraRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { appliedVersion } = useDataReferencia();
 
   useEffect(() => {
     supabase
@@ -42,7 +44,7 @@ export default function ControleCarteirasPage() {
         }
         setLoading(false);
       });
-  }, []);
+  }, [appliedVersion]);
 
   const headers = ["Carteira", "Data Início", "Data Limite", "Resgate Total", "Data Cálculo", "Status"];
 

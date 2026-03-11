@@ -5,17 +5,26 @@ interface DataReferenciaContextType {
   dataReferencia: Date;
   setDataReferencia: (date: Date) => void;
   dataReferenciaISO: string; // yyyy-MM-dd
+  /** Incremented each time the user applies the date — use as useEffect dep */
+  appliedVersion: number;
+  /** Call to trigger global recalculation */
+  applyDataReferencia: () => void;
 }
 
 const DataReferenciaContext = createContext<DataReferenciaContextType | null>(null);
 
 export function DataReferenciaProvider({ children }: { children: ReactNode }) {
   const [dataReferencia, setDataReferencia] = useState<Date>(() => subDays(new Date(), 1));
+  const [appliedVersion, setAppliedVersion] = useState(0);
 
   const dataReferenciaISO = format(dataReferencia, "yyyy-MM-dd");
 
+  const applyDataReferencia = useCallback(() => {
+    setAppliedVersion((v) => v + 1);
+  }, []);
+
   return (
-    <DataReferenciaContext.Provider value={{ dataReferencia, setDataReferencia, dataReferenciaISO }}>
+    <DataReferenciaContext.Provider value={{ dataReferencia, setDataReferencia, dataReferenciaISO, appliedVersion, applyDataReferencia }}>
       {children}
     </DataReferenciaContext.Provider>
   );

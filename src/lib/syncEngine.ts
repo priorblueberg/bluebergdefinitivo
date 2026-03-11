@@ -352,3 +352,48 @@ export async function fullSyncAfterDelete(
   }
   await syncControleCarteiras(categoriaId, userId, dataReferencia);
 }
+
+/** Recalculate ALL custodia and controle_de_carteiras for a user based on a new data_referencia */
+export async function recalculateAllForDataReferencia(userId: string, dataReferencia: string) {
+  // 1. Recalculate all custodia records
+  const { data: allCustodia } = await supabase
+    .from("custodia")
+    .select("id, codigo_custodia, categoria_id, vencimento, data_limite, user_id, categorias(nome)")
+    .eq("user_id", userId);
+
+  if (allCustodia) {
+    for (const row of allCustodia) {
+      const categoriaNome = (row as any).categorias?.nome || "";
+      const isRendaFixa = categoriaNome === "Renda Fixa";
+
+      let resgateTotal: string | null = null;
+      if (isRendaFixa) {
+        resgateTotal = await computeResgateTotal(row.codigo_custodia, userId, row.vencimento);
+      }
+
+      const dataLimite = isRendaFixa ? row.vencimento : null;
+      const dataCalculo = computeDataCalculo(dataReferencia, resgateTotal, dataLimite);
+
+      await supabase
+        .from("custodia")
+        .update({ resgate_total: resgateTotal, data_calculo: dataCalculo, data_limite: dataLimite })
+        .eq("id", row.id);
+    }
+  }
+
+  // 2. Recalculate all controle_de_carteiras
+  const { data: allCarteiras } = await supabase
+    .from("controle_de_carteiras")
+    .select("id, categoria_id, nome_carteira")
+    .eq("user_id", userId);
+
+  if (allCarteiras) {
+    for (const carteira of allCarteiras) {
+      if (carteira.nome_carteira === "Investimentos") {
+        await syncCarteiraGeral(userId, dataReferencia);
+      } else {
+        await syncControleCarteiras(carteira.categoria_id, userId, dataReferencia);
+      }
+    }
+  }
+}
