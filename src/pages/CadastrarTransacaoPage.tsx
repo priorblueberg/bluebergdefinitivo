@@ -265,12 +265,17 @@ export default function CadastrarTransacaoPage() {
   };
 
   const handleSubmit = async () => {
+    if (!user) {
+      toast.error("Usuário não autenticado. Faça login novamente.");
+      return;
+    }
+
     // All fields required
-    if (
-      !categoriaId || !tipoMovimentacao || !produtoId || !valor || !data ||
-      !precoUnitario || !instituicaoId || !emissorId || !modalidade || !taxa ||
-      !pagamento || !vencimento
-    ) {
+    const fields = { categoriaId, tipoMovimentacao, produtoId, valor, data, precoUnitario, instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento };
+    const emptyFields = Object.entries(fields).filter(([, v]) => !v).map(([k]) => k);
+    
+    if (emptyFields.length > 0) {
+      console.log("Campos vazios:", emptyFields, fields);
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
