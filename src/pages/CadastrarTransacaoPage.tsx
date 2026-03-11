@@ -370,6 +370,7 @@ export default function CadastrarTransacaoPage() {
           pagamento,
           nome: nomeAtivo,
           categoria_id: categoriaId,
+          user_id: user?.id,
         });
 
         if (custError) {
