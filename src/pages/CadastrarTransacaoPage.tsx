@@ -65,7 +65,8 @@ async function syncControleCarteiras(categoriaId: string, userId: string) {
   const { data: custodiaRows } = await supabase
     .from("custodia")
     .select("data_inicio, data_limite, resgate_total, data_calculo")
-    .eq("categoria_id", categoriaId);
+    .eq("categoria_id", categoriaId)
+    .eq("user_id", userId);
 
   if (!custodiaRows || custodiaRows.length === 0) return;
 
