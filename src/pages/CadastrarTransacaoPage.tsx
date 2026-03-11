@@ -96,6 +96,7 @@ function buildNomeAtivo(
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
+  const { dataReferenciaISO } = useDataReferencia();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
