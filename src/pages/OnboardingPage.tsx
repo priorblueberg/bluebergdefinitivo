@@ -26,6 +26,7 @@ const OnboardingPage = () => {
     setLoading(true);
     const { error } = await supabase.from("profiles").insert({
       user_id: user.id,
+      email: user.email,
       nome_completo: nomeCompleto.trim(),
       data_nascimento: dataNascimento || null,
     });

@@ -16,31 +16,21 @@ const CadastroPage = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Check if user already exists by trying to sign in first
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: "___check___" });
-    if (signInError?.message?.toLowerCase().includes("invalid login credentials")) {
-      // Could be existing user with wrong password or new user - proceed with signup
-    } else if (!signInError) {
-      // Unlikely with dummy password, but handle
+    // Check if email already exists in profiles
+    const { data: exists } = await supabase.rpc("check_email_exists", { p_email: email });
+
+    if (exists) {
+      toast.error("Este e-mail já está cadastrado. Faça login para continuar.");
+      setLoading(false);
+      navigate("/auth");
+      return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      if (
-        error.message?.toLowerCase().includes("already registered") ||
-        error.message?.toLowerCase().includes("already been registered")
-      ) {
-        toast.error("Este e-mail já está cadastrado. Faça login para continuar.");
-        navigate("/auth");
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error.message);
     } else if (data?.user?.identities?.length === 0) {
-      // Auto-confirm enabled: Supabase returns empty identities for existing users
       toast.error("Este e-mail já está cadastrado. Faça login para continuar.");
       navigate("/auth");
     } else {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, PlusCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 interface Categoria {
@@ -55,7 +56,7 @@ function buildNomeAtivo(
     .join(" ");
 }
 
-async function syncControleCarteiras(categoriaId: string) {
+async function syncControleCarteiras(categoriaId: string, userId: string) {
   // Get categoria name
   const { data: catData } = await supabase.from("categorias").select("nome").eq("id", categoriaId).single();
   const categoriaNome = catData?.nome || "Desconhecida";
@@ -64,7 +65,8 @@ async function syncControleCarteiras(categoriaId: string) {
   const { data: custodiaRows } = await supabase
     .from("custodia")
     .select("data_inicio, data_limite, resgate_total, data_calculo")
-    .eq("categoria_id", categoriaId);
+    .eq("categoria_id", categoriaId)
+    .eq("user_id", userId);
 
   if (!custodiaRows || custodiaRows.length === 0) return;
 
@@ -84,6 +86,7 @@ async function syncControleCarteiras(categoriaId: string) {
     .from("controle_de_carteiras")
     .select("id")
     .eq("categoria_id", categoriaId)
+    .eq("user_id", userId)
     .limit(1);
 
   if (existing && existing.length > 0) {
@@ -103,17 +106,19 @@ async function syncControleCarteiras(categoriaId: string) {
       resgate_total: resgateTotal,
       data_calculo: dataCalculo,
       status,
+      user_id: userId,
     });
   }
 
   // Also sync "Investimentos" (general) record
-  await syncCarteiraGeral();
+  await syncCarteiraGeral(userId);
 }
 
-async function syncCarteiraGeral() {
+async function syncCarteiraGeral(userId: string) {
   const { data: allCustodia } = await supabase
     .from("custodia")
-    .select("data_inicio, data_limite, resgate_total, data_calculo");
+    .select("data_inicio, data_limite, resgate_total, data_calculo")
+    .eq("user_id", userId);
 
   if (!allCustodia || allCustodia.length === 0) return;
 
@@ -134,6 +139,7 @@ async function syncCarteiraGeral() {
     .from("controle_de_carteiras")
     .select("id")
     .eq("nome_carteira", "Investimentos")
+    .eq("user_id", userId)
     .limit(1);
 
   // We need a valid categoria_id for FK — get the first one
@@ -158,11 +164,13 @@ async function syncCarteiraGeral() {
       resgate_total: resgateTotal,
       data_calculo: dataCalculo,
       status,
+      user_id: userId,
     });
   }
 }
 
 export default function CadastrarTransacaoPage() {
+  const { user } = useAuth();
   // lookup data
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -338,6 +346,7 @@ export default function CadastrarTransacaoPage() {
         indexador: null,
         quantidade,
         valor_extrato: valorExtrato,
+        user_id: user?.id,
       });
 
       if (error) throw error;
@@ -361,6 +370,7 @@ export default function CadastrarTransacaoPage() {
           pagamento,
           nome: nomeAtivo,
           categoria_id: categoriaId,
+          user_id: user?.id,
         });
 
         if (custError) {
@@ -368,7 +378,7 @@ export default function CadastrarTransacaoPage() {
         }
 
         // Update controle_de_carteiras
-        await syncControleCarteiras(categoriaId);
+        await syncControleCarteiras(categoriaId, user!.id);
       }
 
       toast.success("Transação cadastrada com sucesso!");
