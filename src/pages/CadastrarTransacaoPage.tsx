@@ -139,6 +139,7 @@ async function syncCarteiraGeral(userId: string) {
     .from("controle_de_carteiras")
     .select("id")
     .eq("nome_carteira", "Investimentos")
+    .eq("user_id", userId)
     .limit(1);
 
   // We need a valid categoria_id for FK — get the first one
