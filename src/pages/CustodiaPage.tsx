@@ -37,6 +37,7 @@ interface CustodiaRow {
 export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { appliedVersion } = useDataReferencia();
 
   useEffect(() => {
     (async () => {
