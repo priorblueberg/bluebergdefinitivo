@@ -86,6 +86,7 @@ async function syncControleCarteiras(categoriaId: string, userId: string) {
     .from("controle_de_carteiras")
     .select("id")
     .eq("categoria_id", categoriaId)
+    .eq("user_id", userId)
     .limit(1);
 
   if (existing && existing.length > 0) {
