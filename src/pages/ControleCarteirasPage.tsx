@@ -21,7 +21,7 @@ const fmtDate = (d: string | null) => {
 export default function ControleCarteirasPage() {
   const [rows, setRows] = useState<CarteiraRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const { appliedVersion } = useDataReferencia();
+  const { appliedVersion, dataReferencia } = useDataReferencia();
 
   useEffect(() => {
     supabase
@@ -50,9 +50,15 @@ export default function ControleCarteirasPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">Controle de Carteiras</h1>
-        <p className="text-xs text-muted-foreground">Visão das carteiras ativas do usuário</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Controle de Carteiras</h1>
+          <p className="text-xs text-muted-foreground">Visão das carteiras ativas do usuário</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">Data de Referência</p>
+          <p className="text-sm font-medium text-foreground">{dataReferencia.toLocaleDateString("pt-BR")}</p>
+        </div>
       </div>
 
       <div className="rounded-md border border-border overflow-x-auto">
