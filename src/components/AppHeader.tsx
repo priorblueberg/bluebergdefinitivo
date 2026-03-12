@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function AppHeader() {
-  const { dataReferencia, setDataReferencia, applyDataReferencia } = useDataReferencia();
+  const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
