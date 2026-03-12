@@ -45,18 +45,27 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-function buildCdiSeries(cdiRecords: CdiRecord[]): ChartPoint[] {
+function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string): ChartPoint[] {
   if (cdiRecords.length === 0) return [];
 
-  const points: ChartPoint[] = [];
+  // Insert a synthetic "day before" point where fator = 1 (CDI = 0%)
+  const dtInicio = new Date(dataInicio + "T00:00:00");
+  const dtAnterior = new Date(dtInicio);
+  dtAnterior.setDate(dtAnterior.getDate() - 1);
+  const anteriorISO = dtAnterior.toISOString().slice(0, 10);
+
+  const points: ChartPoint[] = [
+    {
+      data: anteriorISO,
+      label: dtAnterior.toLocaleDateString("pt-BR"),
+      cdi_acumulado: 0,
+    },
+  ];
+
   let fatorAcumulado = 1;
 
-  for (let i = 0; i < cdiRecords.length; i++) {
-    const rec = cdiRecords[i];
-
-    if (i === 0) {
-      fatorAcumulado = 1;
-    } else if (rec.dia_util) {
+  for (const rec of cdiRecords) {
+    if (rec.dia_util) {
       const fatorDiario = Math.pow(rec.taxa_anual / 100 + 1, 1 / 252) - 1;
       fatorAcumulado = fatorAcumulado * (1 + fatorDiario);
     }
