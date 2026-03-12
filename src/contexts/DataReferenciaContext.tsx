@@ -9,6 +9,9 @@ interface DataReferenciaContextType {
   appliedVersion: number;
   /** Call to trigger global recalculation */
   applyDataReferencia: () => void;
+  /** True while the sync engine is recalculating */
+  isRecalculating: boolean;
+  setIsRecalculating: (v: boolean) => void;
 }
 
 const DataReferenciaContext = createContext<DataReferenciaContextType | null>(null);
