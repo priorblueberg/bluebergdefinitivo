@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
-import { format, parse, isValid, subDays } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CalendarIcon, ChevronDown, Check } from "lucide-react";
+import { Bell, CalendarIcon, ChevronDown } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -16,13 +16,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function AppHeader() {
-  const { dataReferencia, setDataReferencia, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
+  const { dataReferencia, setDataReferencia, applyDataReferencia } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
-  const [applying, setApplying] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const applyDate = async (date: Date) => {
+    if (!user) return;
+    setDataReferencia(date);
+    setInputValue(format(date, "dd/MM/yyyy"));
+    try {
+      await recalculateAllForDataReferencia(user.id, format(date, "yyyy-MM-dd"));
+      applyDataReferencia();
+      toast.success("Data de referência aplicada com sucesso");
+    } catch (err) {
+      console.error("Erro ao aplicar data de referência", err);
+      toast.error("Erro ao aplicar data de referência");
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
@@ -41,27 +54,26 @@ export function AppHeader() {
     }
   };
 
-  const handleDateSelect = (d: Date | undefined) => {
-    if (d) {
-      setDataReferencia(d);
-      setInputValue(format(d, "dd/MM/yyyy"));
+  const commitInput = () => {
+    const parsed = parse(inputValue, "dd/MM/yyyy", new Date());
+    if (isValid(parsed)) {
+      applyDate(parsed);
     }
-    setCalendarOpen(false);
   };
 
-  const handleApply = async () => {
-    if (!user) return;
-    setApplying(true);
-    try {
-      await recalculateAllForDataReferencia(user.id, dataReferenciaISO);
-      applyDataReferencia();
-      toast.success("Data de referência aplicada com sucesso");
-    } catch (err) {
-      console.error("Erro ao aplicar data de referência", err);
-      toast.error("Erro ao aplicar data de referência");
-    } finally {
-      setApplying(false);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      inputRef.current?.blur();
+      commitInput();
     }
+  };
+
+  const handleDateSelect = (d: Date | undefined) => {
+    if (d) {
+      applyDate(d);
+    }
+    setCalendarOpen(false);
   };
 
   const handleLogout = async () => {
@@ -72,7 +84,6 @@ export function AppHeader() {
   return (
     <div className="relative">
       <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
-        {/* User email dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground outline-none" style={{ transition: "color 120ms linear" }}>
             <span className="truncate max-w-[220px]">{user?.email}</span>
@@ -89,7 +100,6 @@ export function AppHeader() {
         </DropdownMenu>
 
         <div className="flex items-center gap-4">
-          {/* Date block */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground">Posição em:</span>
             <div className="flex items-center gap-1 rounded-md border border-border px-2 py-1 bg-background">
@@ -98,6 +108,8 @@ export function AppHeader() {
                 type="text"
                 value={inputValue}
                 onChange={handleInputChange}
+                onBlur={commitInput}
+                onKeyDown={handleKeyDown}
                 className="w-[80px] bg-transparent text-foreground text-xs outline-none"
                 placeholder="dd/mm/aaaa"
               />
@@ -109,18 +121,8 @@ export function AppHeader() {
                 <CalendarIcon size={14} strokeWidth={1.5} />
               </button>
             </div>
-            <button
-              onClick={handleApply}
-              disabled={applying}
-              className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              style={{ transition: "background-color 120ms linear" }}
-            >
-              <Check size={12} strokeWidth={2} />
-              {applying ? "Aplicando..." : "Aplicar"}
-            </button>
           </div>
 
-          {/* Notifications */}
           <button className="relative text-muted-foreground hover:text-primary" style={{ transition: "color 120ms linear" }}>
             <Bell size={18} strokeWidth={1.5} />
             <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
