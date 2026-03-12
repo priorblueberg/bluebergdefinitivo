@@ -27,6 +27,7 @@ export function AppHeader() {
     if (!user) return;
     setDataReferencia(date);
     setInputValue(format(date, "dd/MM/yyyy"));
+    setIsRecalculating(true);
     try {
       await recalculateAllForDataReferencia(user.id, format(date, "yyyy-MM-dd"));
       applyDataReferencia();
@@ -34,6 +35,8 @@ export function AppHeader() {
     } catch (err) {
       console.error("Erro ao aplicar data de referência", err);
       toast.error("Erro ao aplicar data de referência");
+    } finally {
+      setIsRecalculating(false);
     }
   };
 
