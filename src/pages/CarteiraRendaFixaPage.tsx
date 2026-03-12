@@ -129,7 +129,7 @@ export default function CarteiraRendaFixaPage() {
     })();
   }, [appliedVersion]);
 
-  const chartData = useMemo(() => buildCdiSeries(cdiRecords), [cdiRecords]);
+  const chartData = useMemo(() => buildCdiSeries(cdiRecords, carteiraInfo?.data_inicio ?? ""), [cdiRecords, carteiraInfo?.data_inicio]);
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
