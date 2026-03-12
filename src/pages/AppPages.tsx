@@ -252,7 +252,7 @@ export const CarteiraVisaoGeral = () => {
   );
 };
 
-export const CarteiraRendaFixa = () => <PageStub title="Renda Fixa" />;
+export { default as CarteiraRendaFixa } from "./CarteiraRendaFixaPage";
 export const CarteiraRendaVariavel = () => <PageStub title="Renda Variável" />;
 export const CarteiraFundos = () => <PageStub title="Fundos de Investimentos" />;
 export const CarteiraTesouroDireto = () => <PageStub title="Tesouro Direto" />;
