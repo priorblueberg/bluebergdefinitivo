@@ -7,7 +7,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import {
   CarteiraVisaoGeral,
-  CarteiraRendaFixa,
   CarteiraRendaVariavel,
   CarteiraFundos,
   CarteiraTesouroDireto,
@@ -21,6 +20,7 @@ import {
   Custodia,
   ControleCarteiras,
 } from "@/pages/AppPages";
+import CarteiraRendaFixa from "@/pages/CarteiraRendaFixaPage";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
