@@ -19,6 +19,7 @@ const DataReferenciaContext = createContext<DataReferenciaContextType | null>(nu
 export function DataReferenciaProvider({ children }: { children: ReactNode }) {
   const [dataReferencia, setDataReferencia] = useState<Date>(() => subDays(new Date(), 1));
   const [appliedVersion, setAppliedVersion] = useState(0);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const dataReferenciaISO = format(dataReferencia, "yyyy-MM-dd");
 
@@ -27,7 +28,7 @@ export function DataReferenciaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <DataReferenciaContext.Provider value={{ dataReferencia, setDataReferencia, dataReferenciaISO, appliedVersion, applyDataReferencia }}>
+    <DataReferenciaContext.Provider value={{ dataReferencia, setDataReferencia, dataReferenciaISO, appliedVersion, applyDataReferencia, isRecalculating, setIsRecalculating }}>
       {children}
     </DataReferenciaContext.Provider>
   );
