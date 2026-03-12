@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function AppHeader() {
-  const { dataReferencia, setDataReferencia, applyDataReferencia } = useDataReferencia();
+  const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,6 +27,7 @@ export function AppHeader() {
     if (!user) return;
     setDataReferencia(date);
     setInputValue(format(date, "dd/MM/yyyy"));
+    setIsRecalculating(true);
     try {
       await recalculateAllForDataReferencia(user.id, format(date, "yyyy-MM-dd"));
       applyDataReferencia();
@@ -34,6 +35,8 @@ export function AppHeader() {
     } catch (err) {
       console.error("Erro ao aplicar data de referência", err);
       toast.error("Erro ao aplicar data de referência");
+    } finally {
+      setIsRecalculating(false);
     }
   };
 

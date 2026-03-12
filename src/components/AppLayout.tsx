@@ -4,6 +4,7 @@ import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { SubTabs } from "./SubTabs";
 import { DataReferenciaProvider } from "@/contexts/DataReferenciaContext";
+import { RecalculatingOverlay } from "./RecalculatingOverlay";
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -23,7 +24,8 @@ export function AppLayout() {
         >
           <AppHeader />
           {isCarteira && <SubTabs />}
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="relative flex-1 overflow-y-auto p-6">
+            <RecalculatingOverlay />
             <Outlet />
           </main>
         </div>
