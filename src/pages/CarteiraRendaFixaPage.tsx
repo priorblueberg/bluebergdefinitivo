@@ -2,12 +2,15 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface CarteiraInfo {
   nome_carteira: string;
@@ -28,11 +31,18 @@ interface ChartPoint {
   cdi_acumulado: number;
 }
 
-const chartConfig: ChartConfig = {
-  cdi_acumulado: {
-    label: "CDI Acumulado (%)",
-    color: "hsl(var(--primary))",
-  },
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload?.length) {
+    return (
+      <div className="rounded-md border border-border bg-card px-3 py-2 text-xs shadow-sm">
+        <p className="text-foreground">{label}</p>
+        <p className="text-primary font-semibold">
+          CDI Acumulado: {Number(payload[0].value).toFixed(2)}%
+        </p>
+      </div>
+    );
+  }
+  return null;
 };
 
 function buildCdiSeries(cdiRecords: CdiRecord[]): ChartPoint[] {
@@ -50,7 +60,6 @@ function buildCdiSeries(cdiRecords: CdiRecord[]): ChartPoint[] {
       const fatorDiario = Math.pow(rec.taxa_anual / 100 + 1, 1 / 252) - 1;
       fatorAcumulado = fatorAcumulado * (1 + fatorDiario);
     }
-    // dias não úteis: fatorAcumulado permanece o mesmo
 
     const cdiAcumulado = (fatorAcumulado - 1) * 100;
 
@@ -99,12 +108,14 @@ export default function CarteiraRendaFixaPage() {
           if (cdiData) {
             setCdiRecords(cdiData as CdiRecord[]);
           }
+        } else {
+          setCdiRecords([]);
         }
       } else {
         setCarteiraInfo(null);
+        setCdiRecords([]);
       }
 
-      setCdiRecords((prev) => (carteiraData?.status === "Não Iniciada" ? [] : prev));
       setLoading(false);
     })();
   }, [appliedVersion]);
@@ -140,7 +151,8 @@ export default function CarteiraRendaFixaPage() {
     return null;
   };
 
-  // Reduce tick count for readability
+  const showContent = carteiraInfo?.status === "Ativa" || carteiraInfo?.status === "Encerrada";
+
   const tickInterval = chartData.length > 60 ? Math.floor(chartData.length / 12) : undefined;
 
   return (
@@ -151,49 +163,54 @@ export default function CarteiraRendaFixaPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-muted-foreground">
-          Carregando...
+        <div className="flex items-center justify-center py-20">
+          <p className="text-muted-foreground">Carregando...</p>
         </div>
-      ) : chartData.length === 0 ? (
+      ) : !showContent ? (
         <div className="rounded-md border border-border p-8 text-center text-muted-foreground">
           Nenhum dado disponível para o período selecionado.
         </div>
       ) : (
-        <div className="rounded-md border border-border p-4 bg-card">
-          <h2 className="text-sm font-medium text-foreground mb-4">CDI Acumulado (%)</h2>
-          <ChartContainer config={chartConfig} className="aspect-[2.5/1] w-full">
-            <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 10 }}
-                interval={tickInterval}
-                className="fill-muted-foreground"
-              />
-              <YAxis
-                tick={{ fontSize: 10 }}
-                tickFormatter={(v) => `${v.toFixed(1)}%`}
-                className="fill-muted-foreground"
-                width={55}
-              />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    formatter={(value) => [`${Number(value).toFixed(4)}%`, "CDI Acumulado"]}
-                    labelKey="data"
-                  />
-                }
-              />
-              <Line
-                type="monotone"
-                dataKey="cdi_acumulado"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                dot={false}
-                name="CDI Acumulado"
-              />
-            </LineChart>
-          </ChartContainer>
+        <div className="rounded-md border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            CDI Acumulado no período
+          </p>
+          <div className="mt-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 88%)" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
+                  axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
+                  tickLine={false}
+                  interval={tickInterval}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
+                  axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
+                  tickLine={false}
+                  tickFormatter={(v) => `${v.toFixed(1)}%`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend
+                  iconType="plainline"
+                  wrapperStyle={{ fontSize: 11 }}
+                  formatter={(value: string) => <span className="text-muted-foreground">{value}</span>}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="cdi_acumulado"
+                  name="CDI Acumulado"
+                  stroke="hsl(210, 100%, 45%)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 5, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
     </div>
