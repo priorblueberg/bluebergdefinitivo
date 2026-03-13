@@ -51,6 +51,8 @@ function AppLayoutInner() {
           </main>
         </div>
       </div>
+    </div>
+  );
 }
 
 export function AppLayout() {
