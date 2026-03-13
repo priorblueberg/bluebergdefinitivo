@@ -73,9 +73,16 @@ export function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string, data
 
 export function buildRentabilidadeRows(
   cdiRecords: CdiRecord[],
-  dataInicio: string
+  dataInicio: string,
+  dataCalculo?: string
 ): RentabilidadeRow[] {
   if (cdiRecords.length === 0) return [];
+
+  const filtered = dataCalculo
+    ? cdiRecords.filter(r => r.data <= dataCalculo)
+    : cdiRecords;
+
+  if (filtered.length === 0) return [];
 
   let fatorAcumulado = 1;
   let fatorMensal = 1;
