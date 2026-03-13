@@ -32,8 +32,14 @@ function calcFatorDiario(taxaAnual: number): number {
   return Math.pow(taxaAnual / 100 + 1, 1 / 252) - 1;
 }
 
-export function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string): ChartPoint[] {
+export function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string, dataCalculo?: string): ChartPoint[] {
   if (cdiRecords.length === 0) return [];
+
+  const filtered = dataCalculo
+    ? cdiRecords.filter(r => r.data <= dataCalculo)
+    : cdiRecords;
+
+  if (filtered.length === 0) return [];
 
   const dtInicio = new Date(dataInicio + "T00:00:00");
   const dtAnterior = new Date(dtInicio);
@@ -50,7 +56,7 @@ export function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string): Cha
 
   let fatorAcumulado = 1;
 
-  for (const rec of cdiRecords) {
+  for (const rec of filtered) {
     if (rec.dia_util) {
       fatorAcumulado *= 1 + calcFatorDiario(rec.taxa_anual);
     }
@@ -67,9 +73,16 @@ export function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string): Cha
 
 export function buildRentabilidadeRows(
   cdiRecords: CdiRecord[],
-  dataInicio: string
+  dataInicio: string,
+  dataCalculo?: string
 ): RentabilidadeRow[] {
   if (cdiRecords.length === 0) return [];
+
+  const filtered = dataCalculo
+    ? cdiRecords.filter(r => r.data <= dataCalculo)
+    : cdiRecords;
+
+  if (filtered.length === 0) return [];
 
   let fatorAcumulado = 1;
   let fatorMensal = 1;
@@ -86,7 +99,7 @@ export function buildRentabilidadeRows(
   const inicioMonth = inicioDate.getMonth();
   const inicioYear = inicioDate.getFullYear();
 
-  for (const rec of cdiRecords) {
+  for (const rec of filtered) {
     const dt = new Date(rec.data + "T00:00:00");
     const m = dt.getMonth();
     const y = dt.getFullYear();
