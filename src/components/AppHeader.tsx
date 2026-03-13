@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
-import { format, parse, isValid } from "date-fns";
+import { format, parse, isValid, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CalendarIcon, ChevronDown } from "lucide-react";
+import { Bell, CalendarIcon, ChevronDown, RotateCcw } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
