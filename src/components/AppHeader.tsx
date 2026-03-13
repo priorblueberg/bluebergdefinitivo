@@ -124,6 +124,15 @@ export function AppHeader() {
                 <CalendarIcon size={14} strokeWidth={1.5} />
               </button>
             </div>
+            <button
+              onClick={() => applyDate(subDays(new Date(), 1))}
+              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-primary hover:border-primary bg-background"
+              style={{ transition: "all 120ms linear" }}
+              title="Desde o início (data padrão)"
+            >
+              <RotateCcw size={12} strokeWidth={1.5} />
+              <span>Desde o início</span>
+            </button>
           </div>
 
           <button className="relative text-muted-foreground hover:text-primary" style={{ transition: "color 120ms linear" }}>

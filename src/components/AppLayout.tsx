@@ -51,6 +51,12 @@ function AppLayoutInner() {
           </main>
         </div>
       </div>
+}
+
+export function AppLayout() {
+  return (
+    <DataReferenciaProvider>
+      <AppLayoutInner />
     </DataReferenciaProvider>
   );
 }
