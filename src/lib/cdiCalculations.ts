@@ -99,7 +99,7 @@ export function buildRentabilidadeRows(
   const inicioMonth = inicioDate.getMonth();
   const inicioYear = inicioDate.getFullYear();
 
-  for (const rec of cdiRecords) {
+  for (const rec of filtered) {
     const dt = new Date(rec.data + "T00:00:00");
     const m = dt.getMonth();
     const y = dt.getFullYear();

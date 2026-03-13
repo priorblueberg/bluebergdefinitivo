@@ -91,13 +91,13 @@ export default function CarteiraRendaFixaPage() {
   }, [appliedVersion]);
 
   const chartData = useMemo(
-    () => buildCdiSeries(cdiRecords, carteiraInfo?.data_inicio ?? ""),
-    [cdiRecords, carteiraInfo?.data_inicio]
+    () => buildCdiSeries(cdiRecords, carteiraInfo?.data_inicio ?? "", carteiraInfo?.data_calculo ?? undefined),
+    [cdiRecords, carteiraInfo?.data_inicio, carteiraInfo?.data_calculo]
   );
 
   const rentabilidadeRows = useMemo(
-    () => buildRentabilidadeRows(cdiRecords, carteiraInfo?.data_inicio ?? ""),
-    [cdiRecords, carteiraInfo?.data_inicio]
+    () => buildRentabilidadeRows(cdiRecords, carteiraInfo?.data_inicio ?? "", carteiraInfo?.data_calculo ?? undefined),
+    [cdiRecords, carteiraInfo?.data_inicio, carteiraInfo?.data_calculo]
   );
 
   const fmtDate = (d: string | null) =>
