@@ -264,6 +264,21 @@ export type Database = {
         }
         Relationships: []
       }
+      historico_ibovespa: {
+        Row: {
+          data: string
+          pontos: number
+        }
+        Insert: {
+          data: string
+          pontos: number
+        }
+        Update: {
+          data?: string
+          pontos?: number
+        }
+        Relationships: []
+      }
       instituicoes: {
         Row: {
           ativa: boolean
