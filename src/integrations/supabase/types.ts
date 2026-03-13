@@ -252,17 +252,14 @@ export type Database = {
       historico_cdi: {
         Row: {
           data: string
-          dia_util: boolean
           taxa_anual: number
         }
         Insert: {
           data: string
-          dia_util?: boolean
           taxa_anual: number
         }
         Update: {
           data?: string
-          dia_util?: boolean
           taxa_anual?: number
         }
         Relationships: []
