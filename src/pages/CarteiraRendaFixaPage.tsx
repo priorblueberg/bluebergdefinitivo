@@ -2,15 +2,10 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import { buildCdiSeries, buildRentabilidadeRows, CdiRecord } from "@/lib/cdiCalculations";
+import RentabilidadeTable from "@/components/RentabilidadeTable";
 
 interface CarteiraInfo {
   nome_carteira: string;
@@ -19,27 +14,8 @@ interface CarteiraInfo {
   data_calculo: string | null;
 }
 
-interface CdiRecord {
-  data: string;
-  taxa_anual: number;
-  dia_util: boolean;
-}
-
-interface CdiRaw {
-  data: string;
-  taxa_anual: number;
-}
-
-interface DiaUtil {
-  data: string;
-  dia_util: boolean;
-}
-
-interface ChartPoint {
-  data: string;
-  label: string;
-  cdi_acumulado: number;
-}
+interface CdiRaw { data: string; taxa_anual: number; }
+interface DiaUtil { data: string; dia_util: boolean; }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
@@ -54,43 +30,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   }
   return null;
 };
-
-function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string): ChartPoint[] {
-  if (cdiRecords.length === 0) return [];
-
-  // Insert a synthetic "day before" point where fator = 1 (CDI = 0%)
-  const dtInicio = new Date(dataInicio + "T00:00:00");
-  const dtAnterior = new Date(dtInicio);
-  dtAnterior.setDate(dtAnterior.getDate() - 1);
-  const anteriorISO = dtAnterior.toISOString().slice(0, 10);
-
-  const points: ChartPoint[] = [
-    {
-      data: anteriorISO,
-      label: dtAnterior.toLocaleDateString("pt-BR"),
-      cdi_acumulado: 0,
-    },
-  ];
-
-  let fatorAcumulado = 1;
-
-  for (const rec of cdiRecords) {
-    if (rec.dia_util) {
-      const fatorDiario = Math.pow(rec.taxa_anual / 100 + 1, 1 / 252) - 1;
-      fatorAcumulado = fatorAcumulado * (1 + fatorDiario);
-    }
-
-    const cdiAcumulado = (fatorAcumulado - 1) * 100;
-
-    points.push({
-      data: rec.data,
-      label: new Date(rec.data + "T00:00:00").toLocaleDateString("pt-BR"),
-      cdi_acumulado: parseFloat(cdiAcumulado.toFixed(4)),
-    });
-  }
-
-  return points;
-}
 
 export default function CarteiraRendaFixaPage() {
   const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
@@ -151,7 +90,15 @@ export default function CarteiraRendaFixaPage() {
     })();
   }, [appliedVersion]);
 
-  const chartData = useMemo(() => buildCdiSeries(cdiRecords, carteiraInfo?.data_inicio ?? ""), [cdiRecords, carteiraInfo?.data_inicio]);
+  const chartData = useMemo(
+    () => buildCdiSeries(cdiRecords, carteiraInfo?.data_inicio ?? ""),
+    [cdiRecords, carteiraInfo?.data_inicio]
+  );
+
+  const rentabilidadeRows = useMemo(
+    () => buildRentabilidadeRows(cdiRecords, carteiraInfo?.data_inicio ?? ""),
+    [cdiRecords, carteiraInfo?.data_inicio]
+  );
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
@@ -183,7 +130,6 @@ export default function CarteiraRendaFixaPage() {
   };
 
   const showContent = carteiraInfo?.status === "Ativa" || carteiraInfo?.status === "Encerrada";
-
   const tickInterval = chartData.length > 60 ? Math.floor(chartData.length / 12) : undefined;
 
   return (
@@ -202,47 +148,49 @@ export default function CarteiraRendaFixaPage() {
           Nenhum dado disponível para o período selecionado.
         </div>
       ) : (
-        <div className="rounded-md border border-border bg-card p-6">
-          <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            CDI Acumulado no período
-          </p>
-          <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 88%)" />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
-                  axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
-                  tickLine={false}
-                  interval={tickInterval}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
-                  axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
-                  tickLine={false}
-                  tickFormatter={(v) => `${v.toFixed(1)}%`}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend
-                  iconType="plainline"
-                  wrapperStyle={{ fontSize: 11 }}
-                  formatter={(value: string) => <span className="text-muted-foreground">{value}</span>}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="cdi_acumulado"
-                  name="CDI Acumulado"
-                  stroke="hsl(210, 100%, 45%)"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 5, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+        <>
+          <div className="rounded-md border border-border bg-card p-6">
+            <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
+            <p className="mt-1 text-xs text-muted-foreground">CDI Acumulado no período</p>
+            <div className="mt-4 h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 88%)" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
+                    axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
+                    tickLine={false}
+                    interval={tickInterval}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
+                    axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
+                    tickLine={false}
+                    tickFormatter={(v) => `${v.toFixed(1)}%`}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend
+                    iconType="plainline"
+                    wrapperStyle={{ fontSize: 11 }}
+                    formatter={(value: string) => <span className="text-muted-foreground">{value}</span>}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cdi_acumulado"
+                    name="CDI Acumulado"
+                    stroke="hsl(210, 100%, 45%)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 5, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
+
+          <RentabilidadeTable rows={rentabilidadeRows} />
+        </>
       )}
     </div>
   );
