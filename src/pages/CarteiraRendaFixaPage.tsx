@@ -25,6 +25,16 @@ interface CdiRecord {
   dia_util: boolean;
 }
 
+interface CdiRaw {
+  data: string;
+  taxa_anual: number;
+}
+
+interface DiaUtil {
+  data: string;
+  dia_util: boolean;
+}
+
 interface ChartPoint {
   data: string;
   label: string;
@@ -107,15 +117,27 @@ export default function CarteiraRendaFixaPage() {
         });
 
         if (carteiraData.data_inicio && carteiraData.data_calculo && carteiraData.status !== "Não Iniciada") {
-          const { data: cdiData } = await supabase
-            .from("historico_cdi")
-            .select("data, taxa_anual, dia_util")
-            .gte("data", carteiraData.data_inicio)
-            .lte("data", carteiraData.data_calculo)
-            .order("data", { ascending: true });
+          const [{ data: cdiData }, { data: calData }] = await Promise.all([
+            supabase
+              .from("historico_cdi")
+              .select("data, taxa_anual")
+              .gte("data", carteiraData.data_inicio)
+              .lte("data", carteiraData.data_calculo)
+              .order("data", { ascending: true }),
+            supabase
+              .from("calendario_dias_uteis")
+              .select("data, dia_util")
+              .gte("data", carteiraData.data_inicio)
+              .lte("data", carteiraData.data_calculo),
+          ]);
 
-          if (cdiData) {
-            setCdiRecords(cdiData as CdiRecord[]);
+          if (cdiData && calData) {
+            const calMap = new Map((calData as DiaUtil[]).map(d => [d.data, d.dia_util]));
+            const merged: CdiRecord[] = (cdiData as CdiRaw[]).map(r => ({
+              ...r,
+              dia_util: calMap.get(r.data) ?? false,
+            }));
+            setCdiRecords(merged);
           }
         } else {
           setCdiRecords([]);
