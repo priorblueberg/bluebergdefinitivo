@@ -32,8 +32,14 @@ function calcFatorDiario(taxaAnual: number): number {
   return Math.pow(taxaAnual / 100 + 1, 1 / 252) - 1;
 }
 
-export function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string): ChartPoint[] {
+export function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string, dataCalculo?: string): ChartPoint[] {
   if (cdiRecords.length === 0) return [];
+
+  const filtered = dataCalculo
+    ? cdiRecords.filter(r => r.data <= dataCalculo)
+    : cdiRecords;
+
+  if (filtered.length === 0) return [];
 
   const dtInicio = new Date(dataInicio + "T00:00:00");
   const dtAnterior = new Date(dtInicio);
@@ -50,7 +56,7 @@ export function buildCdiSeries(cdiRecords: CdiRecord[], dataInicio: string): Cha
 
   let fatorAcumulado = 1;
 
-  for (const rec of cdiRecords) {
+  for (const rec of filtered) {
     if (rec.dia_util) {
       fatorAcumulado *= 1 + calcFatorDiario(rec.taxa_anual);
     }
