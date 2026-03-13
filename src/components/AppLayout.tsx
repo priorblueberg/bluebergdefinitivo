@@ -35,21 +35,20 @@ function AppLayoutInner() {
 
   return (
     <div className="flex min-h-screen w-full">
-        <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-        <div
-          className="flex flex-1 flex-col min-h-screen"
-          style={{
-            marginLeft: collapsed ? 56 : 220,
-            transition: "margin-left 120ms linear",
-          }}
-        >
-          <AppHeader />
-          {isCarteira && <SubTabs />}
-          <main className="relative flex-1 overflow-y-auto p-6">
-            <RecalculatingOverlay />
-            <Outlet />
-          </main>
-        </div>
+      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      <div
+        className="flex flex-1 flex-col min-h-screen"
+        style={{
+          marginLeft: collapsed ? 56 : 220,
+          transition: "margin-left 120ms linear",
+        }}
+      >
+        <AppHeader />
+        {isCarteira && <SubTabs />}
+        <main className="relative flex-1 overflow-y-auto p-6">
+          <RecalculatingOverlay />
+          <Outlet />
+        </main>
       </div>
     </div>
   );
