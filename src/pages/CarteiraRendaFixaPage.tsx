@@ -25,6 +25,16 @@ interface CdiRecord {
   dia_util: boolean;
 }
 
+interface CdiRaw {
+  data: string;
+  taxa_anual: number;
+}
+
+interface DiaUtil {
+  data: string;
+  dia_util: boolean;
+}
+
 interface ChartPoint {
   data: string;
   label: string;
