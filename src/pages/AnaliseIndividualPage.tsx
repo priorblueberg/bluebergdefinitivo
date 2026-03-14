@@ -19,6 +19,7 @@ interface CustodiaProduct {
   taxa: number | null;
   indexador: string | null;
   vencimento: string | null;
+  modalidade: string | null;
   categoria_nome: string;
   produto_nome: string;
   instituicao_nome: string;
