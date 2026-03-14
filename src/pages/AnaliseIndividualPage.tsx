@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Search, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
-import { buildCdiSeries, buildRentabilidadeRows, CdiRecord } from "@/lib/cdiCalculations";
+import { buildCdiSeries, buildRentabilidadeRows, CdiRecord, DiaUtilRecord, buildPrefixadoSeries, buildPrefixadoRentabilidadeRows } from "@/lib/cdiCalculations";
 import RentabilidadeTable from "@/components/RentabilidadeTable";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -19,6 +19,7 @@ interface CustodiaProduct {
   taxa: number | null;
   indexador: string | null;
   vencimento: string | null;
+  modalidade: string | null;
   categoria_nome: string;
   produto_nome: string;
   instituicao_nome: string;
@@ -46,49 +47,72 @@ const CustomTooltipChart = ({ active, payload, label }: any) => {
 function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
   const { appliedVersion } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
+  const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isPrefixado = product.categoria_nome === "Renda Fixa" && product.modalidade === "Prefixado";
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       const endDate = product.data_calculo || "2099-12-31";
 
-      const [cdiRes, diasRes] = await Promise.all([
-        supabase
-          .from("historico_cdi")
-          .select("data, taxa_anual")
-          .gte("data", product.data_inicio)
-          .lte("data", endDate)
-          .order("data"),
-        supabase
+      if (isPrefixado) {
+        // Prefixado only needs business day calendar
+        const diasRes = await supabase
           .from("calendario_dias_uteis")
           .select("data, dia_util")
           .gte("data", product.data_inicio)
           .lte("data", endDate)
-          .order("data"),
-      ]);
+          .order("data");
 
-      const diasMap = new Map<string, boolean>();
-      (diasRes.data || []).forEach((d: any) => diasMap.set(d.data, d.dia_util));
+        setDiasUteis((diasRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util })));
+        setCdiRecords([]);
+      } else {
+        const [cdiRes, diasRes] = await Promise.all([
+          supabase
+            .from("historico_cdi")
+            .select("data, taxa_anual")
+            .gte("data", product.data_inicio)
+            .lte("data", endDate)
+            .order("data"),
+          supabase
+            .from("calendario_dias_uteis")
+            .select("data, dia_util")
+            .gte("data", product.data_inicio)
+            .lte("data", endDate)
+            .order("data"),
+        ]);
 
-      const merged: CdiRecord[] = (cdiRes.data || []).map((r: any) => ({
-        data: r.data,
-        taxa_anual: r.taxa_anual,
-        dia_util: diasMap.get(r.data) ?? true,
-      }));
+        const diasMap = new Map<string, boolean>();
+        (diasRes.data || []).forEach((d: any) => diasMap.set(d.data, d.dia_util));
 
-      setCdiRecords(merged);
+        const merged: CdiRecord[] = (cdiRes.data || []).map((r: any) => ({
+          data: r.data,
+          taxa_anual: r.taxa_anual,
+          dia_util: diasMap.get(r.data) ?? true,
+        }));
+
+        setCdiRecords(merged);
+        setDiasUteis([]);
+      }
       setLoading(false);
     })();
-  }, [product, appliedVersion]);
+  }, [product, appliedVersion, isPrefixado]);
 
   const chartData = useMemo(() => {
+    if (isPrefixado) {
+      return buildPrefixadoSeries(diasUteis, product.taxa || 0, product.data_inicio, product.data_calculo || undefined);
+    }
     return buildCdiSeries(cdiRecords, product.data_inicio, product.data_calculo || undefined);
-  }, [cdiRecords, product]);
+  }, [cdiRecords, diasUteis, product, isPrefixado]);
 
   const rentabilidadeRows = useMemo(() => {
+    if (isPrefixado) {
+      return buildPrefixadoRentabilidadeRows(diasUteis, product.taxa || 0, product.data_inicio, product.data_calculo || undefined);
+    }
     return buildRentabilidadeRows(cdiRecords, product.data_inicio, product.data_calculo || undefined);
-  }, [cdiRecords, product]);
+  }, [cdiRecords, diasUteis, product, isPrefixado]);
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
@@ -124,9 +148,19 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             {product.instituicao_nome}
           </span>
+          {product.modalidade && (
+            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              {product.modalidade}
+            </span>
+          )}
           {product.indexador && (
             <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
               {product.indexador}{product.taxa != null ? ` ${product.taxa}%` : ""}
+            </span>
+          )}
+          {isPrefixado && product.taxa != null && (
+            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              Taxa: {product.taxa}% a.a.
             </span>
           )}
         </div>
@@ -134,7 +168,9 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
 
       {/* Chart */}
       <div className="rounded-md border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade (CDI)</h2>
+        <h2 className="text-sm font-semibold text-foreground">
+          Histórico de Rentabilidade ({isPrefixado ? `Prefixado ${product.taxa}% a.a.` : "CDI"})
+        </h2>
         <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
         <div className="mt-4 h-72">
           <ResponsiveContainer width="100%" height="100%">
@@ -158,7 +194,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               <Line
                 type="monotone"
                 dataKey="cdi_acumulado"
-                name="CDI Acumulado"
+                name={isPrefixado ? "Prefixado Acumulado" : "CDI Acumulado"}
                 stroke="hsl(210, 100%, 45%)"
                 strokeWidth={2}
                 dot={false}
@@ -190,7 +226,7 @@ export default function AnaliseIndividualPage() {
       setLoading(true);
       const { data } = await supabase
         .from("custodia")
-        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, categoria_id, produto_id, instituicao_id, produtos(nome), instituicoes(nome), categorias(nome)");
+        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, categoria_id, produto_id, instituicao_id, produtos(nome), instituicoes(nome), categorias(nome)");
 
       if (data) {
         const mapped: CustodiaProduct[] = data.map((row: any) => ({
@@ -204,6 +240,7 @@ export default function AnaliseIndividualPage() {
           taxa: row.taxa,
           indexador: row.indexador,
           vencimento: row.vencimento,
+          modalidade: row.modalidade,
           categoria_nome: row.categorias?.nome || "—",
           produto_nome: row.produtos?.nome || "—",
           instituicao_nome: row.instituicoes?.nome || "—",
