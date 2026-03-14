@@ -125,7 +125,8 @@ export function buildPrefixadoRentabilidadeRows(
       }
     }
 
-    if (rec.dia_util) {
+    // Não há rentabilidade no dia da aplicação (D0)
+    if (rec.dia_util && rec.data !== dataInicio) {
       fatorAcumulado *= 1 + fatorDiario;
       fatorMensal *= 1 + fatorDiario;
       fatorAnual *= 1 + fatorDiario;

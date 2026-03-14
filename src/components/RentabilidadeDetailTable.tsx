@@ -28,10 +28,18 @@ function fmtBrl(v: number | null): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function pctSobreCdi(rent: number | null, cdi: number | null): string {
+  if (rent === null || cdi === null || cdi === 0) return "—";
+  return ((rent / cdi) * 100).toFixed(0) + "%";
+}
+
 interface Props {
   rows: DetailRow[];
   tituloLabel: string;
 }
+
+const highlightCellClass = "text-xs text-center font-semibold whitespace-nowrap bg-muted/50";
+const highlightHeadClass = "text-xs font-semibold text-center whitespace-nowrap bg-muted/50";
 
 export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
   if (rows.length === 0) return null;
@@ -56,8 +64,8 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {m}
                     </TableHead>
                   ))}
-                  <TableHead className="text-xs font-semibold text-center whitespace-nowrap">No Ano</TableHead>
-                  <TableHead className="text-xs font-semibold text-center whitespace-nowrap">Acumulado</TableHead>
+                  <TableHead className={highlightHeadClass}>No Ano</TableHead>
+                  <TableHead className={highlightHeadClass}>Acumulado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -69,22 +77,22 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtBrl(v)}
                     </TableCell>
                   ))}
-                  <TableCell className="text-xs text-center whitespace-nowrap">—</TableCell>
-                  <TableCell className="text-xs text-center whitespace-nowrap">—</TableCell>
+                  <TableCell className={highlightCellClass}>—</TableCell>
+                  <TableCell className={highlightCellClass}>—</TableCell>
                 </TableRow>
 
                 {/* Rentabilidade row */}
                 <TableRow>
-                  <TableCell className="text-xs font-medium whitespace-nowrap">{tituloLabel}</TableCell>
+                  <TableCell className="text-xs font-medium whitespace-nowrap">Rentabilidade</TableCell>
                   {row.rentabilidadeMonths.map((v, i) => (
                     <TableCell key={i} className="text-xs text-center whitespace-nowrap">
                       {fmtPct(v)}
                     </TableCell>
                   ))}
-                  <TableCell className="text-xs text-center font-medium whitespace-nowrap">
+                  <TableCell className={highlightCellClass}>
                     {fmtPct(row.rentNoAno)}
                   </TableCell>
-                  <TableCell className="text-xs text-center font-medium whitespace-nowrap">
+                  <TableCell className={highlightCellClass}>
                     {fmtPct(row.rentAcumulado)}
                   </TableCell>
                 </TableRow>
@@ -97,11 +105,27 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtPct(v)}
                     </TableCell>
                   ))}
-                  <TableCell className="text-xs text-center font-medium whitespace-nowrap">
+                  <TableCell className={highlightCellClass}>
                     {fmtPct(row.cdiNoAno)}
                   </TableCell>
-                  <TableCell className="text-xs text-center font-medium whitespace-nowrap">
+                  <TableCell className={highlightCellClass}>
                     {fmtPct(row.cdiAcumulado)}
+                  </TableCell>
+                </TableRow>
+
+                {/* % sobre CDI row */}
+                <TableRow>
+                  <TableCell className="text-xs font-medium whitespace-nowrap">% sobre CDI</TableCell>
+                  {row.rentabilidadeMonths.map((v, i) => (
+                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
+                      {pctSobreCdi(v, row.cdiMonths[i])}
+                    </TableCell>
+                  ))}
+                  <TableCell className={highlightCellClass}>
+                    {pctSobreCdi(row.rentNoAno, row.cdiNoAno)}
+                  </TableCell>
+                  <TableCell className={highlightCellClass}>
+                    {pctSobreCdi(row.rentAcumulado, row.cdiAcumulado)}
                   </TableCell>
                 </TableRow>
               </TableBody>
