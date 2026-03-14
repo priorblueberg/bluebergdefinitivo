@@ -205,6 +205,7 @@ export default function AnaliseIndividualPage() {
           taxa: row.taxa,
           indexador: row.indexador,
           vencimento: row.vencimento,
+          modalidade: row.modalidade,
           categoria_nome: row.categorias?.nome || "—",
           produto_nome: row.produtos?.nome || "—",
           instituicao_nome: row.instituicoes?.nome || "—",
