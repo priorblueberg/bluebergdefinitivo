@@ -67,7 +67,8 @@ export function buildPrefixadoSeries(
   let fatorAcumulado = 1;
 
   for (const rec of filtered) {
-    if (rec.dia_util) {
+    // Não há rentabilidade no dia da aplicação (D0); título rentabiliza a partir de D+1
+    if (rec.dia_util && rec.data !== dataInicio) {
       fatorAcumulado *= 1 + fatorDiario;
     }
     points.push({
