@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Search, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
-import { buildCdiSeries, buildRentabilidadeRows, CdiRecord } from "@/lib/cdiCalculations";
+import { buildCdiSeries, buildRentabilidadeRows, CdiRecord, DiaUtilRecord, buildPrefixadoSeries, buildPrefixadoRentabilidadeRows } from "@/lib/cdiCalculations";
 import RentabilidadeTable from "@/components/RentabilidadeTable";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
