@@ -10,7 +10,7 @@ import {
   CarteiraRendaVariavel,
   CarteiraFundos,
   CarteiraTesouroDireto,
-  CarteiraAnaliseIndividual,
+  
   Movimentacoes,
   ProventosRecebidos,
   CadastrarTransacao,
@@ -21,6 +21,7 @@ import {
   ControleCarteiras,
 } from "@/pages/AppPages";
 import CarteiraRendaFixa from "@/pages/CarteiraRendaFixaPage";
+import AnaliseIndividualPage from "@/pages/AnaliseIndividualPage";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
@@ -87,7 +88,7 @@ const App = () => (
               <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
               <Route path="/carteira/fundos" element={<CarteiraFundos />} />
               <Route path="/carteira/tesouro-direto" element={<CarteiraTesouroDireto />} />
-              <Route path="/carteira/analise-individual" element={<CarteiraAnaliseIndividual />} />
+              <Route path="/carteira/analise-individual" element={<AnaliseIndividualPage />} />
               <Route path="/movimentacoes" element={<Movimentacoes />} />
               <Route path="/custodia" element={<Custodia />} />
               <Route path="/controle-carteiras" element={<ControleCarteiras />} />
