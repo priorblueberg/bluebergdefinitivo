@@ -148,9 +148,19 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             {product.instituicao_nome}
           </span>
+          {product.modalidade && (
+            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              {product.modalidade}
+            </span>
+          )}
           {product.indexador && (
             <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
               {product.indexador}{product.taxa != null ? ` ${product.taxa}%` : ""}
+            </span>
+          )}
+          {isPrefixado && product.taxa != null && (
+            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              Taxa: {product.taxa}% a.a.
             </span>
           )}
         </div>
