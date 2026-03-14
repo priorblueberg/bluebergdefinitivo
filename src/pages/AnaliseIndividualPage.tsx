@@ -184,7 +184,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               <Line
                 type="monotone"
                 dataKey="cdi_acumulado"
-                name="CDI Acumulado"
+                name={isPrefixado ? "Prefixado Acumulado" : "CDI Acumulado"}
                 stroke="hsl(210, 100%, 45%)"
                 strokeWidth={2}
                 dot={false}
