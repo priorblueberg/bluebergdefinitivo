@@ -2,8 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Search, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
-import { buildCdiSeries, buildRentabilidadeRows, CdiRecord, DiaUtilRecord, buildPrefixadoSeries, buildPrefixadoRentabilidadeRows } from "@/lib/cdiCalculations";
-import RentabilidadeTable from "@/components/RentabilidadeTable";
+import {
+  buildCdiSeries, buildRentabilidadeRows,
+  buildPrefixadoSeries, buildPrefixadoRentabilidadeRows,
+  CdiRecord, DiaUtilRecord,
+} from "@/lib/cdiCalculations";
+import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
@@ -44,6 +48,184 @@ const CustomTooltipChart = ({ active, payload, label }: any) => {
   return null;
 };
 
+/* ── helpers to compute patrimônio from valor_investido + monthly returns ── */
+
+function calcFatorDiarioPre(taxaAnual: number): number {
+  return Math.pow(taxaAnual / 100 + 1, 1 / 252) - 1;
+}
+
+function calcFatorDiarioCdi(taxaAnual: number): number {
+  return Math.pow(taxaAnual / 100 + 1, 1 / 252) - 1;
+}
+
+function buildDetailRows(
+  cdiRecords: CdiRecord[],
+  diasUteis: DiaUtilRecord[],
+  isPrefixado: boolean,
+  taxaAnual: number,
+  valorInvestido: number,
+  dataInicio: string,
+  dataCalculo?: string,
+): DetailRow[] {
+  // We need to iterate day-by-day and track:
+  // - prefixado/titulo accumulated factor (monthly, yearly, total)
+  // - CDI accumulated factor (monthly, yearly, total)
+  // - patrimonio at end of each month
+
+  const endDate = dataCalculo || "2099-12-31";
+
+  // Build a combined day-by-day list
+  // For prefixado: use diasUteis for titulo calc, cdiRecords for CDI calc
+  // For CDI-only: both come from cdiRecords
+
+  // Collect all dates
+  const allDatesSet = new Set<string>();
+  cdiRecords.forEach(r => { if (r.data <= endDate) allDatesSet.add(r.data); });
+  diasUteis.forEach(r => { if (r.data <= endDate) allDatesSet.add(r.data); });
+  const allDates = Array.from(allDatesSet).sort();
+
+  if (allDates.length === 0) return [];
+
+  // Maps for quick lookup
+  const cdiMap = new Map<string, CdiRecord>();
+  cdiRecords.forEach(r => cdiMap.set(r.data, r));
+  const duMap = new Map<string, boolean>();
+  diasUteis.forEach(r => duMap.set(r.data, r.dia_util));
+
+  // Tracking variables
+  let tituloFatorAcum = 1;
+  let tituloFatorMensal = 1;
+  let tituloFatorAnual = 1;
+  let cdiFatorAcum = 1;
+  let cdiFatorMensal = 1;
+  let cdiFatorAnual = 1;
+
+  let currentMonth = -1;
+  let currentYear = -1;
+
+  // year -> month(0-11) -> values
+  const tituloMonthly = new Map<number, Map<number, number>>();
+  const cdiMonthly = new Map<number, Map<number, number>>();
+  const patrimonioMonthly = new Map<number, Map<number, number>>();
+  const tituloYearly = new Map<number, number>();
+  const cdiYearly = new Map<number, number>();
+
+  const fatorDiarioPre = isPrefixado ? calcFatorDiarioPre(taxaAnual) : 0;
+
+  for (const dateStr of allDates) {
+    const dt = new Date(dateStr + "T00:00:00");
+    const m = dt.getMonth();
+    const y = dt.getFullYear();
+
+    if (currentMonth === -1) {
+      currentMonth = m;
+      currentYear = y;
+    } else if (m !== currentMonth) {
+      tituloFatorMensal = 1;
+      cdiFatorMensal = 1;
+      currentMonth = m;
+      if (y !== currentYear) {
+        tituloFatorAnual = 1;
+        cdiFatorAnual = 1;
+        currentYear = y;
+      }
+    }
+
+    // Titulo factor
+    if (isPrefixado) {
+      const isDiaUtil = duMap.get(dateStr) ?? cdiMap.get(dateStr)?.dia_util ?? false;
+      if (isDiaUtil) {
+        tituloFatorAcum *= 1 + fatorDiarioPre;
+        tituloFatorMensal *= 1 + fatorDiarioPre;
+        tituloFatorAnual *= 1 + fatorDiarioPre;
+      }
+    } else {
+      // For non-prefixado, titulo = CDI (same values)
+      const cdiRec = cdiMap.get(dateStr);
+      if (cdiRec && cdiRec.dia_util) {
+        const fd = calcFatorDiarioCdi(cdiRec.taxa_anual);
+        tituloFatorAcum *= 1 + fd;
+        tituloFatorMensal *= 1 + fd;
+        tituloFatorAnual *= 1 + fd;
+      }
+    }
+
+    // CDI factor (always from cdiRecords)
+    const cdiRec = cdiMap.get(dateStr);
+    if (cdiRec && cdiRec.dia_util) {
+      const fd = calcFatorDiarioCdi(cdiRec.taxa_anual);
+      cdiFatorAcum *= 1 + fd;
+      cdiFatorMensal *= 1 + fd;
+      cdiFatorAnual *= 1 + fd;
+    }
+
+    // Store latest values for this month
+    if (!tituloMonthly.has(y)) tituloMonthly.set(y, new Map());
+    tituloMonthly.get(y)!.set(m, (tituloFatorMensal - 1) * 100);
+
+    if (!cdiMonthly.has(y)) cdiMonthly.set(y, new Map());
+    cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
+
+    if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
+    patrimonioMonthly.get(y)!.set(m, valorInvestido * tituloFatorAcum);
+
+    tituloYearly.set(y, (tituloFatorAnual - 1) * 100);
+    cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
+  }
+
+  // Build rows per year
+  const years = Array.from(new Set([
+    ...tituloMonthly.keys(), ...cdiMonthly.keys(),
+  ])).sort();
+
+  const rows: DetailRow[] = [];
+  let rentFatorAcum = 1;
+  let cdiFatorAcumRows = 1;
+
+  for (const year of years) {
+    const tMap = tituloMonthly.get(year);
+    const cMap = cdiMonthly.get(year);
+    const pMap = patrimonioMonthly.get(year);
+
+    const patrimonioMs: (number | null)[] = [];
+    const rentMs: (number | null)[] = [];
+    const cdiMs: (number | null)[] = [];
+
+    for (let m = 0; m < 12; m++) {
+      if (tMap?.has(m)) {
+        const pct = tMap.get(m)!;
+        rentMs.push(parseFloat(pct.toFixed(2)));
+        rentFatorAcum *= 1 + pct / 100;
+      } else {
+        rentMs.push(null);
+      }
+
+      if (cMap?.has(m)) {
+        const pct = cMap.get(m)!;
+        cdiMs.push(parseFloat(pct.toFixed(2)));
+        cdiFatorAcumRows *= 1 + pct / 100;
+      } else {
+        cdiMs.push(null);
+      }
+
+      patrimonioMs.push(pMap?.has(m) ? parseFloat((pMap.get(m)!).toFixed(2)) : null);
+    }
+
+    rows.push({
+      year,
+      patrimonioMonths: patrimonioMs,
+      rentabilidadeMonths: rentMs,
+      cdiMonths: cdiMs,
+      rentNoAno: tituloYearly.has(year) ? parseFloat(tituloYearly.get(year)!.toFixed(2)) : null,
+      rentAcumulado: parseFloat(((rentFatorAcum - 1) * 100).toFixed(2)),
+      cdiNoAno: cdiYearly.has(year) ? parseFloat(cdiYearly.get(year)!.toFixed(2)) : null,
+      cdiAcumulado: parseFloat(((cdiFatorAcumRows - 1) * 100).toFixed(2)),
+    });
+  }
+
+  return rows;
+}
+
 function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
   const { appliedVersion } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
@@ -57,62 +239,79 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
       setLoading(true);
       const endDate = product.data_calculo || "2099-12-31";
 
-      if (isPrefixado) {
-        // Prefixado only needs business day calendar
-        const diasRes = await supabase
+      // Always fetch both CDI and dias_uteis for comparison
+      const [cdiRes, diasRes] = await Promise.all([
+        supabase
+          .from("historico_cdi")
+          .select("data, taxa_anual")
+          .gte("data", product.data_inicio)
+          .lte("data", endDate)
+          .order("data"),
+        supabase
           .from("calendario_dias_uteis")
           .select("data, dia_util")
           .gte("data", product.data_inicio)
           .lte("data", endDate)
-          .order("data");
+          .order("data"),
+      ]);
 
-        setDiasUteis((diasRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util })));
-        setCdiRecords([]);
-      } else {
-        const [cdiRes, diasRes] = await Promise.all([
-          supabase
-            .from("historico_cdi")
-            .select("data, taxa_anual")
-            .gte("data", product.data_inicio)
-            .lte("data", endDate)
-            .order("data"),
-          supabase
-            .from("calendario_dias_uteis")
-            .select("data, dia_util")
-            .gte("data", product.data_inicio)
-            .lte("data", endDate)
-            .order("data"),
-        ]);
+      const diasMap = new Map<string, boolean>();
+      (diasRes.data || []).forEach((d: any) => diasMap.set(d.data, d.dia_util));
 
-        const diasMap = new Map<string, boolean>();
-        (diasRes.data || []).forEach((d: any) => diasMap.set(d.data, d.dia_util));
+      const merged: CdiRecord[] = (cdiRes.data || []).map((r: any) => ({
+        data: r.data,
+        taxa_anual: r.taxa_anual,
+        dia_util: diasMap.get(r.data) ?? true,
+      }));
 
-        const merged: CdiRecord[] = (cdiRes.data || []).map((r: any) => ({
-          data: r.data,
-          taxa_anual: r.taxa_anual,
-          dia_util: diasMap.get(r.data) ?? true,
-        }));
-
-        setCdiRecords(merged);
-        setDiasUteis([]);
-      }
+      setCdiRecords(merged);
+      setDiasUteis((diasRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util })));
       setLoading(false);
     })();
-  }, [product, appliedVersion, isPrefixado]);
+  }, [product, appliedVersion]);
 
+  // Chart data: merge both series
   const chartData = useMemo(() => {
+    const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, product.data_calculo || undefined);
+
     if (isPrefixado) {
-      return buildPrefixadoSeries(diasUteis, product.taxa || 0, product.data_inicio, product.data_calculo || undefined);
+      const prefSeries = buildPrefixadoSeries(diasUteis, product.taxa || 0, product.data_inicio, product.data_calculo || undefined);
+
+      // Merge by date
+      const map = new Map<string, any>();
+      for (const p of cdiSeries) {
+        map.set(p.data, { data: p.data, label: p.label, cdi_acumulado: p.cdi_acumulado });
+      }
+      for (const p of prefSeries) {
+        const existing = map.get(p.data) || { data: p.data, label: p.label };
+        existing.titulo_acumulado = p.cdi_acumulado; // prefixado series uses cdi_acumulado field
+        existing.label = existing.label || p.label;
+        map.set(p.data, existing);
+      }
+      return Array.from(map.values()).sort((a, b) => a.data.localeCompare(b.data));
     }
-    return buildCdiSeries(cdiRecords, product.data_inicio, product.data_calculo || undefined);
+
+    // Non-prefixado: titulo = CDI (single line, but we still show both identical for now)
+    return cdiSeries.map(p => ({
+      ...p,
+      titulo_acumulado: p.cdi_acumulado,
+    }));
   }, [cdiRecords, diasUteis, product, isPrefixado]);
 
-  const rentabilidadeRows = useMemo(() => {
-    if (isPrefixado) {
-      return buildPrefixadoRentabilidadeRows(diasUteis, product.taxa || 0, product.data_inicio, product.data_calculo || undefined);
-    }
-    return buildRentabilidadeRows(cdiRecords, product.data_inicio, product.data_calculo || undefined);
+  // Detail table rows
+  const detailRows = useMemo(() => {
+    return buildDetailRows(
+      cdiRecords,
+      diasUteis,
+      isPrefixado,
+      product.taxa || 0,
+      product.valor_investido,
+      product.data_inicio,
+      product.data_calculo || undefined,
+    );
   }, [cdiRecords, diasUteis, product, isPrefixado]);
+
+  const tituloLabel = isPrefixado ? `Prefixado ${product.taxa}%` : "Rentabilidade";
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
@@ -166,10 +365,10 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Chart with two lines */}
       <div className="rounded-md border border-border bg-card p-6">
         <h2 className="text-sm font-semibold text-foreground">
-          Histórico de Rentabilidade ({isPrefixado ? `Prefixado ${product.taxa}% a.a.` : "CDI"})
+          Histórico de Rentabilidade
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
         <div className="mt-4 h-72">
@@ -193,12 +392,23 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
               <Line
                 type="monotone"
-                dataKey="cdi_acumulado"
-                name={isPrefixado ? "Prefixado Acumulado" : "CDI Acumulado"}
+                dataKey="titulo_acumulado"
+                name={tituloLabel}
                 stroke="hsl(210, 100%, 45%)"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 0 }}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="cdi_acumulado"
+                name="CDI"
+                stroke="hsl(0, 0%, 55%)"
+                strokeWidth={1.5}
+                dot={false}
+                activeDot={{ r: 3, strokeWidth: 0 }}
+                strokeDasharray="5 3"
                 connectNulls
               />
             </LineChart>
@@ -206,8 +416,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
         </div>
       </div>
 
-      {/* Table */}
-      <RentabilidadeTable rows={rentabilidadeRows} />
+      {/* Detail tables — one per year */}
+      <RentabilidadeDetailTable rows={detailRows} tituloLabel={tituloLabel} />
     </div>
   );
 }
