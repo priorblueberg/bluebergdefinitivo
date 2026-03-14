@@ -10,7 +10,7 @@ import {
   CarteiraRendaVariavel,
   CarteiraFundos,
   CarteiraTesouroDireto,
-  CarteiraAnaliseIndividual,
+  
   Movimentacoes,
   ProventosRecebidos,
   CadastrarTransacao,
