@@ -173,10 +173,10 @@ function buildDetailRows(
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
 
-  // Build rows per year
+  // Build rows per year (most recent first)
   const years = Array.from(new Set([
     ...tituloMonthly.keys(), ...cdiMonthly.keys(),
-  ])).sort();
+  ])).sort((a, b) => b - a);
 
   const rows: DetailRow[] = [];
   let rentFatorAcum = 1;
