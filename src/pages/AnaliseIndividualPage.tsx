@@ -131,10 +131,10 @@ function buildDetailRows(
       }
     }
 
-    // Titulo factor
+    // Titulo factor — prefixado não rentabiliza no D0 (dia da aplicação)
     if (isPrefixado) {
       const isDiaUtil = duMap.get(dateStr) ?? cdiMap.get(dateStr)?.dia_util ?? false;
-      if (isDiaUtil) {
+      if (isDiaUtil && dateStr !== dataInicio) {
         tituloFatorAcum *= 1 + fatorDiarioPre;
         tituloFatorMensal *= 1 + fatorDiarioPre;
         tituloFatorAnual *= 1 + fatorDiarioPre;
