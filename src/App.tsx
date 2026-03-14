@@ -88,7 +88,7 @@ const App = () => (
               <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
               <Route path="/carteira/fundos" element={<CarteiraFundos />} />
               <Route path="/carteira/tesouro-direto" element={<CarteiraTesouroDireto />} />
-              <Route path="/carteira/analise-individual" element={<CarteiraAnaliseIndividual />} />
+              <Route path="/carteira/analise-individual" element={<AnaliseIndividualPage />} />
               <Route path="/movimentacoes" element={<Movimentacoes />} />
               <Route path="/custodia" element={<Custodia />} />
               <Route path="/controle-carteiras" element={<ControleCarteiras />} />
