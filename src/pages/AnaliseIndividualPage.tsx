@@ -47,49 +47,72 @@ const CustomTooltipChart = ({ active, payload, label }: any) => {
 function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
   const { appliedVersion } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
+  const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isPrefixado = product.categoria_nome === "Renda Fixa" && product.modalidade === "Prefixado";
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       const endDate = product.data_calculo || "2099-12-31";
 
-      const [cdiRes, diasRes] = await Promise.all([
-        supabase
-          .from("historico_cdi")
-          .select("data, taxa_anual")
-          .gte("data", product.data_inicio)
-          .lte("data", endDate)
-          .order("data"),
-        supabase
+      if (isPrefixado) {
+        // Prefixado only needs business day calendar
+        const diasRes = await supabase
           .from("calendario_dias_uteis")
           .select("data, dia_util")
           .gte("data", product.data_inicio)
           .lte("data", endDate)
-          .order("data"),
-      ]);
+          .order("data");
 
-      const diasMap = new Map<string, boolean>();
-      (diasRes.data || []).forEach((d: any) => diasMap.set(d.data, d.dia_util));
+        setDiasUteis((diasRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util })));
+        setCdiRecords([]);
+      } else {
+        const [cdiRes, diasRes] = await Promise.all([
+          supabase
+            .from("historico_cdi")
+            .select("data, taxa_anual")
+            .gte("data", product.data_inicio)
+            .lte("data", endDate)
+            .order("data"),
+          supabase
+            .from("calendario_dias_uteis")
+            .select("data, dia_util")
+            .gte("data", product.data_inicio)
+            .lte("data", endDate)
+            .order("data"),
+        ]);
 
-      const merged: CdiRecord[] = (cdiRes.data || []).map((r: any) => ({
-        data: r.data,
-        taxa_anual: r.taxa_anual,
-        dia_util: diasMap.get(r.data) ?? true,
-      }));
+        const diasMap = new Map<string, boolean>();
+        (diasRes.data || []).forEach((d: any) => diasMap.set(d.data, d.dia_util));
 
-      setCdiRecords(merged);
+        const merged: CdiRecord[] = (cdiRes.data || []).map((r: any) => ({
+          data: r.data,
+          taxa_anual: r.taxa_anual,
+          dia_util: diasMap.get(r.data) ?? true,
+        }));
+
+        setCdiRecords(merged);
+        setDiasUteis([]);
+      }
       setLoading(false);
     })();
-  }, [product, appliedVersion]);
+  }, [product, appliedVersion, isPrefixado]);
 
   const chartData = useMemo(() => {
+    if (isPrefixado) {
+      return buildPrefixadoSeries(diasUteis, product.taxa || 0, product.data_inicio, product.data_calculo || undefined);
+    }
     return buildCdiSeries(cdiRecords, product.data_inicio, product.data_calculo || undefined);
-  }, [cdiRecords, product]);
+  }, [cdiRecords, diasUteis, product, isPrefixado]);
 
   const rentabilidadeRows = useMemo(() => {
+    if (isPrefixado) {
+      return buildPrefixadoRentabilidadeRows(diasUteis, product.taxa || 0, product.data_inicio, product.data_calculo || undefined);
+    }
     return buildRentabilidadeRows(cdiRecords, product.data_inicio, product.data_calculo || undefined);
-  }, [cdiRecords, product]);
+  }, [cdiRecords, diasUteis, product, isPrefixado]);
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
