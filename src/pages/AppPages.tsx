@@ -524,7 +524,7 @@ const AnaliseIndividualPage = () => {
   );
 };
 
-export const CarteiraAnaliseIndividual = () => <AnaliseIndividualPage />;
+export { default as CarteiraAnaliseIndividual } from "./AnaliseIndividualPage";
 export { default as Movimentacoes } from "./MovimentacoesPage";
 export const ProventosRecebidos = () => <PageStub title="Proventos Recebidos" />;
 export { default as CadastrarTransacao } from "./CadastrarTransacaoPage";
