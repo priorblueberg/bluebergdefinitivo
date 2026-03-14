@@ -158,7 +158,9 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
 
       {/* Chart */}
       <div className="rounded-md border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade (CDI)</h2>
+        <h2 className="text-sm font-semibold text-foreground">
+          Histórico de Rentabilidade ({isPrefixado ? `Prefixado ${product.taxa}% a.a.` : "CDI"})
+        </h2>
         <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
         <div className="mt-4 h-72">
           <ResponsiveContainer width="100%" height="100%">
