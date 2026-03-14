@@ -173,10 +173,10 @@ function buildDetailRows(
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
 
-  // Build rows per year (most recent first)
+  // Build rows per year — compute accumulated in ascending order, then reverse for display
   const years = Array.from(new Set([
     ...tituloMonthly.keys(), ...cdiMonthly.keys(),
-  ])).sort((a, b) => b - a);
+  ])).sort((a, b) => a - b);
 
   const rows: DetailRow[] = [];
   let rentFatorAcum = 1;
@@ -223,7 +223,8 @@ function buildDetailRows(
     });
   }
 
-  return rows;
+  // Reverse so most recent year appears first
+  return rows.reverse();
 }
 
 function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
