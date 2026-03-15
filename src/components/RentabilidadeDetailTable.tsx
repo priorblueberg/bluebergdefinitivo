@@ -10,13 +10,15 @@ const MONTH_HEADERS = [
 export interface DetailRow {
   year: number;
   patrimonioMonths: (number | null)[]; // 12 entries, R$ values
-  ganhoFinanceiroMonths: (number | null)[]; // 12 entries, R$ values (patrimônio - valor investido)
+  ganhoFinanceiroMonths: (number | null)[]; // 12 entries, R$ gain within the month
   rentabilidadeMonths: (number | null)[]; // 12 entries, % values
   cdiMonths: (number | null)[]; // 12 entries, % values
   rentNoAno: number | null;
   rentAcumulado: number | null;
   cdiNoAno: number | null;
   cdiAcumulado: number | null;
+  ganhoNoAno: number | null;
+  ganhoAcumulado: number | null;
 }
 
 function fmtPct(v: number | null): string {
