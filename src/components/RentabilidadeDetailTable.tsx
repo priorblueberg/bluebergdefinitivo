@@ -10,6 +10,7 @@ const MONTH_HEADERS = [
 export interface DetailRow {
   year: number;
   patrimonioMonths: (number | null)[]; // 12 entries, R$ values
+  ganhoFinanceiroMonths: (number | null)[]; // 12 entries, R$ values (patrimônio - valor investido)
   rentabilidadeMonths: (number | null)[]; // 12 entries, % values
   cdiMonths: (number | null)[]; // 12 entries, % values
   rentNoAno: number | null;
