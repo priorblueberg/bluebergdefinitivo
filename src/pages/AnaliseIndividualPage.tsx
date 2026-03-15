@@ -107,10 +107,15 @@ function buildDetailRows(
   const tituloMonthly = new Map<number, Map<number, number>>();
   const cdiMonthly = new Map<number, Map<number, number>>();
   const patrimonioMonthly = new Map<number, Map<number, number>>();
+  const ganhoMensalMonthly = new Map<number, Map<number, number>>();
+  const ganhoAnualMap = new Map<number, number>();
   const tituloYearly = new Map<number, number>();
   const cdiYearly = new Map<number, number>();
 
   const fatorDiarioPre = isPrefixado ? calcFatorDiarioPre(taxaAnual) : 0;
+
+  let patrimonioFimMesAnterior = valorInvestido;
+  let patrimonioInicioAno = valorInvestido;
 
   for (const dateStr of allDates) {
     const dt = new Date(dateStr + "T00:00:00");
@@ -121,10 +126,12 @@ function buildDetailRows(
       currentMonth = m;
       currentYear = y;
     } else if (m !== currentMonth) {
+      patrimonioFimMesAnterior = valorInvestido * tituloFatorAcum;
       tituloFatorMensal = 1;
       cdiFatorMensal = 1;
       currentMonth = m;
       if (y !== currentYear) {
+        patrimonioInicioAno = valorInvestido * tituloFatorAcum;
         tituloFatorAnual = 1;
         cdiFatorAnual = 1;
         currentYear = y;
@@ -140,7 +147,6 @@ function buildDetailRows(
         tituloFatorAnual *= 1 + fatorDiarioPre;
       }
     } else {
-      // For non-prefixado, titulo = CDI (same values)
       const cdiRec = cdiMap.get(dateStr);
       if (cdiRec && cdiRec.dia_util) {
         const fd = calcFatorDiarioCdi(cdiRec.taxa_anual);
@@ -159,7 +165,8 @@ function buildDetailRows(
       cdiFatorAnual *= 1 + fd;
     }
 
-    // Store latest values for this month
+    const patrimonioAtual = valorInvestido * tituloFatorAcum;
+
     if (!tituloMonthly.has(y)) tituloMonthly.set(y, new Map());
     tituloMonthly.get(y)!.set(m, (tituloFatorMensal - 1) * 100);
 
@@ -167,8 +174,12 @@ function buildDetailRows(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    const patrimonioAtual = valorInvestido * tituloFatorAcum;
     patrimonioMonthly.get(y)!.set(m, patrimonioAtual);
+
+    if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
+    ganhoMensalMonthly.get(y)!.set(m, patrimonioAtual - patrimonioFimMesAnterior);
+
+    ganhoAnualMap.set(y, patrimonioAtual - patrimonioInicioAno);
 
     tituloYearly.set(y, (tituloFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
@@ -187,6 +198,7 @@ function buildDetailRows(
     const tMap = tituloMonthly.get(year);
     const cMap = cdiMonthly.get(year);
     const pMap = patrimonioMonthly.get(year);
+    const gMap = ganhoMensalMonthly.get(year);
 
     const patrimonioMs: (number | null)[] = [];
     const ganhoMs: (number | null)[] = [];
@@ -210,15 +222,13 @@ function buildDetailRows(
         cdiMs.push(null);
       }
 
-      if (pMap?.has(m)) {
-        const pat = parseFloat((pMap.get(m)!).toFixed(2));
-        patrimonioMs.push(pat);
-        ganhoMs.push(parseFloat((pat - valorInvestido).toFixed(2)));
-      } else {
-        patrimonioMs.push(null);
-        ganhoMs.push(null);
-      }
+      patrimonioMs.push(pMap?.has(m) ? parseFloat((pMap.get(m)!).toFixed(2)) : null);
+      ganhoMs.push(gMap?.has(m) ? parseFloat((gMap.get(m)!).toFixed(2)) : null);
     }
+
+    // Ganho acumulado = patrimônio atual - valor investido (total desde o início)
+    const lastPatrimonioInYear = pMap ? Math.max(...Array.from(pMap.keys()).map(k => pMap.get(k)!)) : null;
+    const ganhoAcum = lastPatrimonioInYear !== null ? parseFloat((lastPatrimonioInYear - valorInvestido).toFixed(2)) : null;
 
     rows.push({
       year,
@@ -230,6 +240,8 @@ function buildDetailRows(
       rentAcumulado: parseFloat(((rentFatorAcum - 1) * 100).toFixed(2)),
       cdiNoAno: cdiYearly.has(year) ? parseFloat(cdiYearly.get(year)!.toFixed(2)) : null,
       cdiAcumulado: parseFloat(((cdiFatorAcumRows - 1) * 100).toFixed(2)),
+      ganhoNoAno: ganhoAnualMap.has(year) ? parseFloat(ganhoAnualMap.get(year)!.toFixed(2)) : null,
+      ganhoAcumulado: ganhoAcum,
     });
   }
 
