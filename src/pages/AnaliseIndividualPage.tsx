@@ -107,10 +107,15 @@ function buildDetailRows(
   const tituloMonthly = new Map<number, Map<number, number>>();
   const cdiMonthly = new Map<number, Map<number, number>>();
   const patrimonioMonthly = new Map<number, Map<number, number>>();
+  const ganhoMensalMonthly = new Map<number, Map<number, number>>();
+  const ganhoAnualMap = new Map<number, number>();
   const tituloYearly = new Map<number, number>();
   const cdiYearly = new Map<number, number>();
 
   const fatorDiarioPre = isPrefixado ? calcFatorDiarioPre(taxaAnual) : 0;
+
+  let patrimonioFimMesAnterior = valorInvestido;
+  let patrimonioInicioAno = valorInvestido;
 
   for (const dateStr of allDates) {
     const dt = new Date(dateStr + "T00:00:00");
@@ -121,10 +126,12 @@ function buildDetailRows(
       currentMonth = m;
       currentYear = y;
     } else if (m !== currentMonth) {
+      patrimonioFimMesAnterior = valorInvestido * tituloFatorAcum;
       tituloFatorMensal = 1;
       cdiFatorMensal = 1;
       currentMonth = m;
       if (y !== currentYear) {
+        patrimonioInicioAno = valorInvestido * tituloFatorAcum;
         tituloFatorAnual = 1;
         cdiFatorAnual = 1;
         currentYear = y;
@@ -140,7 +147,6 @@ function buildDetailRows(
         tituloFatorAnual *= 1 + fatorDiarioPre;
       }
     } else {
-      // For non-prefixado, titulo = CDI (same values)
       const cdiRec = cdiMap.get(dateStr);
       if (cdiRec && cdiRec.dia_util) {
         const fd = calcFatorDiarioCdi(cdiRec.taxa_anual);
@@ -159,7 +165,8 @@ function buildDetailRows(
       cdiFatorAnual *= 1 + fd;
     }
 
-    // Store latest values for this month
+    const patrimonioAtual = valorInvestido * tituloFatorAcum;
+
     if (!tituloMonthly.has(y)) tituloMonthly.set(y, new Map());
     tituloMonthly.get(y)!.set(m, (tituloFatorMensal - 1) * 100);
 
@@ -167,8 +174,12 @@ function buildDetailRows(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    const patrimonioAtual = valorInvestido * tituloFatorAcum;
     patrimonioMonthly.get(y)!.set(m, patrimonioAtual);
+
+    if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
+    ganhoMensalMonthly.get(y)!.set(m, patrimonioAtual - patrimonioFimMesAnterior);
+
+    ganhoAnualMap.set(y, patrimonioAtual - patrimonioInicioAno);
 
     tituloYearly.set(y, (tituloFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
