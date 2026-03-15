@@ -479,6 +479,12 @@ export default function AnaliseIndividualPage() {
           instituicao_nome: row.instituicoes?.nome || "—",
         }));
         setProducts(mapped);
+
+        // Update selectedProduct with fresh data if it exists
+        if (selectedProduct) {
+          const updated = mapped.find(p => p.id === selectedProduct.id);
+          if (updated) setSelectedProduct(updated);
+        }
       }
       setLoading(false);
     })();
