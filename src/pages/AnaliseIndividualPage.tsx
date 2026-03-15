@@ -187,6 +187,7 @@ function buildDetailRows(
     const tMap = tituloMonthly.get(year);
     const cMap = cdiMonthly.get(year);
     const pMap = patrimonioMonthly.get(year);
+    const gMap = ganhoMensalMonthly.get(year);
 
     const patrimonioMs: (number | null)[] = [];
     const ganhoMs: (number | null)[] = [];
@@ -210,15 +211,13 @@ function buildDetailRows(
         cdiMs.push(null);
       }
 
-      if (pMap?.has(m)) {
-        const pat = parseFloat((pMap.get(m)!).toFixed(2));
-        patrimonioMs.push(pat);
-        ganhoMs.push(parseFloat((pat - valorInvestido).toFixed(2)));
-      } else {
-        patrimonioMs.push(null);
-        ganhoMs.push(null);
-      }
+      patrimonioMs.push(pMap?.has(m) ? parseFloat((pMap.get(m)!).toFixed(2)) : null);
+      ganhoMs.push(gMap?.has(m) ? parseFloat((gMap.get(m)!).toFixed(2)) : null);
     }
+
+    // Ganho acumulado = patrimônio atual - valor investido (total desde o início)
+    const lastPatrimonioInYear = pMap ? Math.max(...Array.from(pMap.keys()).map(k => pMap.get(k)!)) : null;
+    const ganhoAcum = lastPatrimonioInYear !== null ? parseFloat((lastPatrimonioInYear - valorInvestido).toFixed(2)) : null;
 
     rows.push({
       year,
@@ -230,6 +229,8 @@ function buildDetailRows(
       rentAcumulado: parseFloat(((rentFatorAcum - 1) * 100).toFixed(2)),
       cdiNoAno: cdiYearly.has(year) ? parseFloat(cdiYearly.get(year)!.toFixed(2)) : null,
       cdiAcumulado: parseFloat(((cdiFatorAcumRows - 1) * 100).toFixed(2)),
+      ganhoNoAno: ganhoAnualMap.has(year) ? parseFloat(ganhoAnualMap.get(year)!.toFixed(2)) : null,
+      ganhoAcumulado: ganhoAcum,
     });
   }
 
