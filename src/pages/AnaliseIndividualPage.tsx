@@ -167,7 +167,8 @@ function buildDetailRows(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    patrimonioMonthly.get(y)!.set(m, valorInvestido * tituloFatorAcum);
+    const patrimonioAtual = valorInvestido * tituloFatorAcum;
+    patrimonioMonthly.get(y)!.set(m, patrimonioAtual);
 
     tituloYearly.set(y, (tituloFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
