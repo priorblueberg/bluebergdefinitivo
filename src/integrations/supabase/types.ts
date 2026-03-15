@@ -228,6 +228,24 @@ export type Database = {
           },
         ]
       }
+      dias_semana: {
+        Row: {
+          id: number
+          nome_completo: string
+          sigla: string
+        }
+        Insert: {
+          id: number
+          nome_completo: string
+          sigla: string
+        }
+        Update: {
+          id?: number
+          nome_completo?: string
+          sigla?: string
+        }
+        Relationships: []
+      }
       emissores: {
         Row: {
           ativo: boolean
