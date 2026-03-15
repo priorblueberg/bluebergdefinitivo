@@ -82,6 +82,18 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                   <TableCell className={highlightCellClass}>—</TableCell>
                 </TableRow>
 
+                {/* Ganho Financeiro row */}
+                <TableRow>
+                  <TableCell className="text-xs font-medium whitespace-nowrap">Ganho Financeiro</TableCell>
+                  {row.ganhoFinanceiroMonths.map((v, i) => (
+                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
+                      {fmtBrl(v)}
+                    </TableCell>
+                  ))}
+                  <TableCell className={highlightCellClass}>—</TableCell>
+                  <TableCell className={highlightCellClass}>—</TableCell>
+                </TableRow>
+
                 {/* Rentabilidade row */}
                 <TableRow>
                   <TableCell className="text-xs font-medium whitespace-nowrap">Rentabilidade</TableCell>

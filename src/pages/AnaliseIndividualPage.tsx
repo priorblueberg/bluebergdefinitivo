@@ -189,6 +189,7 @@ function buildDetailRows(
     const pMap = patrimonioMonthly.get(year);
 
     const patrimonioMs: (number | null)[] = [];
+    const ganhoMs: (number | null)[] = [];
     const rentMs: (number | null)[] = [];
     const cdiMs: (number | null)[] = [];
 
@@ -209,12 +210,20 @@ function buildDetailRows(
         cdiMs.push(null);
       }
 
-      patrimonioMs.push(pMap?.has(m) ? parseFloat((pMap.get(m)!).toFixed(2)) : null);
+      if (pMap?.has(m)) {
+        const pat = parseFloat((pMap.get(m)!).toFixed(2));
+        patrimonioMs.push(pat);
+        ganhoMs.push(parseFloat((pat - valorInvestido).toFixed(2)));
+      } else {
+        patrimonioMs.push(null);
+        ganhoMs.push(null);
+      }
     }
 
     rows.push({
       year,
       patrimonioMonths: patrimonioMs,
+      ganhoFinanceiroMonths: ganhoMs,
       rentabilidadeMonths: rentMs,
       cdiMonths: cdiMs,
       rentNoAno: tituloYearly.has(year) ? parseFloat(tituloYearly.get(year)!.toFixed(2)) : null,
