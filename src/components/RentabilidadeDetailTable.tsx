@@ -10,6 +10,7 @@ const MONTH_HEADERS = [
 export interface DetailRow {
   year: number;
   patrimonioMonths: (number | null)[]; // 12 entries, R$ values
+  ganhoFinanceiroMonths: (number | null)[]; // 12 entries, R$ values (patrimônio - valor investido)
   rentabilidadeMonths: (number | null)[]; // 12 entries, % values
   cdiMonths: (number | null)[]; // 12 entries, % values
   rentNoAno: number | null;
@@ -73,6 +74,18 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                 <TableRow>
                   <TableCell className="text-xs font-medium whitespace-nowrap">Patrimônio</TableCell>
                   {row.patrimonioMonths.map((v, i) => (
+                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
+                      {fmtBrl(v)}
+                    </TableCell>
+                  ))}
+                  <TableCell className={highlightCellClass}>—</TableCell>
+                  <TableCell className={highlightCellClass}>—</TableCell>
+                </TableRow>
+
+                {/* Ganho Financeiro row */}
+                <TableRow>
+                  <TableCell className="text-xs font-medium whitespace-nowrap">Ganho Financeiro</TableCell>
+                  {row.ganhoFinanceiroMonths.map((v, i) => (
                     <TableCell key={i} className="text-xs text-center whitespace-nowrap">
                       {fmtBrl(v)}
                     </TableCell>
