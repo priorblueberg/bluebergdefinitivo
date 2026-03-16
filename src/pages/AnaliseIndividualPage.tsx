@@ -388,6 +388,43 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
         </div>
       </div>
 
+      {/* Summary cards at data_calculo */}
+      {detailRows.length > 0 && (() => {
+        const topRow = detailRows[0];
+        let lastPatrimonio: number | null = null;
+        for (let m = 11; m >= 0; m--) {
+          if (topRow.patrimonioMonths[m] !== null) { lastPatrimonio = topRow.patrimonioMonths[m]; break; }
+        }
+        const ganho = topRow.ganhoAcumulado;
+        const rent = topRow.rentAcumulado;
+        const cdiAcum = topRow.cdiAcumulado;
+        const pctSobreCdi = rent != null && cdiAcum != null && cdiAcum !== 0
+          ? (rent / cdiAcum) * 100 : null;
+
+        const fmtBrlCard = (v: number | null) =>
+          v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+        const fmtPctCard = (v: number | null) =>
+          v != null ? `${v.toFixed(2)}%` : "—";
+
+        const cards = [
+          { label: "Patrimônio", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
+          { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
+          { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
+          { label: "% sobre CDI", value: fmtPctCard(pctSobreCdi), color: pctSobreCdi != null ? (pctSobreCdi > 0 ? "text-green-500" : pctSobreCdi < 0 ? "text-red-500" : "text-foreground") : "text-foreground" },
+        ];
+
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {cards.map((c) => (
+              <div key={c.label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
+                <p className={`text-lg font-semibold ${c.color}`}>{c.value}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Chart with two lines */}
       <div className="rounded-md border border-border bg-card p-6">
         <h2 className="text-sm font-semibold text-foreground">
