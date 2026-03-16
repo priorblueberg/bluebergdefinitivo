@@ -376,7 +376,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
         const rent = topRow.rentAcumulado;
         const cdiAcum = topRow.cdiAcumulado;
         const pctSobreCdi = rent != null && cdiAcum != null && cdiAcum !== 0
-          ? (rent / cdiAcum) * 100 : null;
+          ? parseFloat(((rent / cdiAcum) * 100).toFixed(2)) : null;
 
         const fmtBrlCard = (v: number | null) =>
           v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
