@@ -387,7 +387,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           { label: "Saldo na data", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
           { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
           { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
-          { label: "% sobre CDI", value: fmtPctCard(pctSobreCdi), color: pctSobreCdi != null ? (pctSobreCdi > 0 ? "text-green-500" : pctSobreCdi < 0 ? "text-red-500" : "text-foreground") : "text-foreground" },
+          { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
         ];
 
         return (
