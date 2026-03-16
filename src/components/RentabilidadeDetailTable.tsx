@@ -116,29 +116,10 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtPct(v)}
                     </TableCell>
                   ))}
-                  <TableCell className={highlightCellClass}>
-                    {fmtPct(row.cdiNoAno)}
-                  </TableCell>
-                  <TableCell className={highlightCellClass}>
-                    {fmtPct(row.cdiAcumulado)}
-                  </TableCell>
-                </TableRow>
-
-                {/* % sobre CDI row */}
-                <TableRow>
-                  <TableCell className="text-xs font-medium whitespace-nowrap">% sobre CDI</TableCell>
-                  {row.rentabilidadeMonths.map((v, i) => (
-                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
-                      {pctSobreCdi(v, row.cdiMonths[i])}
-                    </TableCell>
-                  ))}
-                  <TableCell className={highlightCellClass}>
-                    {pctSobreCdi(row.rentNoAno, row.cdiNoAno)}
-                  </TableCell>
-                  <TableCell className={highlightCellClass}>
-                    {pctSobreCdi(row.rentAcumulado, row.cdiAcumulado)}
-                  </TableCell>
-                </TableRow>
+                   <TableCell className={highlightCellClass}>
+                     {fmtPct(row.cdiNoAno)}
+                   </TableCell>
+                 </TableRow>
               </TableBody>
             </Table>
           </div>
