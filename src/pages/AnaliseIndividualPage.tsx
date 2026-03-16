@@ -402,54 +402,106 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
         );
       })()}
 
-      {/* Chart with two lines */}
-      <div className="rounded-md border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold text-foreground">
-          Histórico de Rentabilidade
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
-        <div className="mt-4 h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
-                tickLine={false}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={{ stroke: "hsl(var(--border))" }}
-                tickLine={false}
-                tickFormatter={(v) => `${v}%`}
-              />
-              <Tooltip content={<CustomTooltipChart />} />
-              <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
-              <Line
-                type="monotone"
-                dataKey="titulo_acumulado"
-                name={tituloLabel}
-                stroke="hsl(210, 100%, 45%)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, strokeWidth: 0 }}
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="cdi_acumulado"
-                name="CDI"
-                stroke="hsl(0, 0%, 55%)"
-                strokeWidth={1.5}
-                dot={false}
-                activeDot={{ r: 3, strokeWidth: 0 }}
-                strokeDasharray="5 3"
-                connectNulls
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* Charts side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Line chart */}
+        <div className="rounded-md border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold text-foreground">
+            Histórico de Rentabilidade
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
+          <div className="mt-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={{ stroke: "hsl(var(--border))" }}
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={{ stroke: "hsl(var(--border))" }}
+                  tickLine={false}
+                  tickFormatter={(v) => `${v}%`}
+                />
+                <Tooltip content={<CustomTooltipChart />} />
+                <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                <Line
+                  type="monotone"
+                  dataKey="titulo_acumulado"
+                  name={tituloLabel}
+                  stroke="hsl(210, 100%, 45%)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="cdi_acumulado"
+                  name="CDI"
+                  stroke="hsl(0, 0%, 55%)"
+                  strokeWidth={1.5}
+                  dot={false}
+                  activeDot={{ r: 3, strokeWidth: 0 }}
+                  strokeDasharray="5 3"
+                  connectNulls
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Bar chart — Patrimônio Mensal */}
+        <div className="rounded-md border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold text-foreground">
+            Patrimônio Mensal
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
+          <div className="mt-4 h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={(() => {
+                const MONTH_LABELS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+                const barData: { mes: string; patrimonio: number }[] = [];
+                // Use detailRows in chronological order (reversed back)
+                const chronRows = [...detailRows].reverse();
+                for (const row of chronRows) {
+                  for (let m = 0; m < 12; m++) {
+                    if (row.patrimonioMonths[m] !== null) {
+                      barData.push({
+                        mes: `${MONTH_LABELS[m]}/${String(row.year).slice(2)}`,
+                        patrimonio: row.patrimonioMonths[m]!,
+                      });
+                    }
+                  }
+                }
+                return barData;
+              })()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={{ stroke: "hsl(var(--border))" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={{ stroke: "hsl(var(--border))" }}
+                  tickLine={false}
+                  tickFormatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}
+                />
+                <Tooltip
+                  formatter={(value: number) => [value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "Patrimônio"]}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
+                  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                />
+                <Bar dataKey="patrimonio" name="Patrimônio" fill="hsl(210, 100%, 45%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
