@@ -363,29 +363,6 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
         <p className="text-sm text-muted-foreground mt-1">
           Período: {fmtDate(product.data_inicio)} a {fmtDate(product.data_calculo)}
         </p>
-        <div className="flex flex-wrap gap-2 mt-2">
-          <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-            {product.categoria_nome}
-          </span>
-          <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-            {product.instituicao_nome}
-          </span>
-          {product.modalidade && (
-            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-              {product.modalidade}
-            </span>
-          )}
-          {product.indexador && (
-            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-              {product.indexador}{product.taxa != null ? ` ${product.taxa}%` : ""}
-            </span>
-          )}
-          {isPrefixado && product.taxa != null && (
-            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-              Taxa: {product.taxa}% a.a.
-            </span>
-          )}
-        </div>
       </div>
 
       {/* Summary cards at data_calculo */}
