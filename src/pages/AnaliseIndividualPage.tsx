@@ -9,7 +9,7 @@ import {
 } from "@/lib/cdiCalculations";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 
 interface CustodiaProduct {
