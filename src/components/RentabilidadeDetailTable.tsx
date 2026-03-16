@@ -73,7 +73,7 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
               <TableBody>
                 {/* Patrimônio row */}
                 <TableRow>
-                  <TableCell className="text-xs font-medium whitespace-nowrap">Patrimônio</TableCell>
+                  <TableCell className="text-xs font-medium whitespace-nowrap">Valor Mensal Acumulado</TableCell>
                   {row.patrimonioMonths.map((v, i) => (
                     <TableCell key={i} className="text-xs text-center whitespace-nowrap">
                       {fmtBrl(v)}
