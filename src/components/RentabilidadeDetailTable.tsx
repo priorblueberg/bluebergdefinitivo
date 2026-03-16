@@ -103,12 +103,9 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtPct(v)}
                     </TableCell>
                   ))}
-                  <TableCell className={highlightCellClass}>
-                    {fmtPct(row.rentNoAno)}
-                  </TableCell>
-                  <TableCell className={highlightCellClass}>
-                    {fmtPct(row.rentAcumulado)}
-                  </TableCell>
+                   <TableCell className={highlightCellClass}>
+                     {fmtPct(row.rentNoAno)}
+                   </TableCell>
                 </TableRow>
 
                 {/* CDI row */}
