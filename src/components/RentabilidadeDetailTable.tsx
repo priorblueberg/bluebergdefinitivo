@@ -67,9 +67,8 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {m}
                     </TableHead>
                   ))}
-                  <TableHead className={highlightHeadClass}>No Ano</TableHead>
-                  <TableHead className={highlightHeadClass}>Acumulado</TableHead>
-                </TableRow>
+                   <TableHead className={highlightHeadClass}>No Ano</TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
                 {/* Patrimônio row */}
