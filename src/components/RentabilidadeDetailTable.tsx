@@ -67,9 +67,8 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {m}
                     </TableHead>
                   ))}
-                  <TableHead className={highlightHeadClass}>No Ano</TableHead>
-                  <TableHead className={highlightHeadClass}>Acumulado</TableHead>
-                </TableRow>
+                   <TableHead className={highlightHeadClass}>No Ano</TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
                 {/* Patrimônio row */}
@@ -80,9 +79,8 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtBrl(v)}
                     </TableCell>
                   ))}
-                  <TableCell className={highlightCellClass}>—</TableCell>
-                  <TableCell className={highlightCellClass}>—</TableCell>
-                </TableRow>
+                   <TableCell className={highlightCellClass}>—</TableCell>
+                 </TableRow>
 
                 {/* Ganho Financeiro row */}
                 <TableRow>
@@ -92,12 +90,9 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtBrl(v)}
                     </TableCell>
                   ))}
-                  <TableCell className={highlightCellClass}>
-                    {fmtBrl(row.ganhoNoAno)}
-                  </TableCell>
-                  <TableCell className={highlightCellClass}>
-                    {fmtBrl(row.ganhoAcumulado)}
-                  </TableCell>
+                   <TableCell className={highlightCellClass}>
+                     {fmtBrl(row.ganhoNoAno)}
+                   </TableCell>
                 </TableRow>
 
                 {/* Rentabilidade row */}
@@ -108,12 +103,9 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtPct(v)}
                     </TableCell>
                   ))}
-                  <TableCell className={highlightCellClass}>
-                    {fmtPct(row.rentNoAno)}
-                  </TableCell>
-                  <TableCell className={highlightCellClass}>
-                    {fmtPct(row.rentAcumulado)}
-                  </TableCell>
+                   <TableCell className={highlightCellClass}>
+                     {fmtPct(row.rentNoAno)}
+                   </TableCell>
                 </TableRow>
 
                 {/* CDI row */}
@@ -124,29 +116,10 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtPct(v)}
                     </TableCell>
                   ))}
-                  <TableCell className={highlightCellClass}>
-                    {fmtPct(row.cdiNoAno)}
-                  </TableCell>
-                  <TableCell className={highlightCellClass}>
-                    {fmtPct(row.cdiAcumulado)}
-                  </TableCell>
-                </TableRow>
-
-                {/* % sobre CDI row */}
-                <TableRow>
-                  <TableCell className="text-xs font-medium whitespace-nowrap">% sobre CDI</TableCell>
-                  {row.rentabilidadeMonths.map((v, i) => (
-                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
-                      {pctSobreCdi(v, row.cdiMonths[i])}
-                    </TableCell>
-                  ))}
-                  <TableCell className={highlightCellClass}>
-                    {pctSobreCdi(row.rentNoAno, row.cdiNoAno)}
-                  </TableCell>
-                  <TableCell className={highlightCellClass}>
-                    {pctSobreCdi(row.rentAcumulado, row.cdiAcumulado)}
-                  </TableCell>
-                </TableRow>
+                   <TableCell className={highlightCellClass}>
+                     {fmtPct(row.cdiNoAno)}
+                   </TableCell>
+                 </TableRow>
               </TableBody>
             </Table>
           </div>
