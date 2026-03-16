@@ -79,9 +79,8 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
                       {fmtBrl(v)}
                     </TableCell>
                   ))}
-                  <TableCell className={highlightCellClass}>—</TableCell>
-                  <TableCell className={highlightCellClass}>—</TableCell>
-                </TableRow>
+                   <TableCell className={highlightCellClass}>—</TableCell>
+                 </TableRow>
 
                 {/* Ganho Financeiro row */}
                 <TableRow>
