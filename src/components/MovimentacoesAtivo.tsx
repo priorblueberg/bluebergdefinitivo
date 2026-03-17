@@ -37,13 +37,8 @@ type SortDir = "asc" | "desc";
 
 const COLUMNS: { key: SortField; label: string }[] = [
   { key: "data", label: "Data" },
-  { key: "categoria", label: "Categoria" },
-  { key: "nome_ativo", label: "Nome do Ativo" },
   { key: "tipo_movimentacao", label: "Tipo Mov." },
-  { key: "instituicao", label: "Instituição" },
-  { key: "pagamento", label: "Pagamento" },
   { key: "valor_extrato", label: "Valor Extrato" },
-  { key: "vencimento", label: "Vencimento" },
 ];
 
 interface Props {
