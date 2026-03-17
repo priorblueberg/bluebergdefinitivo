@@ -680,6 +680,7 @@ export default function CadastrarTransacaoPage() {
                   setSelectedCustodiaId("");
                   setValor("");
                   setSaldoDisponivel(null);
+                  if (v === "Resgate") setData("");
                 }}
                 placeholder="Selecione o tipo de movimentação"
                 disabled={isEditing}
