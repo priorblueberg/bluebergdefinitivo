@@ -31,6 +31,7 @@ export interface EngineInput {
   dataCalculo: string;         // last date to calculate
   taxa: number;                // annual rate (e.g. 0.1350 for 13.50%)
   modalidade: string;          // "Prefixado", etc.
+  puInicial: number;           // preco_unitario from custodia (initial quota value)
   calendario: { data: string; dia_util: boolean }[];
   movimentacoes: { data: string; tipo_movimentacao: string; valor: number }[];
 }
