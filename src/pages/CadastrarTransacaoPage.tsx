@@ -680,6 +680,7 @@ export default function CadastrarTransacaoPage() {
                   setSelectedCustodiaId("");
                   setValor("");
                   setSaldoDisponivel(null);
+                  if (v === "Resgate") setData("");
                 }}
                 placeholder="Selecione o tipo de movimentação"
                 disabled={isEditing}
@@ -882,6 +883,7 @@ export default function CadastrarTransacaoPage() {
                 onChange={(v) => {
                   setSelectedCustodiaId(v);
                   setValor("");
+                  setData("");
                   setSaldoDisponivel(null);
                 }}
                 placeholder="Selecione o título em custódia"
@@ -893,17 +895,20 @@ export default function CadastrarTransacaoPage() {
             </Field>
 
             {selectedCustodia && (
+              <Field label="Data de Transação" required>
+                <input
+                  type="date"
+                  value={data}
+                  onChange={(e) => setData(e.target.value)}
+                  className="input-field max-w-[220px]"
+                />
+              </Field>
+            )}
+
+            {selectedCustodia && data && (
               <>
-                {/* Row 1: Data de Transação, Valor, Vencimento */}
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="Data de Transação" required>
-                    <input
-                      type="date"
-                      value={data}
-                      onChange={(e) => setData(e.target.value)}
-                      className="input-field"
-                    />
-                  </Field>
+                {/* Row 1: Valor, Vencimento */}
+                <div className="grid grid-cols-2 gap-4">
 
                   <Field label="Valor do Resgate (R$)" required>
                     <div className="relative">
