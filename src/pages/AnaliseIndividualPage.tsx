@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Search, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   buildCdiSeries, buildRentabilidadeRows,
   buildPrefixadoSeries, buildPrefixadoRentabilidadeRows,
@@ -27,6 +28,7 @@ interface CustodiaProduct {
   categoria_nome: string;
   produto_nome: string;
   instituicao_nome: string;
+  resgate_total: string | null;
 }
 
 type SortKey = "nome" | "categoria_nome" | "produto_nome" | "instituicao_nome";
@@ -250,7 +252,7 @@ function buildDetailRows(
 }
 
 function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
-  const { appliedVersion } = useDataReferencia();
+  const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -347,6 +349,15 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
     );
   }
 
+  const isBeforeStart = dataReferenciaISO < product.data_inicio;
+
+  // Status logic: "Em custódia" if ref date < resgate_total AND > data_inicio
+  const isEmCustodia = !isBeforeStart && (
+    !product.resgate_total || dataReferenciaISO < product.resgate_total
+  );
+
+  const fmtDateShort = (d: Date) => d.toLocaleDateString("pt-BR");
+
   return (
     <div className="space-y-6">
       <div>
@@ -357,156 +368,173 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           <ArrowLeft size={16} />
           Voltar para lista de produtos
         </button>
-        <h1 className="text-lg font-semibold text-foreground">
-          {product.nome || product.produto_nome}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Período: {fmtDate(product.data_inicio)} a {fmtDate(product.data_calculo)}
-        </p>
+        <div className="flex items-start gap-4 flex-wrap">
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">
+              {product.nome || product.produto_nome}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Período: {fmtDate(product.data_inicio)} a {fmtDate(product.data_calculo)}
+            </p>
+          </div>
+          <div className="flex flex-col items-start gap-1 ml-auto text-right">
+            <span className="text-xs text-muted-foreground">Status em {fmtDateShort(dataReferencia)}</span>
+            <Badge variant={isEmCustodia ? "default" : "secondary"} className={isEmCustodia ? "bg-emerald-600 hover:bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}>
+              {isBeforeStart ? "Não iniciado" : isEmCustodia ? "Em custódia" : "Liquidado"}
+            </Badge>
+          </div>
+        </div>
       </div>
 
-      {/* Summary cards at data_calculo */}
-      {detailRows.length > 0 && (() => {
-        const topRow = detailRows[0];
-        let lastPatrimonio: number | null = null;
-        for (let m = 11; m >= 0; m--) {
-          if (topRow.patrimonioMonths[m] !== null) { lastPatrimonio = topRow.patrimonioMonths[m]; break; }
-        }
-        const ganho = topRow.ganhoAcumulado;
-        const rent = topRow.rentAcumulado;
-        const cdiAcum = topRow.cdiAcumulado;
-        const pctSobreCdi = rent != null && cdiAcum != null && cdiAcum !== 0
-          ? parseFloat(((rent / cdiAcum) * 100).toFixed(2)) : null;
+      {isBeforeStart ? (
+        <div className="flex items-center justify-center py-20 rounded-lg border border-border bg-muted/50">
+          <p className="text-muted-foreground text-sm">Data de consulta anterior ao início do investimento</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary cards at data_calculo */}
+          {detailRows.length > 0 && (() => {
+            const topRow = detailRows[0];
+            let lastPatrimonio: number | null = null;
+            for (let m = 11; m >= 0; m--) {
+              if (topRow.patrimonioMonths[m] !== null) { lastPatrimonio = topRow.patrimonioMonths[m]; break; }
+            }
+            const ganho = topRow.ganhoAcumulado;
+            const rent = topRow.rentAcumulado;
+            const cdiAcum = topRow.cdiAcumulado;
+            const pctSobreCdi = rent != null && cdiAcum != null && cdiAcum !== 0
+              ? parseFloat(((rent / cdiAcum) * 100).toFixed(2)) : null;
 
-        const fmtBrlCard = (v: number | null) =>
-          v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
-        const fmtPctCard = (v: number | null) =>
-          v != null ? `${v.toFixed(2)}%` : "—";
+            const fmtBrlCard = (v: number | null) =>
+              v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+            const fmtPctCard = (v: number | null) =>
+              v != null ? `${v.toFixed(2)}%` : "—";
 
-        const cards = [
-          { label: "Saldo na data", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
-          { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
-          { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
-          { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
-        ];
+            const cards = [
+              { label: "Saldo na data", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
+              { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
+              { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
+              { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
+            ];
 
-        return (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {cards.map((c) => (
-              <div key={c.label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
-                <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
-                <p className={`text-lg font-semibold ${c.color}`}>{c.value}</p>
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {cards.map((c) => (
+                  <div key={c.label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
+                    <p className={`text-lg font-semibold ${c.color}`}>{c.value}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        );
-      })()}
+            );
+          })()}
 
-      {/* Charts side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Line chart */}
-        <div className="rounded-md border border-border bg-card p-6">
-          <h2 className="text-sm font-semibold text-foreground">
-            Histórico de Rentabilidade
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
-          <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                  axisLine={{ stroke: "hsl(var(--border))" }}
-                  tickLine={false}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                  axisLine={{ stroke: "hsl(var(--border))" }}
-                  tickLine={false}
-                  tickFormatter={(v) => `${v}%`}
-                />
-                <Tooltip content={<CustomTooltipChart />} />
-                <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
-                <Line
-                  type="monotone"
-                  dataKey="titulo_acumulado"
-                  name={tituloLabel}
-                  stroke="hsl(210, 100%, 45%)"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="cdi_acumulado"
-                  name="CDI"
-                  stroke="hsl(0, 0%, 55%)"
-                  strokeWidth={1.5}
-                  dot={false}
-                  activeDot={{ r: 3, strokeWidth: 0 }}
-                  strokeDasharray="5 3"
-                  connectNulls
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+          {/* Charts side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Line chart */}
+            <div className="rounded-md border border-border bg-card p-6">
+              <h2 className="text-sm font-semibold text-foreground">
+                Histórico de Rentabilidade
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
+              <div className="mt-4 h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      axisLine={{ stroke: "hsl(var(--border))" }}
+                      tickLine={false}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      axisLine={{ stroke: "hsl(var(--border))" }}
+                      tickLine={false}
+                      tickFormatter={(v) => `${v}%`}
+                    />
+                    <Tooltip content={<CustomTooltipChart />} />
+                    <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                    <Line
+                      type="monotone"
+                      dataKey="titulo_acumulado"
+                      name={tituloLabel}
+                      stroke="hsl(210, 100%, 45%)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4, strokeWidth: 0 }}
+                      connectNulls
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="cdi_acumulado"
+                      name="CDI"
+                      stroke="hsl(0, 0%, 55%)"
+                      strokeWidth={1.5}
+                      dot={false}
+                      activeDot={{ r: 3, strokeWidth: 0 }}
+                      strokeDasharray="5 3"
+                      connectNulls
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-        {/* Bar chart — Patrimônio Mensal */}
-        <div className="rounded-md border border-border bg-card p-6">
-          <h2 className="text-sm font-semibold text-foreground">
-            Patrimônio Mensal
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
-          <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={(() => {
-                const MONTH_LABELS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
-                const barData: { mes: string; patrimonio: number }[] = [];
-                // Use detailRows in chronological order (reversed back)
-                const chronRows = [...detailRows].reverse();
-                for (const row of chronRows) {
-                  for (let m = 0; m < 12; m++) {
-                    if (row.patrimonioMonths[m] !== null) {
-                      barData.push({
-                        mes: `${MONTH_LABELS[m]}/${String(row.year).slice(2)}`,
-                        patrimonio: row.patrimonioMonths[m]!,
-                      });
+            {/* Bar chart — Patrimônio Mensal */}
+            <div className="rounded-md border border-border bg-card p-6">
+              <h2 className="text-sm font-semibold text-foreground">
+                Patrimônio Mensal
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
+              <div className="mt-4 h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={(() => {
+                    const MONTH_LABELS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+                    const barData: { mes: string; patrimonio: number }[] = [];
+                    const chronRows = [...detailRows].reverse();
+                    for (const row of chronRows) {
+                      for (let m = 0; m < 12; m++) {
+                        if (row.patrimonioMonths[m] !== null) {
+                          barData.push({
+                            mes: `${MONTH_LABELS[m]}/${String(row.year).slice(2)}`,
+                            patrimonio: row.patrimonioMonths[m]!,
+                          });
+                        }
+                      }
                     }
-                  }
-                }
-                return barData;
-              })()}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="mes"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                  axisLine={{ stroke: "hsl(var(--border))" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                  axisLine={{ stroke: "hsl(var(--border))" }}
-                  tickLine={false}
-                  tickFormatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}
-                />
-                <Tooltip
-                  formatter={(value: number) => [value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "Patrimônio"]}
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
-                  labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
-                />
-                <Bar dataKey="patrimonio" name="Patrimônio" fill="hsl(210, 100%, 45%)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+                    return barData;
+                  })()}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="mes"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      axisLine={{ stroke: "hsl(var(--border))" }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      axisLine={{ stroke: "hsl(var(--border))" }}
+                      tickLine={false}
+                      tickFormatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "Patrimônio"]}
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
+                      labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                    />
+                    <Bar dataKey="patrimonio" name="Patrimônio" fill="hsl(210, 100%, 45%)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Detail tables — one per year */}
-      <RentabilidadeDetailTable rows={detailRows} tituloLabel={tituloLabel} />
+          {/* Detail tables — one per year */}
+          <RentabilidadeDetailTable rows={detailRows} tituloLabel={tituloLabel} />
+        </>
+      )}
     </div>
   );
 }
@@ -525,7 +553,7 @@ export default function AnaliseIndividualPage() {
       setLoading(true);
       const { data } = await supabase
         .from("custodia")
-        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, categoria_id, produto_id, instituicao_id, produtos(nome), instituicoes(nome), categorias(nome)");
+        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, categoria_id, produto_id, instituicao_id, resgate_total, produtos(nome), instituicoes(nome), categorias(nome)");
 
       if (data) {
         const mapped: CustodiaProduct[] = data.map((row: any) => ({
@@ -543,6 +571,7 @@ export default function AnaliseIndividualPage() {
           categoria_nome: row.categorias?.nome || "—",
           produto_nome: row.produtos?.nome || "—",
           instituicao_nome: row.instituicoes?.nome || "—",
+          resgate_total: row.resgate_total,
         }));
         setProducts(mapped);
 
