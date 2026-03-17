@@ -102,6 +102,7 @@ export default function CalculadoraPage() {
           dataCalculo: dataCalc,
           taxa: product.taxa || 0,
           modalidade: product.modalidade || "",
+          puInicial: product.preco_unitario || 1000,
           calendario: (calData || []).map((c: any) => ({
             data: c.data,
             dia_util: c.dia_util,
