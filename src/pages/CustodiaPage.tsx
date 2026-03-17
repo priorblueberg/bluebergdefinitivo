@@ -23,7 +23,7 @@ interface CustodiaRow {
   resgate_total: number | null;
   status_variavel: string | null;
   data_calculo: string | null;
-  multiplicador: number | null;
+  multiplicador: string | null;
   amortizacao: number | null;
   rendimentos: number | null;
   alocacao_patrimonial: string | null;
@@ -204,7 +204,7 @@ export default function CustodiaPage() {
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.resgate_total)}</td>
                   <td className="px-3 py-2 text-foreground">{r.status_variavel ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data_calculo)}</td>
-                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.multiplicador)}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.multiplicador ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.amortizacao)}</td>
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.rendimentos)}</td>
                   <td className="px-3 py-2 text-foreground">{r.alocacao_patrimonial ?? "—"}</td>
