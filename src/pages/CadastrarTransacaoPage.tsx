@@ -907,16 +907,8 @@ export default function CadastrarTransacaoPage() {
 
             {selectedCustodia && data && (
               <>
-                {/* Row 1: Data de Transação, Valor, Vencimento */}
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="Data de Transação" required>
-                    <input
-                      type="date"
-                      value={data}
-                      onChange={(e) => setData(e.target.value)}
-                      className="input-field"
-                    />
-                  </Field>
+                {/* Row 1: Valor, Vencimento */}
+                <div className="grid grid-cols-2 gap-4">
 
                   <Field label="Valor do Resgate (R$)" required>
                     <div className="relative">
