@@ -214,7 +214,7 @@ export default function CadastrarTransacaoPage() {
 
   // Step visibility
   const showTipoMovimentacao = !!categoriaId && !!produtoId && isRendaFixa;
-  const showFields = showTipoMovimentacao && tipoMovimentacao === "Aplicação";
+  const showFields = showTipoMovimentacao && (tipoMovimentacao === "Aplicação" || (isEditing && !!tipoMovimentacao));
 
   const resetForm = () => {
     setCategoriaId("");
