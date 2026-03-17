@@ -412,7 +412,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               v != null ? `${v.toFixed(2)}%` : "—";
 
             const cards = [
-              { label: "Saldo na data", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
+              { label: "Patrimônio", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
               { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
               { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
               { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
