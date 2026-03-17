@@ -252,7 +252,7 @@ function buildDetailRows(
 }
 
 function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
-  const { appliedVersion } = useDataReferencia();
+  const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
   const [loading, setLoading] = useState(true);
