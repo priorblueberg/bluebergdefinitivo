@@ -69,14 +69,38 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   if (!mov.codigo_custodia) return;
 
+  // Fetch ALL movimentações for this codigo_custodia to aggregate values
+  const { data: allMovs } = await supabase
+    .from("movimentacoes")
+    .select("*")
+    .eq("codigo_custodia", mov.codigo_custodia)
+    .eq("user_id", mov.user_id)
+    .order("data", { ascending: true });
+
+  // Find the first application (Aplicação Inicial or Aplicação) for base fields
+  const aplicacaoInicial = (allMovs || []).find(
+    (m: any) => m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação"
+  ) || mov;
+
+  // Compute net valor_investido: sum of aplicações - sum of resgates
+  let valorInvestidoLiquido = 0;
+  for (const m of allMovs || []) {
+    if (["Aplicação Inicial", "Aplicação", "Aporte Adicional"].includes(m.tipo_movimentacao)) {
+      valorInvestidoLiquido += m.valor;
+    } else if (m.tipo_movimentacao === "Resgate") {
+      valorInvestidoLiquido -= m.valor;
+    }
+  }
+  if (valorInvestidoLiquido < 0) valorInvestidoLiquido = 0;
+
   // Compute resgate_total for Renda Fixa
   let resgateTotal: string | null = null;
   if (isRendaFixa) {
-    resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, mov.vencimento);
+    resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, aplicacaoInicial.vencimento);
   }
 
   // Compute data_limite
-  const dataLimite = isRendaFixa ? mov.vencimento : null;
+  const dataLimite = isRendaFixa ? aplicacaoInicial.vencimento : null;
 
   // Compute data_calculo
   const dataCalculo = computeDataCalculo(refDate, resgateTotal, dataLimite);
@@ -91,21 +115,21 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   const custodiaData = {
     codigo_custodia: mov.codigo_custodia,
-    data_inicio: mov.data,
-    produto_id: mov.produto_id,
-    tipo_movimentacao: mov.tipo_movimentacao,
-    instituicao_id: mov.instituicao_id,
-    modalidade: mov.modalidade,
-    indexador: mov.indexador,
-    taxa: mov.taxa,
-    valor_investido: mov.valor,
-    preco_unitario: mov.preco_unitario,
-    quantidade: mov.quantidade,
-    vencimento: mov.vencimento,
-    emissor_id: mov.emissor_id,
-    pagamento: mov.pagamento,
-    nome: mov.nome_ativo,
-    categoria_id: mov.categoria_id,
+    data_inicio: aplicacaoInicial.data,
+    produto_id: aplicacaoInicial.produto_id,
+    tipo_movimentacao: aplicacaoInicial.tipo_movimentacao,
+    instituicao_id: aplicacaoInicial.instituicao_id,
+    modalidade: aplicacaoInicial.modalidade,
+    indexador: aplicacaoInicial.indexador,
+    taxa: aplicacaoInicial.taxa,
+    valor_investido: valorInvestidoLiquido,
+    preco_unitario: aplicacaoInicial.preco_unitario,
+    quantidade: aplicacaoInicial.quantidade,
+    vencimento: aplicacaoInicial.vencimento,
+    emissor_id: aplicacaoInicial.emissor_id,
+    pagamento: aplicacaoInicial.pagamento,
+    nome: aplicacaoInicial.nome_ativo,
+    categoria_id: aplicacaoInicial.categoria_id,
     user_id: mov.user_id,
     data_limite: dataLimite,
     alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : null,
