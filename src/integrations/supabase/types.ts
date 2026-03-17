@@ -114,7 +114,7 @@ export type Database = {
           indexador: string | null
           instituicao_id: string | null
           modalidade: string | null
-          multiplicador: number | null
+          multiplicador: string | null
           nome: string | null
           pagamento: string | null
           preco_unitario: number | null
@@ -147,7 +147,7 @@ export type Database = {
           indexador?: string | null
           instituicao_id?: string | null
           modalidade?: string | null
-          multiplicador?: number | null
+          multiplicador?: string | null
           nome?: string | null
           pagamento?: string | null
           preco_unitario?: number | null
@@ -180,7 +180,7 @@ export type Database = {
           indexador?: string | null
           instituicao_id?: string | null
           modalidade?: string | null
-          multiplicador?: number | null
+          multiplicador?: string | null
           nome?: string | null
           pagamento?: string | null
           preco_unitario?: number | null
