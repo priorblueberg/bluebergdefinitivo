@@ -377,7 +377,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               Período: {fmtDate(product.data_inicio)} a {fmtDate(product.data_calculo)}
             </p>
           </div>
-          <div className="flex flex-col items-start gap-1 ml-auto text-right">
+          <div className="flex items-center gap-2 ml-auto">
             <span className="text-xs text-muted-foreground">Status em {fmtDateShort(dataReferencia)}</span>
             <Badge variant={isEmCustodia ? "default" : "secondary"} className={isEmCustodia ? "bg-emerald-600 hover:bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}>
               {isBeforeStart ? "Não iniciado" : isEmCustodia ? "Em custódia" : "Liquidado"}
