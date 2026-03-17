@@ -113,11 +113,11 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const mov = movMap.get(cal.data) || { aplicacoes: 0, resgates: 0 };
 
     if (isInitialDay) {
-      // Day before: set initial quota, no movements counted yet
+      // Day before: set initial quota = PU Inicial, no movements counted yet
       rows.push({
         data: cal.data,
         diaUtil: cal.dia_util,
-        valorCota: 1000,
+        valorCota: cotaInicial,
         saldoCotas: 0,
         liquido: 0,
         aplicacoes: 0,
@@ -126,7 +126,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
         rentabilidadeDiaria: null,
         multiplicador: 0,
       });
-      prevValorCota = 1000;
+      prevValorCota = cotaInicial;
       prevLiquido = 0;
       prevSaldoCotas = 0;
       continue;
