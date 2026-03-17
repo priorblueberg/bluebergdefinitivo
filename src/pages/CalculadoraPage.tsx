@@ -29,6 +29,7 @@ interface CustodiaOption {
   taxa: number | null;
   modalidade: string | null;
   multiplicador: string | null;
+  preco_unitario: number | null;
   categoria_nome: string;
   produto_nome: string;
 }
