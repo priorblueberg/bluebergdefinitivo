@@ -193,10 +193,10 @@ export default function CalculadoraPage() {
                     {r.diaUtil ? "Sim" : "Não"}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
-                    {fmt(r.valorCota, 6)}
+                    {fmt(r.valorCota, 2)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
-                    {fmt(r.saldoCotas, 6)}
+                    {fmt(r.saldoCotas, 2)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
                     {fmtCurrency(r.liquido)}
