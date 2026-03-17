@@ -169,13 +169,8 @@ export default function MovimentacoesAtivo({ codigoCustodia }: Props) {
               sortedRows.map((r, i) => (
                 <tr key={r.id} className={`border-t border-border ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
-                  <td className="px-3 py-2 text-foreground">{r.categoria}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
-                  <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.valor_extrato ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
                     <button
                       onClick={() => handleEdit(r.id)}
