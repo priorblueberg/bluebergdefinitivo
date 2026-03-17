@@ -9,6 +9,7 @@ import {
   CdiRecord, DiaUtilRecord,
 } from "@/lib/cdiCalculations";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
+import MovimentacoesAtivo from "@/components/MovimentacoesAtivo";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
