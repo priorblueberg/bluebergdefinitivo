@@ -196,7 +196,8 @@ export default function CadastrarTransacaoPage() {
       }
 
       setCategoriaId(mov.categoria_id);
-      setTipoMovimentacao(mov.tipo_movimentacao === "Aplicação Inicial" ? "Aplicação" : mov.tipo_movimentacao);
+      setProdutoId(mov.produto_id);
+      setTipoMovimentacao(mov.tipo_movimentacao);
       setData(mov.data);
       setValor(mov.valor ? formatCurrency(Math.round(mov.valor * 100).toString()) : "");
       setPrecoUnitario(mov.preco_unitario ? formatCurrency(Math.round(mov.preco_unitario * 100).toString()) : "1.000,00");
