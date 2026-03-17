@@ -28,6 +28,7 @@ const menuItems: MenuItem[] = [
   { title: "Cadastrar Transação", url: "/cadastrar-transacao", icon: Plus },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Admin", url: "/admin", icon: Shield },
+  { title: "Calculadora", url: "/calculadora", icon: Calculator },
 ];
 
 export function AppSidebar({
