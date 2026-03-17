@@ -123,7 +123,8 @@ export default function CalculadoraPage() {
         setLoading(false);
       }
     })();
-  }, [selectedId, products, user, appliedVersion]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, appliedVersion]);
 
   const selectedProduct = products.find((p) => p.id === selectedId);
 
