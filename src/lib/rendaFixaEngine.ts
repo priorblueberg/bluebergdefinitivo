@@ -31,6 +31,7 @@ export interface EngineInput {
   dataCalculo: string;         // last date to calculate
   taxa: number;                // annual rate (e.g. 0.1350 for 13.50%)
   modalidade: string;          // "Prefixado", etc.
+  puInicial: number;           // preco_unitario from custodia (initial quota value)
   calendario: { data: string; dia_util: boolean }[];
   movimentacoes: { data: string; tipo_movimentacao: string; valor: number }[];
 }
@@ -79,8 +80,9 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 }
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, calendario, movimentacoes } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes } = input;
 
+  const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const multiplicador = getMultiplicador(modalidade, taxa);
   const movMap = buildMovMap(movimentacoes);
 
@@ -102,7 +104,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
   let prevLiquido = 0;
   let prevSaldoCotas = 0;
-  let prevValorCota = 1000;
+  let prevValorCota = cotaInicial;
 
   for (let i = startIdx; i < sorted.length; i++) {
     const cal = sorted[i];
@@ -112,11 +114,11 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const mov = movMap.get(cal.data) || { aplicacoes: 0, resgates: 0 };
 
     if (isInitialDay) {
-      // Day before: set initial quota, no movements counted yet
+      // Day before: set initial quota = PU Inicial, no movements counted yet
       rows.push({
         data: cal.data,
         diaUtil: cal.dia_util,
-        valorCota: 1000,
+        valorCota: cotaInicial,
         saldoCotas: 0,
         liquido: 0,
         aplicacoes: 0,
@@ -125,7 +127,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
         rentabilidadeDiaria: null,
         multiplicador: 0,
       });
-      prevValorCota = 1000;
+      prevValorCota = cotaInicial;
       prevLiquido = 0;
       prevSaldoCotas = 0;
       continue;

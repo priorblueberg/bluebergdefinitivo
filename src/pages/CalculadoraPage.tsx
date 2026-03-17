@@ -29,6 +29,7 @@ interface CustodiaOption {
   taxa: number | null;
   modalidade: string | null;
   multiplicador: string | null;
+  preco_unitario: number | null;
   categoria_nome: string;
   produto_nome: string;
 }
@@ -47,7 +48,7 @@ export default function CalculadoraPage() {
     (async () => {
       const { data } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, categorias(nome), produtos(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, categorias(nome), produtos(nome)")
         .eq("user_id", user.id);
 
       if (data) {
@@ -61,6 +62,7 @@ export default function CalculadoraPage() {
             taxa: r.taxa,
             modalidade: r.modalidade,
             multiplicador: r.multiplicador,
+            preco_unitario: r.preco_unitario,
             categoria_nome: r.categorias?.nome || "",
             produto_nome: r.produtos?.nome || "",
           }))
@@ -102,6 +104,7 @@ export default function CalculadoraPage() {
           dataCalculo: dataCalc,
           taxa: product.taxa || 0,
           modalidade: product.modalidade || "",
+          puInicial: product.preco_unitario || 1000,
           calendario: (calData || []).map((c: any) => ({
             data: c.data,
             dia_util: c.dia_util,
@@ -120,7 +123,8 @@ export default function CalculadoraPage() {
         setLoading(false);
       }
     })();
-  }, [selectedId, products, user, appliedVersion]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, appliedVersion]);
 
   const selectedProduct = products.find((p) => p.id === selectedId);
 
@@ -189,10 +193,10 @@ export default function CalculadoraPage() {
                     {r.diaUtil ? "Sim" : "Não"}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
-                    {fmt(r.valorCota, 6)}
+                    {fmt(r.valorCota, 2)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
-                    {fmt(r.saldoCotas, 6)}
+                    {fmt(r.saldoCotas, 2)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
                     {fmtCurrency(r.liquido)}
@@ -213,7 +217,7 @@ export default function CalculadoraPage() {
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
                     {r.multiplicador > 0
-                      ? (r.multiplicador * 100).toFixed(6) + "%"
+                      ? r.multiplicador.toFixed(8)
                       : "—"}
                   </TableCell>
                 </TableRow>
