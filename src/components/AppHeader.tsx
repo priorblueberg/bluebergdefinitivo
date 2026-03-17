@@ -125,6 +125,22 @@ export function AppHeader() {
               </button>
             </div>
             <button
+              onClick={() => applyDate(subDays(dataReferencia, 1))}
+              className="rounded-md border border-border p-1 text-muted-foreground hover:text-primary hover:border-primary bg-background"
+              style={{ transition: "all 120ms linear" }}
+              title="Dia anterior"
+            >
+              <ChevronLeft size={14} strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={() => applyDate(addDays(dataReferencia, 1))}
+              className="rounded-md border border-border p-1 text-muted-foreground hover:text-primary hover:border-primary bg-background"
+              style={{ transition: "all 120ms linear" }}
+              title="Próximo dia"
+            >
+              <ChevronRight size={14} strokeWidth={1.5} />
+            </button>
+            <button
               onClick={() => applyDate(subDays(new Date(), 1))}
               className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-primary hover:border-primary bg-background"
               style={{ transition: "all 120ms linear" }}
