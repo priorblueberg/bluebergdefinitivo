@@ -28,6 +28,7 @@ interface CustodiaProduct {
   categoria_nome: string;
   produto_nome: string;
   instituicao_nome: string;
+  resgate_total: string | null;
 }
 
 type SortKey = "nome" | "categoria_nome" | "produto_nome" | "instituicao_nome";
