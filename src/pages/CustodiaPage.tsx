@@ -23,7 +23,7 @@ interface CustodiaRow {
   resgate_total: number | null;
   status_variavel: string | null;
   data_calculo: string | null;
-  multiplicador: number | null;
+  multiplicador: string | null;
   amortizacao: number | null;
   rendimentos: number | null;
   alocacao_patrimonial: string | null;
