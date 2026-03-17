@@ -204,7 +204,7 @@ export default function CustodiaPage() {
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.resgate_total)}</td>
                   <td className="px-3 py-2 text-foreground">{r.status_variavel ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data_calculo)}</td>
-                  <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.multiplicador)}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.multiplicador ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.amortizacao)}</td>
                   <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">{fmt(r.rendimentos)}</td>
                   <td className="px-3 py-2 text-foreground">{r.alocacao_patrimonial ?? "—"}</td>

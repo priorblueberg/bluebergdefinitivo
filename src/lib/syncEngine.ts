@@ -133,6 +133,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     user_id: mov.user_id,
     data_limite: dataLimite,
     alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : null,
+    multiplicador: categoriaNome || null,
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
   };
