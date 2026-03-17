@@ -103,7 +103,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
   let prevLiquido = 0;
   let prevSaldoCotas = 0;
-  let prevValorCota = 1000;
+  let prevValorCota = cotaInicial;
 
   for (let i = startIdx; i < sorted.length; i++) {
     const cal = sorted[i];
