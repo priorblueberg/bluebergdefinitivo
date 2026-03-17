@@ -41,8 +41,8 @@ export interface EngineInput {
  */
 function getMultiplicador(modalidade: string, taxa: number): number {
   if (modalidade === "Prefixado") {
-    // (1 + taxa)^(1/252) - 1
-    return Math.pow(1 + taxa, 1 / 252) - 1;
+    // (1 + taxa/100)^(1/252) - 1  — taxa is stored as percentage (e.g. 15.00)
+    return Math.pow(1 + taxa / 100, 1 / 252) - 1;
   }
   // Other modalidades can be added here
   return 0;
