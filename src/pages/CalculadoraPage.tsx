@@ -217,7 +217,7 @@ export default function CalculadoraPage() {
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
                     {r.multiplicador > 0
-                      ? (r.multiplicador * 100).toFixed(6) + "%"
+                      ? r.multiplicador.toFixed(8)
                       : "—"}
                   </TableCell>
                 </TableRow>
