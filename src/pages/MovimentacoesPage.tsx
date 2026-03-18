@@ -150,6 +150,7 @@ export default function MovimentacoesPage() {
         movData.user_id!,
         dataReferenciaISO
       );
+      applyDataReferencia();
     } else {
       // Normal single delete
       const { error } = await supabase.from("movimentacoes").delete().eq("id", deleteId);
