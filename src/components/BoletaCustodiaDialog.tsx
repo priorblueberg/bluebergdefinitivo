@@ -86,13 +86,63 @@ export default function BoletaCustodiaDialog({
 
   const handleDateSelect = async (d: Date | undefined) => {
     setDate(d);
-    if (!d || tipo !== "Resgate") return;
+    setValorCotaDia(null);
+    if (!d) return;
 
-    // Calcular saldo disponível para resgate
-    if (row.modalidade === "Prefixado" && row.taxa) {
+    const dateISO = format(d, "yyyy-MM-dd");
+
+    // Para Aplicação: buscar Valor da Cota do dia selecionado
+    if (tipo === "Aplicação" && row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
+      setLoadingCota(true);
+      try {
+        const [calRes, movRes] = await Promise.all([
+          supabase
+            .from("calendario_dias_uteis")
+            .select("data, dia_util")
+            .gte("data", row.data_inicio)
+            .lte("data", dateISO)
+            .order("data"),
+          supabase
+            .from("movimentacoes")
+            .select("data, tipo_movimentacao, valor")
+            .eq("codigo_custodia", row.codigo_custodia)
+            .eq("user_id", userId)
+            .order("data"),
+        ]);
+
+        const calendario = calRes.data || [];
+        const movimentacoes = (movRes.data || []).map((m: any) => ({
+          data: m.data,
+          tipo_movimentacao: m.tipo_movimentacao,
+          valor: Number(m.valor),
+        }));
+
+        const rows = calcularRendaFixaDiario({
+          dataInicio: row.data_inicio,
+          dataCalculo: dateISO,
+          taxa: row.taxa,
+          modalidade: row.modalidade,
+          puInicial: row.preco_unitario,
+          calendario,
+          movimentacoes,
+        });
+
+        // Pegar o valorCota do dia selecionado (último row)
+        const rowDia = rows.find((r) => r.data === dateISO);
+        if (rowDia) {
+          setValorCotaDia(rowDia.valorCota);
+        }
+      } catch {
+        setValorCotaDia(null);
+      } finally {
+        setLoadingCota(false);
+      }
+    }
+
+    // Para Resgate: calcular saldo disponível
+    if (tipo === "Resgate" && row.modalidade === "Prefixado" && row.taxa) {
       setLoadingSaldo(true);
       try {
-        const dateISO = format(d, "yyyy-MM-dd");
         const saldo = await calcSaldoPrefixado(
           row.valor_investido,
           row.taxa,
