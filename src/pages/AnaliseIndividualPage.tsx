@@ -585,6 +585,7 @@ export default function AnaliseIndividualPage() {
           produto_nome: row.produtos?.nome || "—",
           instituicao_nome: row.instituicoes?.nome || "—",
           resgate_total: row.resgate_total,
+          preco_unitario: row.preco_unitario,
         }));
         setProducts(mapped);
 
