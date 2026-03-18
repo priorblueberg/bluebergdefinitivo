@@ -4,10 +4,10 @@ import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Search, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
-  buildCdiSeries, buildRentabilidadeRows,
-  buildPrefixadoSeries, buildPrefixadoRentabilidadeRows,
+  buildCdiSeries,
   CdiRecord, DiaUtilRecord,
 } from "@/lib/cdiCalculations";
+import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
 import MovimentacoesAtivo from "@/components/MovimentacoesAtivo";
 import {
