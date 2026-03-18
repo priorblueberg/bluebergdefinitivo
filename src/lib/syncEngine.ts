@@ -708,8 +708,25 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
         .update({ resgate_total: resgateTotal, data_calculo: dataCalculo, data_limite: dataLimite })
         .eq("id", row.id);
 
-      // Sync automatic "Resgate no Vencimento"
+      // Sync manual "Resgate Total" values created by the "Fechar Posição" flow
       if (isRendaFixa) {
+        await syncManualResgatesTotais(row.codigo_custodia, userId, {
+          vencimento: row.vencimento,
+          resgate_total: resgateTotal,
+          modalidade: row.modalidade,
+          taxa: row.taxa,
+          data_inicio: row.data_inicio,
+          categoria_id: row.categoria_id,
+          produto_id: row.produto_id,
+          instituicao_id: row.instituicao_id,
+          emissor_id: row.emissor_id,
+          pagamento: row.pagamento,
+          indexador: row.indexador,
+          nome: row.nome,
+          preco_unitario: row.pu_inicial ?? row.preco_unitario,
+        });
+
+        // Sync automatic "Resgate no Vencimento"
         await syncResgateNoVencimento(row.codigo_custodia, userId, {
           vencimento: row.vencimento,
           resgate_total: resgateTotal,
@@ -723,7 +740,7 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
           pagamento: row.pagamento,
           indexador: row.indexador,
           nome: row.nome,
-          preco_unitario: row.pu_inicial,
+          preco_unitario: row.pu_inicial ?? row.preco_unitario,
         });
       }
     }
