@@ -155,8 +155,12 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // 8. Saldo de Cotas (1) = Saldo(2) - cotas resgatadas
     const saldoCotas1 = saldoCotas2 - qtdCotasResgate;
 
-    // 9. Valor da Cota (1) = Líquido(1) / Saldo Cotas(1)
-    const valorCota1 = saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
+    // 9. Valor da Cota (1)
+    // No dia do resgate total: valorCota1 = resgates / saldoCotas2
+    const isResgateTotal = dataResgateTotal && cal.data === dataResgateTotal;
+    const valorCota1 = isResgateTotal && mov.resgates > 0 && saldoCotas2 > 0
+      ? mov.resgates / saldoCotas2
+      : saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
 
     // 10. Rentabilidade diária
     const rentDiaria = prevValorCota > 0 ? valorCota1 / prevValorCota - 1 : null;

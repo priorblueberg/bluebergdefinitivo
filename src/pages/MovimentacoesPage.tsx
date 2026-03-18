@@ -191,7 +191,7 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
                     {r.origem === "automatico" ? (
-                      <span className="text-muted-foreground text-[10px] italic">automático</span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Auto</Badge>
                     ) : (
                       <>
                         <button
