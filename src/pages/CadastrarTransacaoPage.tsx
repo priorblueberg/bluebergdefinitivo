@@ -531,6 +531,7 @@ export default function CadastrarTransacaoPage() {
           quantidade,
           valor_extrato: valorExtrato,
           user_id: user?.id,
+          origem: "manual",
         });
 
         if (error) throw error;

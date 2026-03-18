@@ -229,6 +229,7 @@ export default function BoletaCustodiaDialog({
           valor: valorNum,
           valor_extrato: valorExtrato,
           nome_ativo: row.nome,
+          origem: "manual",
         })
         .select("id")
         .single();

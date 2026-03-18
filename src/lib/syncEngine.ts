@@ -4,6 +4,7 @@
  * Mantém custodia e controle_de_carteiras atualizadas
  * automaticamente quando movimentacoes são alteradas.
  */
+import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 
 // ── Resgate no Vencimento Auto Sync ──
