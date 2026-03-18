@@ -59,8 +59,7 @@ async function syncResgateNoVencimento(
     return;
   }
 
-  // Already exists — skip
-  if (existingAuto && existingAuto.length > 0) return;
+  const existingId = existingAuto && existingAuto.length > 0 ? existingAuto[0].id : null;
 
   // Calculate liquido and cota via engine
   try {
