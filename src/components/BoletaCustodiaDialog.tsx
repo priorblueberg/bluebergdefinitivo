@@ -251,6 +251,7 @@ export default function BoletaCustodiaDialog({
     setDate(undefined);
     setValor("");
     setSaldoDisponivel(null);
+    setValorCotaDia(null);
     onClose();
   };
 
