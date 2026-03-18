@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
 import { calcSaldoPrefixado } from "@/lib/saldoCalculations";
+import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +75,8 @@ export default function BoletaCustodiaDialog({
   const [submitting, setSubmitting] = useState(false);
   const [saldoDisponivel, setSaldoDisponivel] = useState<number | null>(null);
   const [loadingSaldo, setLoadingSaldo] = useState(false);
+  const [valorCotaDia, setValorCotaDia] = useState<number | null>(null);
+  const [loadingCota, setLoadingCota] = useState(false);
 
   const fmtReadonly = (v: string | null | undefined) => v ?? "—";
   const fmtTaxa = (v: number | null) =>
@@ -83,13 +86,63 @@ export default function BoletaCustodiaDialog({
 
   const handleDateSelect = async (d: Date | undefined) => {
     setDate(d);
-    if (!d || tipo !== "Resgate") return;
+    setValorCotaDia(null);
+    if (!d) return;
 
-    // Calcular saldo disponível para resgate
-    if (row.modalidade === "Prefixado" && row.taxa) {
+    const dateISO = format(d, "yyyy-MM-dd");
+
+    // Para Aplicação: buscar Valor da Cota do dia selecionado
+    if (tipo === "Aplicação" && row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
+      setLoadingCota(true);
+      try {
+        const [calRes, movRes] = await Promise.all([
+          supabase
+            .from("calendario_dias_uteis")
+            .select("data, dia_util")
+            .gte("data", row.data_inicio)
+            .lte("data", dateISO)
+            .order("data"),
+          supabase
+            .from("movimentacoes")
+            .select("data, tipo_movimentacao, valor")
+            .eq("codigo_custodia", row.codigo_custodia)
+            .eq("user_id", userId)
+            .order("data"),
+        ]);
+
+        const calendario = calRes.data || [];
+        const movimentacoes = (movRes.data || []).map((m: any) => ({
+          data: m.data,
+          tipo_movimentacao: m.tipo_movimentacao,
+          valor: Number(m.valor),
+        }));
+
+        const rows = calcularRendaFixaDiario({
+          dataInicio: row.data_inicio,
+          dataCalculo: dateISO,
+          taxa: row.taxa,
+          modalidade: row.modalidade,
+          puInicial: row.preco_unitario,
+          calendario,
+          movimentacoes,
+        });
+
+        // Pegar o valorCota do dia selecionado (último row)
+        const rowDia = rows.find((r) => r.data === dateISO);
+        if (rowDia) {
+          setValorCotaDia(rowDia.valorCota);
+        }
+      } catch {
+        setValorCotaDia(null);
+      } finally {
+        setLoadingCota(false);
+      }
+    }
+
+    // Para Resgate: calcular saldo disponível
+    if (tipo === "Resgate" && row.modalidade === "Prefixado" && row.taxa) {
       setLoadingSaldo(true);
       try {
-        const dateISO = format(d, "yyyy-MM-dd");
         const saldo = await calcSaldoPrefixado(
           row.valor_investido,
           row.taxa,
@@ -141,10 +194,10 @@ export default function BoletaCustodiaDialog({
     setSubmitting(true);
     try {
       const isAplicacao = tipo === "Aplicação";
-      const quantidade = isAplicacao && row.preco_unitario
-        ? valorNum / row.preco_unitario
+      const pu = isAplicacao ? (valorCotaDia ?? row.preco_unitario) : null;
+      const quantidade = isAplicacao && pu
+        ? valorNum / pu
         : null;
-      const pu = isAplicacao ? row.preco_unitario : null;
 
       let valorExtrato: string;
       if (isAplicacao && pu && quantidade) {
@@ -198,6 +251,7 @@ export default function BoletaCustodiaDialog({
     setDate(undefined);
     setValor("");
     setSaldoDisponivel(null);
+    setValorCotaDia(null);
     onClose();
   };
 
@@ -252,6 +306,29 @@ export default function BoletaCustodiaDialog({
             }}
           />
         </div>
+
+        {/* Valor da Cota do dia (Aplicação) */}
+        {tipo === "Aplicação" && date && (
+          <div className="text-sm">
+            {loadingCota ? (
+              <p className="text-muted-foreground">Calculando Valor da Cota...</p>
+            ) : valorCotaDia != null ? (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Preço Unitário (Valor da Cota):{" "}
+                  <strong>
+                    R${" "}
+                    {valorCotaDia.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </strong>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
+        )}
 
         {/* Valor */}
         <div className="space-y-1">
