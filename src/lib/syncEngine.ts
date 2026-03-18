@@ -525,7 +525,7 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
   // 1. Recalculate all custodia records
   const { data: allCustodia } = await supabase
     .from("custodia")
-    .select("id, codigo_custodia, categoria_id, vencimento, data_limite, user_id, categorias(nome)")
+    .select("id, codigo_custodia, categoria_id, vencimento, data_limite, data_inicio, user_id, modalidade, taxa, produto_id, instituicao_id, emissor_id, pagamento, indexador, nome, preco_unitario, pu_inicial, categorias(nome)")
     .eq("user_id", userId);
 
   if (allCustodia) {
@@ -545,6 +545,25 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
         .from("custodia")
         .update({ resgate_total: resgateTotal, data_calculo: dataCalculo, data_limite: dataLimite })
         .eq("id", row.id);
+
+      // Sync automatic "Resgate no Vencimento"
+      if (isRendaFixa) {
+        await syncResgateNoVencimento(row.codigo_custodia, userId, {
+          vencimento: row.vencimento,
+          resgate_total: resgateTotal,
+          modalidade: row.modalidade,
+          taxa: row.taxa,
+          data_inicio: row.data_inicio,
+          categoria_id: row.categoria_id,
+          produto_id: row.produto_id,
+          instituicao_id: row.instituicao_id,
+          emissor_id: row.emissor_id,
+          pagamento: row.pagamento,
+          indexador: row.indexador,
+          nome: row.nome,
+          preco_unitario: row.pu_inicial,
+        });
+      }
     }
   }
 
