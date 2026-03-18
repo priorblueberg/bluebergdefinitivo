@@ -170,15 +170,19 @@ export default function CalculadoraPage() {
         <div className="rounded-md border border-border overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50">
+             <TableRow className="bg-muted/50">
                 <TableHead className="text-xs whitespace-nowrap">Data</TableHead>
                 <TableHead className="text-xs whitespace-nowrap text-center">Dia Útil</TableHead>
                 <TableHead className="text-xs whitespace-nowrap text-right">Valor da Cota (1)</TableHead>
                 <TableHead className="text-xs whitespace-nowrap text-right">Saldo de Cotas (1)</TableHead>
                 <TableHead className="text-xs whitespace-nowrap text-right">Líquido (1)</TableHead>
+                <TableHead className="text-xs whitespace-nowrap text-right">Valor da Cota (2)</TableHead>
+                <TableHead className="text-xs whitespace-nowrap text-right">Saldo de Cotas (2)</TableHead>
+                <TableHead className="text-xs whitespace-nowrap text-right">Líquido (2)</TableHead>
                 <TableHead className="text-xs whitespace-nowrap text-right">Aplicações</TableHead>
                 <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Compra)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Resgates</TableHead>
+                <TableHead className="text-xs whitespace-nowrap text-right">Resgate</TableHead>
+                <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Resgate)</TableHead>
                 <TableHead className="text-xs whitespace-nowrap text-right">Rent. Diária</TableHead>
                 <TableHead className="text-xs whitespace-nowrap text-right">Multiplicador</TableHead>
               </TableRow>
