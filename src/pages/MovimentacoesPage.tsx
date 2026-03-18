@@ -87,9 +87,9 @@ export default function MovimentacoesPage() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const { dataReferenciaISO, applyDataReferencia, appliedVersion } = useDataReferencia();
+
+  // ... existing state declarations remain unchanged
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
