@@ -306,6 +306,29 @@ export default function BoletaCustodiaDialog({
           />
         </div>
 
+        {/* Valor da Cota do dia (Aplicação) */}
+        {tipo === "Aplicação" && date && (
+          <div className="text-sm">
+            {loadingCota ? (
+              <p className="text-muted-foreground">Calculando Valor da Cota...</p>
+            ) : valorCotaDia != null ? (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Preço Unitário (Valor da Cota):{" "}
+                  <strong>
+                    R${" "}
+                    {valorCotaDia.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </strong>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
+        )}
+
         {/* Valor */}
         <div className="space-y-1">
           <label className="text-sm font-medium text-foreground">Valor (R$) *</label>
