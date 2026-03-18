@@ -409,6 +409,7 @@ export default function CadastrarTransacaoPage() {
 
         const insertedId = inserted?.[0]?.id || null;
         await fullSyncAfterMovimentacao(insertedId, selectedCustodia.categoria_id, user.id, dataReferenciaISO);
+        applyDataReferencia();
 
         toast.success("Resgate cadastrado com sucesso!");
         resetForm();
