@@ -52,154 +52,120 @@ const CustomTooltipChart = ({ active, payload, label }: any) => {
   return null;
 };
 
-/* ── helpers to compute patrimônio from valor_investido + monthly returns ── */
-
-function calcFatorDiarioPre(taxaAnual: number): number {
-  return Math.pow(taxaAnual / 100 + 1, 1 / 252) - 1;
-}
+/* ── helper: derive DetailRow[] from engine DailyRow[] + CDI records ── */
 
 function calcFatorDiarioCdi(taxaAnual: number): number {
   return Math.pow(taxaAnual / 100 + 1, 1 / 252) - 1;
 }
 
-function buildDetailRows(
+function buildDetailRowsFromEngine(
+  dailyRows: DailyRow[],
   cdiRecords: CdiRecord[],
-  diasUteis: DiaUtilRecord[],
-  isPrefixado: boolean,
-  taxaAnual: number,
-  valorInvestido: number,
   dataInicio: string,
-  dataCalculo?: string,
 ): DetailRow[] {
-  // We need to iterate day-by-day and track:
-  // - prefixado/titulo accumulated factor (monthly, yearly, total)
-  // - CDI accumulated factor (monthly, yearly, total)
-  // - patrimonio at end of each month
+  if (dailyRows.length === 0) return [];
 
-  const endDate = dataCalculo || "2099-12-31";
-
-  // Build a combined day-by-day list
-  // For prefixado: use diasUteis for titulo calc, cdiRecords for CDI calc
-  // For CDI-only: both come from cdiRecords
-
-  // Collect all dates
-  const allDatesSet = new Set<string>();
-  cdiRecords.forEach(r => { if (r.data <= endDate) allDatesSet.add(r.data); });
-  diasUteis.forEach(r => { if (r.data <= endDate) allDatesSet.add(r.data); });
-  const allDates = Array.from(allDatesSet).sort();
-
-  if (allDates.length === 0) return [];
-
-  // Maps for quick lookup
+  // CDI factor tracking
   const cdiMap = new Map<string, CdiRecord>();
   cdiRecords.forEach(r => cdiMap.set(r.data, r));
-  const duMap = new Map<string, boolean>();
-  diasUteis.forEach(r => duMap.set(r.data, r.dia_util));
 
-  // Tracking variables
-  let tituloFatorAcum = 1;
-  let tituloFatorMensal = 1;
-  let tituloFatorAnual = 1;
-  let cdiFatorAcum = 1;
   let cdiFatorMensal = 1;
   let cdiFatorAnual = 1;
 
   let currentMonth = -1;
   let currentYear = -1;
 
-  // year -> month(0-11) -> values
-  const tituloMonthly = new Map<number, Map<number, number>>();
+  // Aggregation maps
+  const rentMonthly = new Map<number, Map<number, number>>();
   const cdiMonthly = new Map<number, Map<number, number>>();
   const patrimonioMonthly = new Map<number, Map<number, number>>();
   const ganhoMensalMonthly = new Map<number, Map<number, number>>();
   const ganhoAnualMap = new Map<number, number>();
-  const tituloYearly = new Map<number, number>();
+  const rentYearly = new Map<number, number>();
   const cdiYearly = new Map<number, number>();
 
-  const fatorDiarioPre = isPrefixado ? calcFatorDiarioPre(taxaAnual) : 0;
+  let rentFatorMensal = 1;
+  let rentFatorAnual = 1;
 
-  let patrimonioFimMesAnterior = valorInvestido;
-  let patrimonioInicioAno = valorInvestido;
+  let patrimonioFimMesAnterior = 0;
+  let patrimonioInicioAno = 0;
+  let firstData = true;
 
-  for (const dateStr of allDates) {
-    const dt = new Date(dateStr + "T00:00:00");
+  for (const row of dailyRows) {
+    // Skip the initial day (day before data_inicio with saldoCotas=0)
+    if (row.saldoCotas === 0 && row.liquido === 0) continue;
+
+    const dt = new Date(row.data + "T00:00:00");
     const m = dt.getMonth();
     const y = dt.getFullYear();
 
     if (currentMonth === -1) {
       currentMonth = m;
       currentYear = y;
+      patrimonioFimMesAnterior = row.liquido;
+      patrimonioInicioAno = row.liquido;
+      firstData = false;
     } else if (m !== currentMonth) {
-      patrimonioFimMesAnterior = valorInvestido * tituloFatorAcum;
-      tituloFatorMensal = 1;
+      patrimonioFimMesAnterior = (() => {
+        // Get last liquido of previous month from patrimonioMonthly
+        const pMap = patrimonioMonthly.get(currentYear);
+        return pMap?.get(currentMonth) ?? row.liquido;
+      })();
+      rentFatorMensal = 1;
       cdiFatorMensal = 1;
       currentMonth = m;
       if (y !== currentYear) {
-        patrimonioInicioAno = valorInvestido * tituloFatorAcum;
-        tituloFatorAnual = 1;
+        patrimonioInicioAno = patrimonioFimMesAnterior;
+        rentFatorAnual = 1;
         cdiFatorAnual = 1;
         currentYear = y;
       }
     }
 
-    // Titulo factor — prefixado não rentabiliza no D0 (dia da aplicação)
-    if (isPrefixado) {
-      const isDiaUtil = duMap.get(dateStr) ?? cdiMap.get(dateStr)?.dia_util ?? false;
-      if (isDiaUtil && dateStr !== dataInicio) {
-        tituloFatorAcum *= 1 + fatorDiarioPre;
-        tituloFatorMensal *= 1 + fatorDiarioPre;
-        tituloFatorAnual *= 1 + fatorDiarioPre;
-      }
-    } else {
-      const cdiRec = cdiMap.get(dateStr);
-      if (cdiRec && cdiRec.dia_util) {
-        const fd = calcFatorDiarioCdi(cdiRec.taxa_anual);
-        tituloFatorAcum *= 1 + fd;
-        tituloFatorMensal *= 1 + fd;
-        tituloFatorAnual *= 1 + fd;
-      }
+    // Titulo/rent factor from engine's rentabilidadeDiaria
+    if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
+      rentFatorMensal *= 1 + row.rentabilidadeDiaria;
+      rentFatorAnual *= 1 + row.rentabilidadeDiaria;
     }
 
-    // CDI factor (always from cdiRecords)
-    const cdiRec = cdiMap.get(dateStr);
-    if (cdiRec && cdiRec.dia_util) {
+    // CDI factor
+    const cdiRec = cdiMap.get(row.data);
+    if (cdiRec && row.diaUtil) {
       const fd = calcFatorDiarioCdi(cdiRec.taxa_anual);
-      cdiFatorAcum *= 1 + fd;
       cdiFatorMensal *= 1 + fd;
       cdiFatorAnual *= 1 + fd;
     }
 
-    const patrimonioAtual = valorInvestido * tituloFatorAcum;
-
-    if (!tituloMonthly.has(y)) tituloMonthly.set(y, new Map());
-    tituloMonthly.get(y)!.set(m, (tituloFatorMensal - 1) * 100);
+    // Store monthly values
+    if (!rentMonthly.has(y)) rentMonthly.set(y, new Map());
+    rentMonthly.get(y)!.set(m, (rentFatorMensal - 1) * 100);
 
     if (!cdiMonthly.has(y)) cdiMonthly.set(y, new Map());
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    patrimonioMonthly.get(y)!.set(m, patrimonioAtual);
+    patrimonioMonthly.get(y)!.set(m, row.liquido);
 
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, patrimonioAtual - patrimonioFimMesAnterior);
+    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior);
 
-    ganhoAnualMap.set(y, patrimonioAtual - patrimonioInicioAno);
-
-    tituloYearly.set(y, (tituloFatorAnual - 1) * 100);
+    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno);
+    rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
 
-  // Build rows per year — compute accumulated in ascending order, then reverse for display
-  const years = Array.from(new Set([
-    ...tituloMonthly.keys(), ...cdiMonthly.keys(),
-  ])).sort((a, b) => a - b);
-
+  // Build DetailRow[] per year
+  const years = Array.from(new Set([...rentMonthly.keys(), ...cdiMonthly.keys()])).sort();
   const rows: DetailRow[] = [];
   let rentFatorAcum = 1;
   let cdiFatorAcumRows = 1;
 
+  // Get first liquido as "valor investido" baseline for ganhoAcumulado
+  const firstRow = dailyRows.find(r => r.saldoCotas > 0);
+  const baselineInvestido = firstRow ? firstRow.aplicacoes : 0;
+
   for (const year of years) {
-    const tMap = tituloMonthly.get(year);
+    const tMap = rentMonthly.get(year);
     const cMap = cdiMonthly.get(year);
     const pMap = patrimonioMonthly.get(year);
     const gMap = ganhoMensalMonthly.get(year);
@@ -209,30 +175,30 @@ function buildDetailRows(
     const rentMs: (number | null)[] = [];
     const cdiMs: (number | null)[] = [];
 
-    for (let m = 0; m < 12; m++) {
-      if (tMap?.has(m)) {
-        const pct = tMap.get(m)!;
+    for (let mm = 0; mm < 12; mm++) {
+      if (tMap?.has(mm)) {
+        const pct = tMap.get(mm)!;
         rentMs.push(parseFloat(pct.toFixed(2)));
         rentFatorAcum *= 1 + pct / 100;
       } else {
         rentMs.push(null);
       }
-
-      if (cMap?.has(m)) {
-        const pct = cMap.get(m)!;
+      if (cMap?.has(mm)) {
+        const pct = cMap.get(mm)!;
         cdiMs.push(parseFloat(pct.toFixed(2)));
         cdiFatorAcumRows *= 1 + pct / 100;
       } else {
         cdiMs.push(null);
       }
-
-      patrimonioMs.push(pMap?.has(m) ? parseFloat((pMap.get(m)!).toFixed(2)) : null);
-      ganhoMs.push(gMap?.has(m) ? parseFloat((gMap.get(m)!).toFixed(2)) : null);
+      patrimonioMs.push(pMap?.has(mm) ? parseFloat(pMap.get(mm)!.toFixed(2)) : null);
+      ganhoMs.push(gMap?.has(mm) ? parseFloat(gMap.get(mm)!.toFixed(2)) : null);
     }
 
-    // Ganho acumulado = patrimônio atual - valor investido (total desde o início)
-    const lastPatrimonioInYear = pMap ? Math.max(...Array.from(pMap.keys()).map(k => pMap.get(k)!)) : null;
-    const ganhoAcum = lastPatrimonioInYear !== null ? parseFloat((lastPatrimonioInYear - valorInvestido).toFixed(2)) : null;
+    // Ganho acumulado: last patrimônio in year minus total aplicações
+    const lastPatrimonio = pMap ? Math.max(...Array.from(pMap.values())) : null;
+    // Sum all aplicações from engine rows for this product
+    const totalAplicacoes = dailyRows.reduce((sum, r) => sum + r.aplicacoes, 0);
+    const ganhoAcum = lastPatrimonio !== null ? parseFloat((lastPatrimonio - totalAplicacoes + dailyRows.reduce((s, r) => s + r.resgates, 0)).toFixed(2)) : null;
 
     rows.push({
       year,
@@ -240,7 +206,7 @@ function buildDetailRows(
       ganhoFinanceiroMonths: ganhoMs,
       rentabilidadeMonths: rentMs,
       cdiMonths: cdiMs,
-      rentNoAno: tituloYearly.has(year) ? parseFloat(tituloYearly.get(year)!.toFixed(2)) : null,
+      rentNoAno: rentYearly.has(year) ? parseFloat(rentYearly.get(year)!.toFixed(2)) : null,
       rentAcumulado: parseFloat(((rentFatorAcum - 1) * 100).toFixed(2)),
       cdiNoAno: cdiYearly.has(year) ? parseFloat(cdiYearly.get(year)!.toFixed(2)) : null,
       cdiAcumulado: parseFloat(((cdiFatorAcumRows - 1) * 100).toFixed(2)),
@@ -249,7 +215,6 @@ function buildDetailRows(
     });
   }
 
-  // Reverse so most recent year appears first
   return rows.reverse();
 }
 
