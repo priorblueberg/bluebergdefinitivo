@@ -146,8 +146,12 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // 5. Líquido (2) = Líquido(1) + resgates (pré-resgate)
     const liquido2 = liquido1 + mov.resgates;
 
+    // When liquido2 is 0 or near 0 (gap between resgate total and new application),
+    // carry forward the previous valorCota to preserve continuity
+    const isZeroLiquido = Math.abs(liquido2) < 0.01;
+
     // 6. Valor da Cota (2) = Líquido(2) / Saldo Cotas(2)
-    const valorCota2 = saldoCotas2 > 0 ? liquido2 / saldoCotas2 : prevValorCota;
+    const valorCota2 = isZeroLiquido ? prevValorCota : (saldoCotas2 > 0 ? liquido2 / saldoCotas2 : prevValorCota);
 
     // 7. QTD Cotas Resgate
     const qtdCotasResgate = mov.resgates > 0 && valorCota2 > 0 ? mov.resgates / valorCota2 : 0;
@@ -156,11 +160,14 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const saldoCotas1 = saldoCotas2 - qtdCotasResgate;
 
     // 9. Valor da Cota (1)
+    // When liquido is zero (gap period), carry forward previous cota
     // No dia do resgate total: valorCota1 = resgates / saldoCotas2
     const isResgateTotal = dataResgateTotal && cal.data === dataResgateTotal;
-    const valorCota1 = isResgateTotal && mov.resgates > 0 && saldoCotas2 > 0
-      ? mov.resgates / saldoCotas2
-      : saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
+    const valorCota1 = isZeroLiquido && mov.aplicacoes === 0 && mov.resgates === 0
+      ? prevValorCota
+      : isResgateTotal && mov.resgates > 0 && saldoCotas2 > 0
+        ? mov.resgates / saldoCotas2
+        : saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
 
     // 10. Rentabilidade diária
     const rentDiaria = prevValorCota > 0 ? valorCota1 / prevValorCota - 1 : null;

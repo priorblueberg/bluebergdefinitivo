@@ -134,6 +134,7 @@ async function syncResgateNoVencimento(
 
 /** Compute resgate_total for a Renda Fixa custodia record */
 async function computeResgateTotal(codigoCustodia: number, userId: string, vencimento: string | null): Promise<string | null> {
+  // Find the most recent "Resgate Total"
   const { data: resgateTotal } = await supabase
     .from("movimentacoes")
     .select("data")
@@ -144,7 +145,25 @@ async function computeResgateTotal(codigoCustodia: number, userId: string, venci
     .limit(1);
 
   if (resgateTotal && resgateTotal.length > 0) {
-    return resgateTotal[0].data;
+    const dataResgate = resgateTotal[0].data;
+
+    // Check if there's an application AFTER the most recent Resgate Total
+    const { data: aplicacaoPostResgate } = await supabase
+      .from("movimentacoes")
+      .select("data")
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", userId)
+      .in("tipo_movimentacao", ["Aplicação Inicial", "Aplicação"])
+      .gt("data", dataResgate)
+      .order("data", { ascending: false })
+      .limit(1);
+
+    if (aplicacaoPostResgate && aplicacaoPostResgate.length > 0) {
+      // There's an application after the resgate total — revert to vencimento
+      return vencimento || null;
+    }
+
+    return dataResgate;
   }
   return vencimento || null;
 }
