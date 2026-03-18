@@ -301,6 +301,13 @@ export default function CustodiaPage() {
                       >
                         Resgate
                       </Button>
+                      <button
+                        onClick={() => setDeleteRow(r)}
+                        className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                        title="Excluir ativo"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                   <td className="px-3 py-2 text-foreground">{r.codigo_custodia}</td>
