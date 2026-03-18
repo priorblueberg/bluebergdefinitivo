@@ -182,26 +182,37 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
                   <td className="px-3 py-2 text-foreground">{r.categoria}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
+                    {r.tipo_movimentacao}
+                    {r.origem === "automatico" && (
+                      <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">Auto</Badge>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.valor_extrato ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
-                    <button
-                      onClick={() => handleEdit(r.id)}
-                      className="text-muted-foreground hover:text-foreground transition-colors mr-2"
-                      title="Editar"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteId(r.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                      title="Excluir"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {r.origem === "automatico" ? (
+                      <span className="text-muted-foreground text-[10px] italic">automático</span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleEdit(r.id)}
+                          className="text-muted-foreground hover:text-foreground transition-colors mr-2"
+                          title="Editar"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteId(r.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))
