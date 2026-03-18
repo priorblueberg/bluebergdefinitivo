@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export interface CustodiaRowForBoleta {
   id: string;
@@ -60,6 +61,10 @@ function parseCurrencyToNumber(value: string): number {
   return parseFloat(cleaned) || 0;
 }
 
+function numberToCurrency(num: number): string {
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function BoletaCustodiaDialog({
   open,
   onClose,
@@ -76,6 +81,7 @@ export default function BoletaCustodiaDialog({
   const [loadingSaldo, setLoadingSaldo] = useState(false);
   const [valorCotaDia, setValorCotaDia] = useState<number | null>(null);
   const [loadingCota, setLoadingCota] = useState(false);
+  const [fecharPosicao, setFecharPosicao] = useState(false);
 
   const fmtReadonly = (v: string | null | undefined) => v ?? "—";
   const fmtTaxa = (v: number | null) =>
@@ -83,15 +89,34 @@ export default function BoletaCustodiaDialog({
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
+  // Auto-check fecharPosicao when valor matches saldoDisponivel
+  useEffect(() => {
+    if (tipo !== "Resgate" || saldoDisponivel == null || saldoDisponivel <= 0) return;
+    const valorNum = parseCurrencyToNumber(valor);
+    if (valorNum > 0 && Math.abs(valorNum - saldoDisponivel) < 0.01) {
+      if (!fecharPosicao) setFecharPosicao(true);
+    }
+  }, [valor, saldoDisponivel, tipo]);
+
+  const handleFecharPosicaoChange = (checked: boolean) => {
+    setFecharPosicao(checked);
+    if (checked && saldoDisponivel != null && saldoDisponivel > 0) {
+      setValor(numberToCurrency(saldoDisponivel));
+    } else if (!checked) {
+      setValor("");
+    }
+  };
+
   const handleDateSelect = async (d: Date | undefined) => {
     setDate(d);
     setValorCotaDia(null);
     setSaldoDisponivel(null);
+    setFecharPosicao(false);
+    setValor("");
     if (!d) return;
 
     const dateISO = format(d, "yyyy-MM-dd");
 
-    // Para Aplicação e Resgate: buscar Valor da Cota e Líquido do dia via engine
     if (row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
       setLoadingCota(true);
       if (tipo === "Resgate") setLoadingSaldo(true);
@@ -165,7 +190,6 @@ export default function BoletaCustodiaDialog({
 
     const dateISO = format(date, "yyyy-MM-dd");
 
-    // Validar dia útil
     const { data: diaUtil } = await supabase
       .from("calendario_dias_uteis")
       .select("dia_util")
@@ -177,7 +201,6 @@ export default function BoletaCustodiaDialog({
       return;
     }
 
-    // Validar saldo para resgate
     if (tipo === "Resgate" && saldoDisponivel != null && valorNum > saldoDisponivel) {
       toast.error("Valor excede o saldo disponível para resgate.");
       return;
@@ -185,8 +208,7 @@ export default function BoletaCustodiaDialog({
 
     setSubmitting(true);
     try {
-      const isAplicacao = tipo === "Aplicação";
-      // Para ambos: usar valorCotaDia calculado pela engine (Cota 1 para aplicação, Cota 2 para resgate)
+      const tipoMovimentacao = fecharPosicao ? "Resgate Total" : tipo;
       const pu = valorCotaDia ?? row.preco_unitario;
       const quantidade = pu && pu > 0 ? valorNum / pu : null;
 
@@ -205,7 +227,7 @@ export default function BoletaCustodiaDialog({
         .insert({
           user_id: userId,
           data: dateISO,
-          tipo_movimentacao: tipo,
+          tipo_movimentacao: tipoMovimentacao,
           codigo_custodia: row.codigo_custodia,
           categoria_id: row.categoria_id,
           produto_id: row.produto_id,
@@ -229,7 +251,7 @@ export default function BoletaCustodiaDialog({
       if (error) throw error;
 
       await fullSyncAfterMovimentacao(inserted.id, row.categoria_id, userId, dataReferenciaISO);
-      toast.success(`${tipo} registrada com sucesso!`);
+      toast.success(`${tipoMovimentacao} registrado com sucesso!`);
       handleClose();
       onSuccess();
     } catch (err: any) {
@@ -244,6 +266,7 @@ export default function BoletaCustodiaDialog({
     setValor("");
     setSaldoDisponivel(null);
     setValorCotaDia(null);
+    setFecharPosicao(false);
     onClose();
   };
 
@@ -269,7 +292,6 @@ export default function BoletaCustodiaDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Campos somente leitura */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           {readonlyFields.map((f) => (
             <div key={f.label}>
@@ -281,7 +303,6 @@ export default function BoletaCustodiaDialog({
 
         <div className="border-t border-border my-2" />
 
-        {/* Data */}
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-foreground">Data da Transação *</label>
           <Input
@@ -299,20 +320,9 @@ export default function BoletaCustodiaDialog({
           />
         </div>
 
-        {/* Loading indicator for cota calculation */}
         {tipo === "Aplicação" && date && loadingCota && (
           <p className="text-sm text-muted-foreground">Calculando...</p>
         )}
-
-        {/* Valor */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-foreground">Valor (R$) *</label>
-          <Input
-            placeholder="0,00"
-            value={valor}
-            onChange={(e) => setValor(formatCurrency(e.target.value))}
-          />
-        </div>
 
         {/* Saldo disponível para resgate */}
         {tipo === "Resgate" && date && (
@@ -336,6 +346,30 @@ export default function BoletaCustodiaDialog({
             ) : null}
           </div>
         )}
+
+        {/* Fechar Posição checkbox */}
+        {tipo === "Resgate" && date && saldoDisponivel != null && saldoDisponivel > 0 && (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="fechar-posicao"
+              checked={fecharPosicao}
+              onCheckedChange={(checked) => handleFecharPosicaoChange(!!checked)}
+            />
+            <label htmlFor="fechar-posicao" className="text-sm font-medium text-foreground cursor-pointer">
+              Fechar Posição
+            </label>
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-foreground">Valor (R$) *</label>
+          <Input
+            placeholder="0,00"
+            value={valor}
+            disabled={fecharPosicao}
+            onChange={(e) => setValor(formatCurrency(e.target.value))}
+          />
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={submitting}>
