@@ -357,6 +357,23 @@ export default function CustodiaPage() {
           onSuccess={fetchData}
         />
       )}
+
+      {/* Confirmação de exclusão */}
+      <AlertDialog open={!!deleteRow} onOpenChange={(open) => !open && setDeleteRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão do ativo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o ativo "{deleteRow?.nome ?? deleteRow?.codigo_custodia}"?
+              Todas as movimentações associadas a este código de custódia serão excluídas permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCustodia}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
