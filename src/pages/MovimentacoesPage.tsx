@@ -48,7 +48,7 @@ const COLUMNS: { key: SortField; label: string }[] = [
 
 export default function MovimentacoesPage() {
   const navigate = useNavigate();
-  const { dataReferenciaISO, applyDataReferencia } = useDataReferencia();
+  const { dataReferenciaISO, applyDataReferencia, appliedVersion } = useDataReferencia();
   const [rows, setRows] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>("data");
@@ -87,9 +87,9 @@ export default function MovimentacoesPage() {
     setLoading(false);
   };
 
-  const { dataReferenciaISO, applyDataReferencia, appliedVersion } = useDataReferencia();
-
-  // ... existing state declarations remain unchanged
+  useEffect(() => {
+    fetchData();
+  }, [appliedVersion]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
