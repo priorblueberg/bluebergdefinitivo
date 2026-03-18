@@ -206,6 +206,15 @@ export default function CalculadoraPage() {
                     {fmtCurrency(r.liquido)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
+                    {fmt(r.valorCota2, 2)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-mono">
+                    {fmt(r.saldoCotas2, 2)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-mono">
+                    {fmtCurrency(r.liquido2)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-mono">
                     {r.aplicacoes > 0 ? fmtCurrency(r.aplicacoes) : "—"}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
@@ -213,6 +222,9 @@ export default function CalculadoraPage() {
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
                     {r.resgates > 0 ? fmtCurrency(r.resgates) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-mono">
+                    {r.qtdCotasResgate > 0 ? fmt(r.qtdCotasResgate, 6) : "—"}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
                     {r.rentabilidadeDiaria != null
