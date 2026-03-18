@@ -113,7 +113,7 @@ import { calcSaldoPrefixado } from "@/lib/saldoCalculations";
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
-  const { dataReferenciaISO } = useDataReferencia();
+  const { dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
