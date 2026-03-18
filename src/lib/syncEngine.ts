@@ -103,7 +103,7 @@ async function syncResgateNoVencimento(
 
     const valorExtrato = `R$ ${fmtBR(valor)} (${fmtBR(precoUnitario)} x ${fmtBR(quantidade)})`;
 
-    await supabase.from("movimentacoes").insert({
+    const movData = {
       user_id: userId,
       data: vencimento!,
       tipo_movimentacao: "Resgate no Vencimento",
@@ -123,7 +123,13 @@ async function syncResgateNoVencimento(
       valor_extrato: valorExtrato,
       nome_ativo: custodiaRecord.nome,
       origem: "automatico",
-    });
+    };
+
+    if (existingId) {
+      await supabase.from("movimentacoes").update(movData).eq("id", existingId);
+    } else {
+      await supabase.from("movimentacoes").insert(movData);
+    }
   } catch (err) {
     console.error("syncResgateNoVencimento: erro ao calcular/inserir", err);
   }
