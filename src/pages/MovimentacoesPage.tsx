@@ -103,29 +103,71 @@ export default function MovimentacoesPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
 
+    // Find the row to check if it's "Aplicação Inicial"
+    const deletingRow = rows.find((r) => r.id === deleteId);
+
     // Fetch movimentacao details before deleting (for sync)
     const { data: movData } = await supabase
       .from("movimentacoes")
-      .select("codigo_custodia, categoria_id, user_id")
+      .select("codigo_custodia, categoria_id, user_id, tipo_movimentacao")
       .eq("id", deleteId)
       .single();
 
-    const { error } = await supabase.from("movimentacoes").delete().eq("id", deleteId);
-    if (error) {
-      toast.error("Erro ao excluir movimentação.");
-      console.error(error);
-    } else {
-      toast.success("Movimentação excluída com sucesso.");
-      setRows((prev) => prev.filter((r) => r.id !== deleteId));
+    const isAplicacaoInicial = movData?.tipo_movimentacao === "Aplicação Inicial";
 
-      // Sync custodia and controle_de_carteiras
-      if (movData) {
-        await fullSyncAfterDelete(
-          movData.codigo_custodia,
-          movData.categoria_id,
-          movData.user_id!,
-          dataReferenciaISO
-        );
+    if (isAplicacaoInicial && movData?.codigo_custodia) {
+      // Delete all movimentações for this codigo_custodia
+      const { error: movError } = await supabase
+        .from("movimentacoes")
+        .delete()
+        .eq("codigo_custodia", movData.codigo_custodia)
+        .eq("user_id", movData.user_id!);
+
+      if (movError) {
+        toast.error("Erro ao excluir movimentações do ativo.");
+        console.error(movError);
+        setDeleteId(null);
+        return;
+      }
+
+      // Delete custodia record
+      const { error: custError } = await supabase
+        .from("custodia")
+        .delete()
+        .eq("codigo_custodia", movData.codigo_custodia)
+        .eq("user_id", movData.user_id!);
+
+      if (custError) {
+        console.error(custError);
+      }
+
+      toast.success("Ativo, custódia e todas as movimentações excluídos com sucesso.");
+      setRows((prev) => prev.filter((r) => r.codigo_custodia !== movData.codigo_custodia));
+
+      await fullSyncAfterDelete(
+        movData.codigo_custodia,
+        movData.categoria_id,
+        movData.user_id!,
+        dataReferenciaISO
+      );
+    } else {
+      // Normal single delete
+      const { error } = await supabase.from("movimentacoes").delete().eq("id", deleteId);
+      if (error) {
+        toast.error("Erro ao excluir movimentação.");
+        console.error(error);
+      } else {
+        toast.success("Movimentação excluída com sucesso.");
+        setRows((prev) => prev.filter((r) => r.id !== deleteId));
+
+        if (movData) {
+          await fullSyncAfterDelete(
+            movData.codigo_custodia,
+            movData.categoria_id,
+            movData.user_id!,
+            dataReferenciaISO
+          );
+        }
       }
     }
     setDeleteId(null);
