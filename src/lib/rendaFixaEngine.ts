@@ -59,7 +59,7 @@ function buildMovMap(movs: EngineInput["movimentacoes"]): Map<string, { aplicaco
     const entry = map.get(m.data) || { aplicacoes: 0, resgates: 0 };
     if (m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação") {
       entry.aplicacoes += m.valor;
-    } else if (m.tipo_movimentacao === "Resgate") {
+    } else if (m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate no Vencimento") {
       entry.resgates += m.valor;
     }
     map.set(m.data, entry);
