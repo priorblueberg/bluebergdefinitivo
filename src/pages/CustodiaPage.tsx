@@ -74,6 +74,7 @@ export default function CustodiaPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTipo, setDialogTipo] = useState<"Aplicação" | "Resgate">("Aplicação");
   const [dialogRow, setDialogRow] = useState<CustodiaRowForBoleta | null>(null);
+  const [deleteRow, setDeleteRow] = useState<CustodiaRow | null>(null);
 
   const fetchData = async () => {
     const { data: carteiraData } = await supabase
