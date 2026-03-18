@@ -267,7 +267,13 @@ export default function MovimentacoesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta movimentação? Esta ação não pode ser desfeita.
+              {(() => {
+                const row = rows.find((r) => r.id === deleteId);
+                if (row?.tipo_movimentacao === "Aplicação Inicial") {
+                  return "Ao excluir uma Aplicação Inicial, o título será removido da custódia e todas as movimentações deste código serão excluídas permanentemente.";
+                }
+                return "Tem certeza que deseja excluir esta movimentação? Esta ação não pode ser desfeita.";
+              })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
