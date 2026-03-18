@@ -78,6 +78,7 @@ export default function MovimentacoesPage() {
           categoria: r.categorias?.nome ?? "—",
           instituicao: r.instituicoes?.nome ?? null,
           valor_extrato: r.valor_extrato,
+          origem: r.origem ?? "manual",
         }))
       );
     }
