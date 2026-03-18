@@ -32,6 +32,7 @@ interface CustodiaOption {
   preco_unitario: number | null;
   categoria_nome: string;
   produto_nome: string;
+  resgate_total: string | null;
 }
 
 export default function CalculadoraPage() {
