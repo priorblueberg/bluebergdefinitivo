@@ -79,7 +79,7 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 }
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const multiplicador = getMultiplicador(modalidade, taxa);
