@@ -222,6 +222,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
+  const [engineRows, setEngineRows] = useState<DailyRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isPrefixado = product.categoria_nome === "Renda Fixa" && product.modalidade === "Prefixado";
@@ -231,8 +232,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
       setLoading(true);
       const endDate = product.data_calculo || "2099-12-31";
 
-      // Always fetch both CDI and dias_uteis for comparison
-      const [cdiRes, diasRes] = await Promise.all([
+      // Fetch CDI, dias_uteis, and movimentacoes in parallel
+      const [cdiRes, diasRes, movsRes] = await Promise.all([
         supabase
           .from("historico_cdi")
           .select("data, taxa_anual")
@@ -242,13 +243,19 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
         supabase
           .from("calendario_dias_uteis")
           .select("data, dia_util")
-          .gte("data", product.data_inicio)
+          .gte("data", getDateMinus(product.data_inicio, 5))
           .lte("data", endDate)
+          .order("data"),
+        supabase
+          .from("movimentacoes")
+          .select("data, tipo_movimentacao, valor")
+          .eq("codigo_custodia", product.codigo_custodia)
           .order("data"),
       ]);
 
+      const diasData = (diasRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util }));
       const diasMap = new Map<string, boolean>();
-      (diasRes.data || []).forEach((d: any) => diasMap.set(d.data, d.dia_util));
+      diasData.forEach((d) => diasMap.set(d.data, d.dia_util));
 
       const merged: CdiRecord[] = (cdiRes.data || []).map((r: any) => ({
         data: r.data,
@@ -257,7 +264,26 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
       }));
 
       setCdiRecords(merged);
-      setDiasUteis((diasRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util })));
+      setDiasUteis(diasData);
+
+      // Run engine for Prefixado
+      if (isPrefixado) {
+        const rows = calcularRendaFixaDiario({
+          dataInicio: product.data_inicio,
+          dataCalculo: endDate,
+          taxa: product.taxa || 0,
+          modalidade: product.modalidade || "Prefixado",
+          puInicial: product.preco_unitario || 1000,
+          calendario: diasData.map(d => ({ data: d.data, dia_util: d.dia_util })),
+          movimentacoes: (movsRes.data || []).map((m: any) => ({
+            data: m.data,
+            tipo_movimentacao: m.tipo_movimentacao,
+            valor: m.valor,
+          })),
+        });
+        setEngineRows(rows);
+      }
+
       setLoading(false);
     })();
   }, [product, appliedVersion]);
@@ -266,42 +292,59 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   const chartData = useMemo(() => {
     const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, product.data_calculo || undefined);
 
-    if (isPrefixado) {
-      const prefSeries = buildPrefixadoSeries(diasUteis, product.taxa || 0, product.data_inicio, product.data_calculo || undefined);
+    if (isPrefixado && engineRows.length > 0) {
+      // Build titulo_acumulado from engine's rentabilidadeDiaria
+      let fatorAcum = 1;
+      const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
+      for (const row of engineRows) {
+        if (row.saldoCotas === 0 && row.liquido === 0) {
+          enginePoints.push({
+            data: row.data,
+            label: new Date(row.data + "T00:00:00").toLocaleDateString("pt-BR"),
+            titulo_acumulado: 0,
+          });
+          continue;
+        }
+        if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
+          fatorAcum *= 1 + row.rentabilidadeDiaria;
+        }
+        enginePoints.push({
+          data: row.data,
+          label: new Date(row.data + "T00:00:00").toLocaleDateString("pt-BR"),
+          titulo_acumulado: parseFloat(((fatorAcum - 1) * 100).toFixed(4)),
+        });
+      }
 
       // Merge by date
       const map = new Map<string, any>();
       for (const p of cdiSeries) {
         map.set(p.data, { data: p.data, label: p.label, cdi_acumulado: p.cdi_acumulado });
       }
-      for (const p of prefSeries) {
+      for (const p of enginePoints) {
         const existing = map.get(p.data) || { data: p.data, label: p.label };
-        existing.titulo_acumulado = p.cdi_acumulado; // prefixado series uses cdi_acumulado field
+        existing.titulo_acumulado = p.titulo_acumulado;
         existing.label = existing.label || p.label;
         map.set(p.data, existing);
       }
       return Array.from(map.values()).sort((a, b) => a.data.localeCompare(b.data));
     }
 
-    // Non-prefixado: titulo = CDI (single line, but we still show both identical for now)
+    // Non-prefixado: titulo = CDI
     return cdiSeries.map(p => ({
       ...p,
       titulo_acumulado: p.cdi_acumulado,
     }));
-  }, [cdiRecords, diasUteis, product, isPrefixado]);
+  }, [cdiRecords, engineRows, product, isPrefixado]);
 
   // Detail table rows
   const detailRows = useMemo(() => {
-    return buildDetailRows(
-      cdiRecords,
-      diasUteis,
-      isPrefixado,
-      product.taxa || 0,
-      product.valor_investido,
-      product.data_inicio,
-      product.data_calculo || undefined,
-    );
-  }, [cdiRecords, diasUteis, product, isPrefixado]);
+    if (isPrefixado && engineRows.length > 0) {
+      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio);
+    }
+    // Fallback for non-prefixado: simple CDI-based detail rows
+    // (reuse legacy inline logic or return empty for now)
+    return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio);
+  }, [cdiRecords, engineRows, product, isPrefixado]);
 
   const tituloLabel = "Rentabilidade";
 
