@@ -66,6 +66,7 @@ export default function CalculadoraPage() {
             preco_unitario: r.preco_unitario,
             categoria_nome: r.categorias?.nome || "",
             produto_nome: r.produtos?.nome || "",
+            resgate_total: r.resgate_total,
           }))
         );
       }
