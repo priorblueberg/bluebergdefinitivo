@@ -330,6 +330,7 @@ export type Database = {
           instituicao_id: string | null
           modalidade: string | null
           nome_ativo: string | null
+          origem: string
           pagamento: string | null
           preco_unitario: number | null
           produto_id: string
@@ -352,6 +353,7 @@ export type Database = {
           instituicao_id?: string | null
           modalidade?: string | null
           nome_ativo?: string | null
+          origem?: string
           pagamento?: string | null
           preco_unitario?: number | null
           produto_id: string
@@ -374,6 +376,7 @@ export type Database = {
           instituicao_id?: string | null
           modalidade?: string | null
           nome_ativo?: string | null
+          origem?: string
           pagamento?: string | null
           preco_unitario?: number | null
           produto_id?: string
