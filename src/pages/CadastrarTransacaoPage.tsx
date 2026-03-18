@@ -480,6 +480,7 @@ export default function CadastrarTransacaoPage() {
         if (error) throw error;
 
         await fullSyncAfterMovimentacao(editId!, categoriaId, user!.id, dataReferenciaISO);
+        applyDataReferencia();
 
         toast.success("Transação atualizada com sucesso!");
         navigate("/movimentacoes");
