@@ -109,66 +109,7 @@ function buildNomeAtivo(
     .join(" ");
 }
 
-// ── Saldo calculation helper ──
-async function calcSaldoPrefixado(
-  valorInvestido: number,
-  taxa: number,
-  dataInicio: string,
-  dataConsulta: string,
-  codigoCustodia: number,
-  userId: string
-): Promise<number> {
-  const fd = Math.pow(1 + taxa / 100, 1 / 252) - 1;
-
-  // Get all business days from data_inicio to dataConsulta
-  const { data: diasUteis } = await supabase
-    .from("calendario_dias_uteis")
-    .select("data")
-    .gt("data", dataInicio)
-    .lte("data", dataConsulta)
-    .eq("dia_util", true)
-    .order("data");
-
-  const bDays = new Set((diasUteis || []).map((d: any) => d.data));
-
-  // Get previous resgates for this custodia
-  const { data: resgates } = await supabase
-    .from("movimentacoes")
-    .select("data, valor")
-    .eq("codigo_custodia", codigoCustodia)
-    .eq("user_id", userId)
-    .eq("tipo_movimentacao", "Resgate")
-    .lte("data", dataConsulta)
-    .order("data");
-
-  // Build events: start + resgates
-  const events: { data: string; valor: number }[] = [
-    { data: dataInicio, valor: 0 },
-    ...(resgates || []).map((r: any) => ({ data: r.data, valor: r.valor })),
-  ];
-
-  let patrimonio = valorInvestido;
-
-  for (let i = 0; i < events.length; i++) {
-    const segStart = events[i].data;
-    const segEnd = i + 1 < events.length ? events[i + 1].data : dataConsulta;
-
-    // Count business days in this segment (after segStart, up to segEnd)
-    let count = 0;
-    for (const d of bDays) {
-      if (d > segStart && d <= segEnd) count++;
-    }
-
-    patrimonio *= Math.pow(1 + fd, count);
-
-    // Apply next resgate
-    if (i + 1 < events.length) {
-      patrimonio -= events[i + 1].valor;
-    }
-  }
-
-  return patrimonio;
-}
+import { calcSaldoPrefixado } from "@/lib/saldoCalculations";
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
