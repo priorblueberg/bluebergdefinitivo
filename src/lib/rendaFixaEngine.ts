@@ -44,6 +44,7 @@ export interface EngineInput {
   puInicial: number;
   calendario: { data: string; dia_util: boolean }[];
   movimentacoes: { data: string; tipo_movimentacao: string; valor: number }[];
+  dataResgateTotal?: string | null;
 }
 
 function getMultiplicador(modalidade: string, taxa: number): number {
