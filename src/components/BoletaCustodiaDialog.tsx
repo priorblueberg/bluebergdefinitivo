@@ -91,8 +91,8 @@ export default function BoletaCustodiaDialog({
 
     const dateISO = format(d, "yyyy-MM-dd");
 
-    // Para Aplicação: buscar Valor da Cota do dia selecionado
-    if (tipo === "Aplicação" && row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
+    // Para Aplicação e Resgate: buscar Valor da Cota do dia selecionado via engine
+    if (row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
       setLoadingCota(true);
       try {
         const [calRes, movRes] = await Promise.all([
@@ -127,10 +127,10 @@ export default function BoletaCustodiaDialog({
           movimentacoes,
         });
 
-        // Pegar o valorCota do dia selecionado (último row)
         const rowDia = rows.find((r) => r.data === dateISO);
         if (rowDia) {
-          setValorCotaDia(rowDia.valorCota);
+          // Aplicação usa valorCota (Cota 1), Resgate usa valorCota2 (Cota 2)
+          setValorCotaDia(tipo === "Aplicação" ? rowDia.valorCota : rowDia.valorCota2);
         }
       } catch {
         setValorCotaDia(null);
@@ -194,13 +194,12 @@ export default function BoletaCustodiaDialog({
     setSubmitting(true);
     try {
       const isAplicacao = tipo === "Aplicação";
-      const pu = isAplicacao ? (valorCotaDia ?? row.preco_unitario) : null;
-      const quantidade = isAplicacao && pu
-        ? valorNum / pu
-        : null;
+      // Para ambos: usar valorCotaDia calculado pela engine (Cota 1 para aplicação, Cota 2 para resgate)
+      const pu = valorCotaDia ?? row.preco_unitario;
+      const quantidade = pu && pu > 0 ? valorNum / pu : null;
 
       let valorExtrato: string;
-      if (isAplicacao && pu && quantidade) {
+      if (pu && quantidade) {
         const fmtVal = valorNum.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const fmtPU = pu.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const fmtQtd = quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 6, maximumFractionDigits: 6 });

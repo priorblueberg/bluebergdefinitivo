@@ -89,7 +89,10 @@ function buildDetailRowsFromEngine(
 
   let patrimonioFimMesAnterior = 0;
   let patrimonioInicioAno = 0;
-  let firstData = true;
+  let aplicacoesMes = 0;
+  let resgatesMes = 0;
+  let aplicacoesAno = 0;
+  let resgatesAno = 0;
 
   for (const row of dailyRows) {
     // Skip the initial day (day before data_inicio with saldoCotas=0)
@@ -104,23 +107,35 @@ function buildDetailRowsFromEngine(
       currentYear = y;
       patrimonioFimMesAnterior = row.liquido;
       patrimonioInicioAno = row.liquido;
-      firstData = false;
+      aplicacoesMes = 0;
+      resgatesMes = 0;
+      aplicacoesAno = 0;
+      resgatesAno = 0;
     } else if (m !== currentMonth) {
       patrimonioFimMesAnterior = (() => {
-        // Get last liquido of previous month from patrimonioMonthly
         const pMap = patrimonioMonthly.get(currentYear);
         return pMap?.get(currentMonth) ?? row.liquido;
       })();
       rentFatorMensal = 1;
       cdiFatorMensal = 1;
+      aplicacoesMes = 0;
+      resgatesMes = 0;
       currentMonth = m;
       if (y !== currentYear) {
         patrimonioInicioAno = patrimonioFimMesAnterior;
         rentFatorAnual = 1;
         cdiFatorAnual = 1;
+        aplicacoesAno = 0;
+        resgatesAno = 0;
         currentYear = y;
       }
     }
+
+    // Accumulate flows
+    aplicacoesMes += row.aplicacoes;
+    resgatesMes += row.resgates;
+    aplicacoesAno += row.aplicacoes;
+    resgatesAno += row.resgates;
 
     // Titulo/rent factor from engine's rentabilidadeDiaria
     if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
@@ -146,10 +161,11 @@ function buildDetailRowsFromEngine(
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
     patrimonioMonthly.get(y)!.set(m, row.liquido);
 
+    // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior);
+    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
 
-    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno);
+    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno - aplicacoesAno + resgatesAno);
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
@@ -160,9 +176,9 @@ function buildDetailRowsFromEngine(
   let rentFatorAcum = 1;
   let cdiFatorAcumRows = 1;
 
-  // Get first liquido as "valor investido" baseline for ganhoAcumulado
-  const firstRow = dailyRows.find(r => r.saldoCotas > 0);
-  const baselineInvestido = firstRow ? firstRow.aplicacoes : 0;
+  // Total flows for ganho acumulado
+  const totalAplicacoes = dailyRows.reduce((sum, r) => sum + r.aplicacoes, 0);
+  const totalResgates = dailyRows.reduce((sum, r) => sum + r.resgates, 0);
 
   for (const year of years) {
     const tMap = rentMonthly.get(year);
@@ -194,11 +210,14 @@ function buildDetailRowsFromEngine(
       ganhoMs.push(gMap?.has(mm) ? parseFloat(gMap.get(mm)!.toFixed(2)) : null);
     }
 
-    // Ganho acumulado: last patrimônio in year minus total aplicações
-    const lastPatrimonio = pMap ? Math.max(...Array.from(pMap.values())) : null;
-    // Sum all aplicações from engine rows for this product
-    const totalAplicacoes = dailyRows.reduce((sum, r) => sum + r.aplicacoes, 0);
-    const ganhoAcum = lastPatrimonio !== null ? parseFloat((lastPatrimonio - totalAplicacoes + dailyRows.reduce((s, r) => s + r.resgates, 0)).toFixed(2)) : null;
+    // Ganho acumulado: patrimônio atual - patrimônio inicial - fluxos líquidos
+    const lastRow = dailyRows.filter(r => r.saldoCotas > 0 || r.liquido > 0).pop();
+    const firstRow = dailyRows.find(r => r.saldoCotas > 0);
+    const lastPatrimonio = lastRow ? lastRow.liquido : null;
+    const firstPatrimonio = firstRow ? firstRow.liquido : 0;
+    const ganhoAcum = lastPatrimonio !== null
+      ? parseFloat((lastPatrimonio - firstPatrimonio - totalAplicacoes + firstRow!.aplicacoes + totalResgates).toFixed(2))
+      : null;
 
     rows.push({
       year,
