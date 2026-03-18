@@ -217,8 +217,12 @@ function buildDetailRowsFromEngine(
 
   return rows.reverse();
 }
+function getDateMinus(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
 
-function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
   const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
