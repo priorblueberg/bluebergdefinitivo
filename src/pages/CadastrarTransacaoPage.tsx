@@ -549,6 +549,7 @@ export default function CadastrarTransacaoPage() {
         const insertedId = inserted?.[0]?.id || null;
 
         await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id, dataReferenciaISO);
+        applyDataReferencia();
 
         toast.success("Transação cadastrada com sucesso!");
         resetForm();

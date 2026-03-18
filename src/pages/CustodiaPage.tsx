@@ -210,6 +210,7 @@ export default function CustodiaPage() {
       toast.success("Ativo e movimentações excluídos com sucesso.");
       setRows((prev) => prev.filter((r) => r.id !== deleteRow.id));
       await fullSyncAfterDelete(codigoCustodia, categoriaId, user.id, dataReferenciaISO);
+      applyDataReferencia();
     }
     setDeleteRow(null);
   };
