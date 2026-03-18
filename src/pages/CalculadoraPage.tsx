@@ -49,7 +49,7 @@ export default function CalculadoraPage() {
     (async () => {
       const { data } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, categorias(nome), produtos(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, categorias(nome), produtos(nome)")
         .eq("user_id", user.id);
 
       if (data) {
