@@ -210,7 +210,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
   for (const m of allMovs || []) {
     if (["Aplicação Inicial", "Aplicação", "Aporte Adicional"].includes(m.tipo_movimentacao)) {
       valorInvestidoLiquido += m.valor;
-    } else if (m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate no Vencimento") {
+    } else if (["Resgate", "Resgate no Vencimento", "Resgate Total"].includes(m.tipo_movimentacao)) {
       valorInvestidoLiquido -= m.valor;
     }
   }
