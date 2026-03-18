@@ -116,6 +116,7 @@ export default function CalculadoraPage() {
             tipo_movimentacao: m.tipo_movimentacao,
             valor: Number(m.valor),
           })),
+          dataResgateTotal: product.resgate_total,
         });
 
         setRows(result);
