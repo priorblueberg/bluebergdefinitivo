@@ -184,9 +184,6 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.tipo_movimentacao}
-                    {r.origem === "automatico" && (
-                      <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">Auto</Badge>
-                    )}
                   </td>
                   <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
@@ -194,7 +191,7 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
                     {r.origem === "automatico" ? (
-                      <span className="text-muted-foreground text-[10px] italic">automático</span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Auto</Badge>
                     ) : (
                       <>
                         <button

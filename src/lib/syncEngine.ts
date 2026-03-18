@@ -89,6 +89,7 @@ async function syncResgateNoVencimento(
       puInicial: custodiaRecord.preco_unitario || 1000,
       calendario,
       movimentacoes: movs,
+      dataResgateTotal: custodiaRecord.resgate_total,
     });
 
     if (rows.length === 0) return;

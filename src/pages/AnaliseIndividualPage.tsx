@@ -304,6 +304,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             tipo_movimentacao: m.tipo_movimentacao,
             valor: m.valor,
           })),
+          dataResgateTotal: product.resgate_total,
         });
         setEngineRows(rows);
       }
