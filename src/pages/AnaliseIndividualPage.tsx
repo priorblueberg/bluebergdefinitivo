@@ -223,6 +223,7 @@ function getDateMinus(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
   const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
