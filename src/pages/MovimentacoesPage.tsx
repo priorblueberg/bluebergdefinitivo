@@ -168,6 +168,7 @@ export default function MovimentacoesPage() {
             movData.user_id!,
             dataReferenciaISO
           );
+          applyDataReferencia();
         }
       }
     }
