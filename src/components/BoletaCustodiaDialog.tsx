@@ -196,7 +196,7 @@ export default function BoletaCustodiaDialog({
       const isAplicacao = tipo === "Aplicação";
       const pu = isAplicacao ? (valorCotaDia ?? row.preco_unitario) : null;
       const quantidade = isAplicacao && pu
-        ? valorNum * pu
+        ? valorNum / pu
         : null;
 
       let valorExtrato: string;
@@ -307,27 +307,9 @@ export default function BoletaCustodiaDialog({
           />
         </div>
 
-        {/* Valor da Cota do dia (Aplicação) */}
-        {tipo === "Aplicação" && date && (
-          <div className="text-sm">
-            {loadingCota ? (
-              <p className="text-muted-foreground">Calculando Valor da Cota...</p>
-            ) : valorCotaDia != null ? (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  Preço Unitário (Valor da Cota):{" "}
-                  <strong>
-                    R${" "}
-                    {valorCotaDia.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </strong>
-                </AlertDescription>
-              </Alert>
-            ) : null}
-          </div>
+        {/* Loading indicator for cota calculation */}
+        {tipo === "Aplicação" && date && loadingCota && (
+          <p className="text-sm text-muted-foreground">Calculando...</p>
         )}
 
         {/* Valor */}
