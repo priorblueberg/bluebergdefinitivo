@@ -75,6 +75,8 @@ export default function BoletaCustodiaDialog({
   const [submitting, setSubmitting] = useState(false);
   const [saldoDisponivel, setSaldoDisponivel] = useState<number | null>(null);
   const [loadingSaldo, setLoadingSaldo] = useState(false);
+  const [valorCotaDia, setValorCotaDia] = useState<number | null>(null);
+  const [loadingCota, setLoadingCota] = useState(false);
 
   const fmtReadonly = (v: string | null | undefined) => v ?? "—";
   const fmtTaxa = (v: number | null) =>
