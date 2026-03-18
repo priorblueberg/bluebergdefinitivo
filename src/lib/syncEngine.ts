@@ -419,8 +419,25 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     if (insErr) console.error("syncCustodia: erro ao inserir", insErr);
   }
 
-  // Sync automatic "Resgate no Vencimento"
+  // Sync manual "Resgate Total" values created by the "Fechar Posição" flow
   if (isRendaFixa) {
+    await syncManualResgatesTotais(mov.codigo_custodia, mov.user_id!, {
+      vencimento: aplicacaoInicial.vencimento,
+      resgate_total: resgateTotal,
+      modalidade: aplicacaoInicial.modalidade,
+      taxa: aplicacaoInicial.taxa,
+      data_inicio: aplicacaoInicial.data,
+      categoria_id: aplicacaoInicial.categoria_id,
+      produto_id: aplicacaoInicial.produto_id,
+      instituicao_id: aplicacaoInicial.instituicao_id,
+      emissor_id: aplicacaoInicial.emissor_id,
+      pagamento: aplicacaoInicial.pagamento,
+      indexador: aplicacaoInicial.indexador,
+      nome: aplicacaoInicial.nome_ativo,
+      preco_unitario: aplicacaoInicial.preco_unitario,
+    });
+
+    // Sync automatic "Resgate no Vencimento"
     await syncResgateNoVencimento(mov.codigo_custodia, mov.user_id!, {
       vencimento: aplicacaoInicial.vencimento,
       resgate_total: resgateTotal,
