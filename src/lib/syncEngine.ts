@@ -9,6 +9,115 @@ import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 
 // ── Resgate no Vencimento Auto Sync ──
 
+type SyncCustodiaBase = {
+  vencimento: string | null;
+  resgate_total: string | null;
+  modalidade: string | null;
+  taxa: number | null;
+  data_inicio: string;
+  categoria_id: string;
+  produto_id: string;
+  instituicao_id: string | null;
+  emissor_id: string | null;
+  pagamento: string | null;
+  indexador: string | null;
+  nome: string | null;
+  preco_unitario: number | null;
+};
+
+function formatValorExtrato(valor: number, precoUnitario: number, quantidade: number) {
+  const fmtBR = (v: number) =>
+    v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return `R$ ${fmtBR(valor)} (${fmtBR(precoUnitario)} x ${fmtBR(quantidade)})`;
+}
+
+/**
+ * Recalculate manual "Resgate Total" rows created by the "Fechar Posição" flow.
+ * These rows are derived values and must be updated when earlier movimentações change.
+ */
+async function syncManualResgatesTotais(
+  codigoCustodia: number,
+  userId: string,
+  custodiaRecord: SyncCustodiaBase
+) {
+  try {
+    const { data: manualResgates } = await supabase
+      .from("movimentacoes")
+      .select("id, data")
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", userId)
+      .eq("tipo_movimentacao", "Resgate Total")
+      .eq("origem", "manual")
+      .order("data");
+
+    if (!manualResgates || manualResgates.length === 0) return;
+
+    const lastResgateDate = manualResgates[manualResgates.length - 1].data;
+
+    const [{ data: calendario }, { data: movs }] = await Promise.all([
+      supabase
+        .from("calendario_dias_uteis")
+        .select("data, dia_util")
+        .gte("data", custodiaRecord.data_inicio)
+        .lte("data", lastResgateDate)
+        .order("data"),
+      supabase
+        .from("movimentacoes")
+        .select("id, data, tipo_movimentacao, valor")
+        .eq("codigo_custodia", codigoCustodia)
+        .eq("user_id", userId)
+        .neq("tipo_movimentacao", "Resgate no Vencimento")
+        .order("data"),
+    ]);
+
+    if (!calendario || !movs) return;
+
+    for (const manualResgate of manualResgates) {
+      const calendarioAteData = calendario.filter((dia) => dia.data <= manualResgate.data);
+      const movsAteData = movs
+        .filter((mov) => mov.id !== manualResgate.id && mov.data <= manualResgate.data)
+        .map((mov) => ({
+          data: mov.data,
+          tipo_movimentacao: mov.tipo_movimentacao,
+          valor: Number(mov.valor),
+        }));
+
+      if (calendarioAteData.length === 0) continue;
+
+      const rows = calcularRendaFixaDiario({
+        dataInicio: custodiaRecord.data_inicio,
+        dataCalculo: manualResgate.data,
+        taxa: custodiaRecord.taxa || 0,
+        modalidade: custodiaRecord.modalidade || "Prefixado",
+        puInicial: custodiaRecord.preco_unitario || 1000,
+        calendario: calendarioAteData,
+        movimentacoes: movsAteData,
+        dataResgateTotal: null,
+      });
+
+      const rowDia = rows[rows.length - 1];
+      if (!rowDia) continue;
+
+      const valor = Math.max(rowDia.liquido, 0);
+      const precoUnitario = rowDia.valorCota2;
+      const quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+
+      await supabase
+        .from("movimentacoes")
+        .update({
+          valor,
+          preco_unitario: precoUnitario,
+          quantidade,
+          valor_extrato: formatValorExtrato(valor, precoUnitario, quantidade),
+        })
+        .eq("id", manualResgate.id);
+    }
+  } catch (err) {
+    console.error("syncManualResgatesTotais: erro ao recalcular Resgate Total", err);
+  }
+}
+
 /**
  * Automatically creates or removes a "Resgate no Vencimento" movimentacao
  * when resgate_total === vencimento AND vencimento < today (real date).
@@ -16,21 +125,7 @@ import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 async function syncResgateNoVencimento(
   codigoCustodia: number,
   userId: string,
-  custodiaRecord: {
-    vencimento: string | null;
-    resgate_total: string | null;
-    modalidade: string | null;
-    taxa: number | null;
-    data_inicio: string;
-    categoria_id: string;
-    produto_id: string;
-    instituicao_id: string | null;
-    emissor_id: string | null;
-    pagamento: string | null;
-    indexador: string | null;
-    nome: string | null;
-    preco_unitario: number | null;
-  }
+  custodiaRecord: SyncCustodiaBase
 ) {
   const hoje = new Date().toISOString().slice(0, 10);
   const { vencimento, resgate_total } = custodiaRecord;
@@ -98,11 +193,6 @@ async function syncResgateNoVencimento(
     const precoUnitario = lastRow.valorCota2;
     const quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
 
-    const fmtBR = (v: number) =>
-      v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    const valorExtrato = `R$ ${fmtBR(valor)} (${fmtBR(precoUnitario)} x ${fmtBR(quantidade)})`;
-
     const movData = {
       user_id: userId,
       data: vencimento!,
@@ -120,7 +210,7 @@ async function syncResgateNoVencimento(
       preco_unitario: precoUnitario,
       quantidade,
       valor,
-      valor_extrato: valorExtrato,
+      valor_extrato: formatValorExtrato(valor, precoUnitario, quantidade),
       nome_ativo: custodiaRecord.nome,
       origem: "automatico",
     };
@@ -329,8 +419,25 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     if (insErr) console.error("syncCustodia: erro ao inserir", insErr);
   }
 
-  // Sync automatic "Resgate no Vencimento"
+  // Sync manual "Resgate Total" values created by the "Fechar Posição" flow
   if (isRendaFixa) {
+    await syncManualResgatesTotais(mov.codigo_custodia, mov.user_id!, {
+      vencimento: aplicacaoInicial.vencimento,
+      resgate_total: resgateTotal,
+      modalidade: aplicacaoInicial.modalidade,
+      taxa: aplicacaoInicial.taxa,
+      data_inicio: aplicacaoInicial.data,
+      categoria_id: aplicacaoInicial.categoria_id,
+      produto_id: aplicacaoInicial.produto_id,
+      instituicao_id: aplicacaoInicial.instituicao_id,
+      emissor_id: aplicacaoInicial.emissor_id,
+      pagamento: aplicacaoInicial.pagamento,
+      indexador: aplicacaoInicial.indexador,
+      nome: aplicacaoInicial.nome_ativo,
+      preco_unitario: aplicacaoInicial.preco_unitario,
+    });
+
+    // Sync automatic "Resgate no Vencimento"
     await syncResgateNoVencimento(mov.codigo_custodia, mov.user_id!, {
       vencimento: aplicacaoInicial.vencimento,
       resgate_total: resgateTotal,
@@ -601,8 +708,25 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
         .update({ resgate_total: resgateTotal, data_calculo: dataCalculo, data_limite: dataLimite })
         .eq("id", row.id);
 
-      // Sync automatic "Resgate no Vencimento"
+      // Sync manual "Resgate Total" values created by the "Fechar Posição" flow
       if (isRendaFixa) {
+        await syncManualResgatesTotais(row.codigo_custodia, userId, {
+          vencimento: row.vencimento,
+          resgate_total: resgateTotal,
+          modalidade: row.modalidade,
+          taxa: row.taxa,
+          data_inicio: row.data_inicio,
+          categoria_id: row.categoria_id,
+          produto_id: row.produto_id,
+          instituicao_id: row.instituicao_id,
+          emissor_id: row.emissor_id,
+          pagamento: row.pagamento,
+          indexador: row.indexador,
+          nome: row.nome,
+          preco_unitario: row.pu_inicial ?? row.preco_unitario,
+        });
+
+        // Sync automatic "Resgate no Vencimento"
         await syncResgateNoVencimento(row.codigo_custodia, userId, {
           vencimento: row.vencimento,
           resgate_total: resgateTotal,
@@ -616,7 +740,7 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
           pagamento: row.pagamento,
           indexador: row.indexador,
           nome: row.nome,
-          preco_unitario: row.pu_inicial,
+          preco_unitario: row.pu_inicial ?? row.preco_unitario,
         });
       }
     }
