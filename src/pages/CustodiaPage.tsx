@@ -1,11 +1,24 @@
 import { useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import BoletaCustodiaDialog, {
   type CustodiaRowForBoleta,
 } from "@/components/BoletaCustodiaDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CustodiaRow {
   id: string;
@@ -61,6 +74,7 @@ export default function CustodiaPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTipo, setDialogTipo] = useState<"Aplicação" | "Resgate">("Aplicação");
   const [dialogRow, setDialogRow] = useState<CustodiaRowForBoleta | null>(null);
+  const [deleteRow, setDeleteRow] = useState<CustodiaRow | null>(null);
 
   const fetchData = async () => {
     const { data: carteiraData } = await supabase
@@ -164,6 +178,42 @@ export default function CustodiaPage() {
     setDialogOpen(true);
   };
 
+  const handleDeleteCustodia = async () => {
+    if (!deleteRow || !user) return;
+    const codigoCustodia = deleteRow.codigo_custodia;
+    const categoriaId = deleteRow.categoria_id;
+
+    // Delete all movimentações for this codigo_custodia
+    const { error: movError } = await supabase
+      .from("movimentacoes")
+      .delete()
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", user.id);
+
+    if (movError) {
+      toast.error("Erro ao excluir movimentações do ativo.");
+      console.error(movError);
+      setDeleteRow(null);
+      return;
+    }
+
+    // Delete custodia record
+    const { error: custError } = await supabase
+      .from("custodia")
+      .delete()
+      .eq("id", deleteRow.id);
+
+    if (custError) {
+      toast.error("Erro ao excluir registro de custódia.");
+      console.error(custError);
+    } else {
+      toast.success("Ativo e movimentações excluídos com sucesso.");
+      setRows((prev) => prev.filter((r) => r.id !== deleteRow.id));
+      await fullSyncAfterDelete(codigoCustodia, categoriaId, user.id, dataReferenciaISO);
+    }
+    setDeleteRow(null);
+  };
+
   const fmt = (v: number | null) =>
     v != null
       ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -251,6 +301,13 @@ export default function CustodiaPage() {
                       >
                         Resgate
                       </Button>
+                      <button
+                        onClick={() => setDeleteRow(r)}
+                        className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                        title="Excluir ativo"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                   <td className="px-3 py-2 text-foreground">{r.codigo_custodia}</td>
@@ -300,6 +357,23 @@ export default function CustodiaPage() {
           onSuccess={fetchData}
         />
       )}
+
+      {/* Confirmação de exclusão */}
+      <AlertDialog open={!!deleteRow} onOpenChange={(open) => !open && setDeleteRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão do ativo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o ativo "{deleteRow?.nome ?? deleteRow?.codigo_custodia}"?
+              Todas as movimentações associadas a este código de custódia serão excluídas permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCustodia}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
