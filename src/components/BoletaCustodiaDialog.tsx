@@ -194,10 +194,10 @@ export default function BoletaCustodiaDialog({
     setSubmitting(true);
     try {
       const isAplicacao = tipo === "Aplicação";
-      const quantidade = isAplicacao && row.preco_unitario
-        ? valorNum / row.preco_unitario
+      const pu = isAplicacao ? (valorCotaDia ?? row.preco_unitario) : null;
+      const quantidade = isAplicacao && pu
+        ? valorNum / pu
         : null;
-      const pu = isAplicacao ? row.preco_unitario : null;
 
       let valorExtrato: string;
       if (isAplicacao && pu && quantidade) {
