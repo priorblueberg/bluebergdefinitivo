@@ -87,15 +87,17 @@ export default function BoletaCustodiaDialog({
   const handleDateSelect = async (d: Date | undefined) => {
     setDate(d);
     setValorCotaDia(null);
+    setSaldoDisponivel(null);
     if (!d) return;
 
     const dateISO = format(d, "yyyy-MM-dd");
 
-    // Para Aplicação e Resgate: buscar Valor da Cota do dia selecionado via engine
+    // Para Aplicação e Resgate: buscar Valor da Cota e Líquido do dia via engine
     if (row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
       setLoadingCota(true);
+      if (tipo === "Resgate") setLoadingSaldo(true);
       try {
-        const [calRes, movRes] = await Promise.all([
+        const [calRes, movRes, custRes] = await Promise.all([
           supabase
             .from("calendario_dias_uteis")
             .select("data, dia_util")
@@ -108,6 +110,12 @@ export default function BoletaCustodiaDialog({
             .eq("codigo_custodia", row.codigo_custodia)
             .eq("user_id", userId)
             .order("data"),
+          supabase
+            .from("custodia")
+            .select("resgate_total")
+            .eq("codigo_custodia", row.codigo_custodia)
+            .eq("user_id", userId)
+            .maybeSingle(),
         ]);
 
         const calendario = calRes.data || [];
@@ -125,36 +133,21 @@ export default function BoletaCustodiaDialog({
           puInicial: row.preco_unitario,
           calendario,
           movimentacoes,
+          dataResgateTotal: custRes.data?.resgate_total ?? null,
         });
 
         const rowDia = rows.find((r) => r.data === dateISO);
         if (rowDia) {
-          // Aplicação usa valorCota (Cota 1), Resgate usa valorCota2 (Cota 2)
           setValorCotaDia(tipo === "Aplicação" ? rowDia.valorCota : rowDia.valorCota2);
+          if (tipo === "Resgate") {
+            setSaldoDisponivel(rowDia.liquido);
+          }
         }
       } catch {
         setValorCotaDia(null);
-      } finally {
-        setLoadingCota(false);
-      }
-    }
-
-    // Para Resgate: calcular saldo disponível
-    if (tipo === "Resgate" && row.modalidade === "Prefixado" && row.taxa) {
-      setLoadingSaldo(true);
-      try {
-        const saldo = await calcSaldoPrefixado(
-          row.valor_investido,
-          row.taxa,
-          row.data_inicio,
-          dateISO,
-          row.codigo_custodia,
-          userId
-        );
-        setSaldoDisponivel(saldo);
-      } catch {
         setSaldoDisponivel(null);
       } finally {
+        setLoadingCota(false);
         setLoadingSaldo(false);
       }
     }
