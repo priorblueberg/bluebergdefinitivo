@@ -105,8 +105,8 @@ function buildDetailRowsFromEngine(
     if (currentMonth === -1) {
       currentMonth = m;
       currentYear = y;
-      patrimonioFimMesAnterior = row.liquido;
-      patrimonioInicioAno = row.liquido;
+      patrimonioFimMesAnterior = 0;
+      patrimonioInicioAno = 0;
       aplicacoesMes = 0;
       resgatesMes = 0;
       aplicacoesAno = 0;
