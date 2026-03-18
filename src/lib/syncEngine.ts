@@ -134,18 +134,17 @@ async function syncResgateNoVencimento(
 
 /** Compute resgate_total for a Renda Fixa custodia record */
 async function computeResgateTotal(codigoCustodia: number, userId: string, vencimento: string | null): Promise<string | null> {
-  // Check if there's a "Fechar Posição" movimentacao for this codigo_custodia
-  const { data: fechamento } = await supabase
+  const { data: resgateTotal } = await supabase
     .from("movimentacoes")
     .select("data")
     .eq("codigo_custodia", codigoCustodia)
     .eq("user_id", userId)
-    .eq("tipo_movimentacao", "Fechar Posição")
+    .eq("tipo_movimentacao", "Resgate Total")
     .order("data", { ascending: false })
     .limit(1);
 
-  if (fechamento && fechamento.length > 0) {
-    return fechamento[0].data;
+  if (resgateTotal && resgateTotal.length > 0) {
+    return resgateTotal[0].data;
   }
   return vencimento || null;
 }
