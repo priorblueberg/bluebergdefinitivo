@@ -67,7 +67,7 @@ export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
-  const { appliedVersion, dataReferenciaISO } = useDataReferencia();
+  const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const { user } = useAuth();
 
   // Dialog state
