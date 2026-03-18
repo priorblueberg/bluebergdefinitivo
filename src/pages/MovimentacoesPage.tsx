@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowUpDown, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
@@ -27,6 +28,7 @@ interface Movimentacao {
   categoria: string;
   instituicao: string | null;
   valor_extrato: string | null;
+  origem: string;
 }
 
 type SortField = keyof Movimentacao;
@@ -58,7 +60,7 @@ export default function MovimentacoesPage() {
       .select(`
         id, created_at, data, tipo_movimentacao,
         pagamento, vencimento, nome_ativo,
-        valor_extrato,
+        valor_extrato, origem,
         categorias(nome), instituicoes(nome)
       `)
       .order("data", { ascending: false });
@@ -76,6 +78,7 @@ export default function MovimentacoesPage() {
           categoria: r.categorias?.nome ?? "—",
           instituicao: r.instituicoes?.nome ?? null,
           valor_extrato: r.valor_extrato,
+          origem: r.origem ?? "manual",
         }))
       );
     }
@@ -179,26 +182,37 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
                   <td className="px-3 py-2 text-foreground">{r.categoria}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
+                    {r.tipo_movimentacao}
+                    {r.origem === "automatico" && (
+                      <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">Auto</Badge>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.valor_extrato ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
-                    <button
-                      onClick={() => handleEdit(r.id)}
-                      className="text-muted-foreground hover:text-foreground transition-colors mr-2"
-                      title="Editar"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteId(r.id)}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                      title="Excluir"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {r.origem === "automatico" ? (
+                      <span className="text-muted-foreground text-[10px] italic">automático</span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleEdit(r.id)}
+                          className="text-muted-foreground hover:text-foreground transition-colors mr-2"
+                          title="Editar"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteId(r.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))

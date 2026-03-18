@@ -392,6 +392,7 @@ export default function CadastrarTransacaoPage() {
           quantidade: null,
           valor_extrato: `R$ ${fmtBR(valorNum)}`,
           user_id: user.id,
+          origem: "manual",
         });
 
         if (error) throw error;
@@ -530,6 +531,7 @@ export default function CadastrarTransacaoPage() {
           quantidade,
           valor_extrato: valorExtrato,
           user_id: user?.id,
+          origem: "manual",
         });
 
         if (error) throw error;
