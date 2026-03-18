@@ -4,7 +4,129 @@
  * Mantém custodia e controle_de_carteiras atualizadas
  * automaticamente quando movimentacoes são alteradas.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+
+// ── Resgate no Vencimento Auto Sync ──
+
+/**
+ * Automatically creates or removes a "Resgate no Vencimento" movimentacao
+ * when resgate_total === vencimento AND vencimento < today (real date).
+ */
+async function syncResgateNoVencimento(
+  codigoCustodia: number,
+  userId: string,
+  custodiaRecord: {
+    vencimento: string | null;
+    resgate_total: string | null;
+    modalidade: string | null;
+    taxa: number | null;
+    data_inicio: string;
+    categoria_id: string;
+    produto_id: string;
+    instituicao_id: string | null;
+    emissor_id: string | null;
+    pagamento: string | null;
+    indexador: string | null;
+    nome: string | null;
+    preco_unitario: number | null;
+  }
+) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { vencimento, resgate_total } = custodiaRecord;
+
+  const shouldCreate =
+    vencimento && resgate_total && resgate_total === vencimento && vencimento < hoje;
+
+  // Find existing auto resgate
+  const { data: existingAuto } = await supabase
+    .from("movimentacoes")
+    .select("id")
+    .eq("codigo_custodia", codigoCustodia)
+    .eq("user_id", userId)
+    .eq("tipo_movimentacao", "Resgate no Vencimento")
+    .eq("origem", "automatico")
+    .limit(1);
+
+  if (!shouldCreate) {
+    // Remove if exists
+    if (existingAuto && existingAuto.length > 0) {
+      await supabase
+        .from("movimentacoes")
+        .delete()
+        .eq("id", existingAuto[0].id);
+    }
+    return;
+  }
+
+  // Already exists — skip
+  if (existingAuto && existingAuto.length > 0) return;
+
+  // Calculate liquido and cota via engine
+  try {
+    const { data: calendario } = await supabase
+      .from("calendario_dias_uteis")
+      .select("data, dia_util")
+      .gte("data", custodiaRecord.data_inicio)
+      .lte("data", vencimento!)
+      .order("data");
+
+    const { data: movs } = await supabase
+      .from("movimentacoes")
+      .select("data, tipo_movimentacao, valor")
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", userId)
+      .neq("tipo_movimentacao", "Resgate no Vencimento")
+      .order("data");
+
+    if (!calendario || !movs) return;
+
+    const rows = calcularRendaFixaDiario({
+      dataInicio: custodiaRecord.data_inicio,
+      dataCalculo: vencimento!,
+      taxa: custodiaRecord.taxa || 0,
+      modalidade: custodiaRecord.modalidade || "Prefixado",
+      puInicial: custodiaRecord.preco_unitario || 1000,
+      calendario,
+      movimentacoes: movs,
+    });
+
+    if (rows.length === 0) return;
+
+    const lastRow = rows[rows.length - 1];
+    const valor = lastRow.liquido;
+    const precoUnitario = lastRow.valorCota2;
+    const quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+
+    const fmtBR = (v: number) =>
+      v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const valorExtrato = `R$ ${fmtBR(valor)} (${fmtBR(precoUnitario)} x ${fmtBR(quantidade)})`;
+
+    await supabase.from("movimentacoes").insert({
+      user_id: userId,
+      data: vencimento!,
+      tipo_movimentacao: "Resgate no Vencimento",
+      codigo_custodia: codigoCustodia,
+      categoria_id: custodiaRecord.categoria_id,
+      produto_id: custodiaRecord.produto_id,
+      instituicao_id: custodiaRecord.instituicao_id,
+      emissor_id: custodiaRecord.emissor_id,
+      modalidade: custodiaRecord.modalidade,
+      indexador: custodiaRecord.indexador,
+      taxa: custodiaRecord.taxa,
+      pagamento: custodiaRecord.pagamento,
+      vencimento: custodiaRecord.vencimento,
+      preco_unitario: precoUnitario,
+      quantidade,
+      valor,
+      valor_extrato: valorExtrato,
+      nome_ativo: custodiaRecord.nome,
+      origem: "automatico",
+    });
+  } catch (err) {
+    console.error("syncResgateNoVencimento: erro ao calcular/inserir", err);
+  }
+}
 
 // ── Custodia Sync ──
 
