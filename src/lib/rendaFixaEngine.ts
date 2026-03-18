@@ -1,56 +1,58 @@
 /**
  * Engine de Cálculo Diário de Renda Fixa Prefixada
  * 
- * Baseado em "Cota Virtual" (Valor da Cota 1).
- * Premissas:
- * - Cota inicial = R$ 1.000,00 no dia anterior à Aplicação Inicial
- * - Multiplicador Prefixado = (1 + taxa)^(1/252) - 1
- * - Líquido = Líquido anterior * (1 + multiplicador) + Aplicações - Resgates
- *   (em dias não úteis, não aplica multiplicador)
- * - QTD Cotas Compra = Aplicação / Valor da Cota
- * - Saldo Cotas = Saldo anterior + Cotas Compra
- * - Valor da Cota = Líquido / Saldo Cotas
- * - Rentabilidade Diária = Cota hoje / Cota ontem - 1
+ * Baseado em "Cota Virtual" (Valor da Cota 1 e Cota 2).
+ * 
+ * Cota 1 = valores APÓS o resgate (final do dia)
+ * Cota 2 = valores ANTES do resgate (pré-resgate)
+ * 
+ * Ordem de cálculo:
+ * 1. dailyMult (apenas dias úteis)
+ * 2. liquido1 = prevLiquido * (1 + mult) + aplicações - resgates
+ * 3. qtdCotasCompra = aplicações / prevValorCota
+ * 4. saldoCotas2 = prevSaldoCotas + qtdCotasCompra (sem descontar resgate)
+ * 5. liquido2 = liquido1 + resgates (devolver resgate = pré-resgate)
+ * 6. valorCota2 = liquido2 / saldoCotas2
+ * 7. qtdCotasResgate = resgates / valorCota2
+ * 8. saldoCotas1 = saldoCotas2 - qtdCotasResgate
+ * 9. valorCota1 = liquido1 / saldoCotas1
+ * 10. rentDiária = valorCota1 / prevValorCota - 1
  */
 
 export interface DailyRow {
   data: string;
   diaUtil: boolean;
-  valorCota: number;
-  saldoCotas: number;
-  liquido: number;
+  valorCota: number;       // Valor da Cota (1) - após resgate
+  saldoCotas: number;      // Saldo de Cotas (1) - após resgate
+  liquido: number;         // Líquido (1) - após resgate
+  valorCota2: number;      // Valor da Cota (2) - antes do resgate
+  saldoCotas2: number;     // Saldo de Cotas (2) - antes do resgate
+  liquido2: number;        // Líquido (2) - antes do resgate
   aplicacoes: number;
   qtdCotasCompra: number;
   resgates: number;
+  qtdCotasResgate: number;
   rentabilidadeDiaria: number | null;
   multiplicador: number;
 }
 
 export interface EngineInput {
-  dataInicio: string;          // data_inicio from custodia
-  dataCalculo: string;         // last date to calculate
-  taxa: number;                // annual rate (e.g. 0.1350 for 13.50%)
-  modalidade: string;          // "Prefixado", etc.
-  puInicial: number;           // preco_unitario from custodia (initial quota value)
+  dataInicio: string;
+  dataCalculo: string;
+  taxa: number;
+  modalidade: string;
+  puInicial: number;
   calendario: { data: string; dia_util: boolean }[];
   movimentacoes: { data: string; tipo_movimentacao: string; valor: number }[];
 }
 
-/**
- * Compute daily multiplicador based on modalidade
- */
 function getMultiplicador(modalidade: string, taxa: number): number {
   if (modalidade === "Prefixado") {
-    // (1 + taxa/100)^(1/252) - 1  — taxa is stored as percentage (e.g. 15.00)
     return Math.pow(1 + taxa / 100, 1 / 252) - 1;
   }
-  // Other modalidades can be added here
   return 0;
 }
 
-/**
- * Build a map date -> { aplicacoes, resgates } from movimentacoes
- */
 function buildMovMap(movs: EngineInput["movimentacoes"]): Map<string, { aplicacoes: number; resgates: number }> {
   const map = new Map<string, { aplicacoes: number; resgates: number }>();
   for (const m of movs) {
@@ -65,11 +67,7 @@ function buildMovMap(movs: EngineInput["movimentacoes"]): Map<string, { aplicaco
   return map;
 }
 
-/**
- * Find the day before dataInicio in the calendario (could be non-business day)
- */
 function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]): string | null {
-  // Sort calendario ascending
   const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
   for (let i = sorted.length - 1; i >= 0; i--) {
     if (sorted[i].data < dataInicio) {
@@ -86,13 +84,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   const multiplicador = getMultiplicador(modalidade, taxa);
   const movMap = buildMovMap(movimentacoes);
 
-  // Sort calendario ascending and filter relevant range
   const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
-
-  // Find day before dataInicio for the initial quota
   const dayBefore = findDayBefore(dataInicio, calendario);
 
-  // Build date range: from dayBefore (or dataInicio) to dataCalculo
   const startIdx = dayBefore
     ? sorted.findIndex((d) => d.data === dayBefore)
     : sorted.findIndex((d) => d.data >= dataInicio);
@@ -114,16 +108,19 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const mov = movMap.get(cal.data) || { aplicacoes: 0, resgates: 0 };
 
     if (isInitialDay) {
-      // Day before: set initial quota = PU Inicial, no movements counted yet
       rows.push({
         data: cal.data,
         diaUtil: cal.dia_util,
         valorCota: cotaInicial,
         saldoCotas: 0,
         liquido: 0,
+        valorCota2: cotaInicial,
+        saldoCotas2: 0,
+        liquido2: 0,
         aplicacoes: 0,
         qtdCotasCompra: 0,
         resgates: 0,
+        qtdCotasResgate: 0,
         rentabilidadeDiaria: null,
         multiplicador: 0,
       });
@@ -133,40 +130,56 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       continue;
     }
 
-    // Daily multiplicador: only on business days
+    // 1. Daily multiplicador
     const dailyMult = cal.dia_util ? multiplicador : 0;
 
-    // Líquido = prev * (1 + mult) + aplicações - resgates
-    const liquido = prevLiquido * (1 + dailyMult) + mov.aplicacoes - mov.resgates;
+    // 2. Líquido (1) = prev * (1 + mult) + aplicações - resgates
+    const liquido1 = prevLiquido * (1 + dailyMult) + mov.aplicacoes - mov.resgates;
 
-    // QTD Cotas Compra = aplicações / valor cota anterior
+    // 3. QTD Cotas Compra
     const qtdCotasCompra = prevValorCota > 0 ? mov.aplicacoes / prevValorCota : 0;
 
-    // Saldo Cotas
-    const saldoCotas = prevSaldoCotas + qtdCotasCompra;
+    // 4. Saldo de Cotas (2) = prev saldo + cotas compra (sem descontar resgate)
+    const saldoCotas2 = prevSaldoCotas + qtdCotasCompra;
 
-    // Valor da Cota = Líquido / Saldo Cotas
-    const valorCota = saldoCotas > 0 ? liquido / saldoCotas : prevValorCota;
+    // 5. Líquido (2) = Líquido(1) + resgates (pré-resgate)
+    const liquido2 = liquido1 + mov.resgates;
 
-    // Rentabilidade diária = cota hoje / cota ontem - 1
-    const rentDiaria = prevValorCota > 0 ? valorCota / prevValorCota - 1 : null;
+    // 6. Valor da Cota (2) = Líquido(2) / Saldo Cotas(2)
+    const valorCota2 = saldoCotas2 > 0 ? liquido2 / saldoCotas2 : prevValorCota;
+
+    // 7. QTD Cotas Resgate
+    const qtdCotasResgate = mov.resgates > 0 && valorCota2 > 0 ? mov.resgates / valorCota2 : 0;
+
+    // 8. Saldo de Cotas (1) = Saldo(2) - cotas resgatadas
+    const saldoCotas1 = saldoCotas2 - qtdCotasResgate;
+
+    // 9. Valor da Cota (1) = Líquido(1) / Saldo Cotas(1)
+    const valorCota1 = saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
+
+    // 10. Rentabilidade diária
+    const rentDiaria = prevValorCota > 0 ? valorCota1 / prevValorCota - 1 : null;
 
     rows.push({
       data: cal.data,
       diaUtil: cal.dia_util,
-      valorCota,
-      saldoCotas,
-      liquido,
+      valorCota: valorCota1,
+      saldoCotas: saldoCotas1,
+      liquido: liquido1,
+      valorCota2,
+      saldoCotas2,
+      liquido2,
       aplicacoes: mov.aplicacoes,
       qtdCotasCompra,
       resgates: mov.resgates,
+      qtdCotasResgate,
       rentabilidadeDiaria: rentDiaria,
       multiplicador: dailyMult,
     });
 
-    prevLiquido = liquido;
-    prevSaldoCotas = saldoCotas;
-    prevValorCota = valorCota;
+    prevLiquido = liquido1;
+    prevSaldoCotas = saldoCotas1;
+    prevValorCota = valorCota1;
   }
 
   return rows;
