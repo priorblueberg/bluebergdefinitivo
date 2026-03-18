@@ -272,6 +272,25 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
       .insert(custodiaData);
     if (insErr) console.error("syncCustodia: erro ao inserir", insErr);
   }
+
+  // Sync automatic "Resgate no Vencimento"
+  if (isRendaFixa) {
+    await syncResgateNoVencimento(mov.codigo_custodia, mov.user_id!, {
+      vencimento: aplicacaoInicial.vencimento,
+      resgate_total: resgateTotal,
+      modalidade: aplicacaoInicial.modalidade,
+      taxa: aplicacaoInicial.taxa,
+      data_inicio: aplicacaoInicial.data,
+      categoria_id: aplicacaoInicial.categoria_id,
+      produto_id: aplicacaoInicial.produto_id,
+      instituicao_id: aplicacaoInicial.instituicao_id,
+      emissor_id: aplicacaoInicial.emissor_id,
+      pagamento: aplicacaoInicial.pagamento,
+      indexador: aplicacaoInicial.indexador,
+      nome: aplicacaoInicial.nome_ativo,
+      preco_unitario: aplicacaoInicial.preco_unitario,
+    });
+  }
 }
 
 /** After deleting a movimentacao, remove the custodia record if no more movimentacoes reference it */
