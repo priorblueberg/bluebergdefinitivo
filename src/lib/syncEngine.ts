@@ -219,9 +219,40 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     .eq("user_id", mov.user_id)
     .order("data", { ascending: true });
 
-  // Find the first application (Aplicação Inicial or Aplicação) for base fields
+  // ── Ensure "Aplicação Inicial" is always the earliest application ──
+  const aplicacoes = (allMovs || []).filter(
+    (m: any) => ["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)
+  );
+  if (aplicacoes.length > 1) {
+    // Sort by date ascending — the earliest should be "Aplicação Inicial"
+    const sorted = [...aplicacoes].sort((a, b) => a.data.localeCompare(b.data));
+    const earliest = sorted[0];
+    // If the earliest is not "Aplicação Inicial", swap types
+    if (earliest.tipo_movimentacao !== "Aplicação Inicial") {
+      // Find current "Aplicação Inicial" and demote it
+      const currentInicial = sorted.find((m) => m.tipo_movimentacao === "Aplicação Inicial");
+      if (currentInicial) {
+        await supabase
+          .from("movimentacoes")
+          .update({ tipo_movimentacao: "Aplicação" })
+          .eq("id", currentInicial.id);
+      }
+      // Promote earliest to "Aplicação Inicial"
+      await supabase
+        .from("movimentacoes")
+        .update({ tipo_movimentacao: "Aplicação Inicial" })
+        .eq("id", earliest.id);
+      // Update local references
+      if (currentInicial) currentInicial.tipo_movimentacao = "Aplicação";
+      earliest.tipo_movimentacao = "Aplicação Inicial";
+    }
+  }
+
+  // Find the first application (Aplicação Inicial) for base fields
   const aplicacaoInicial = (allMovs || []).find(
-    (m: any) => m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação"
+    (m: any) => m.tipo_movimentacao === "Aplicação Inicial"
+  ) || (allMovs || []).find(
+    (m: any) => m.tipo_movimentacao === "Aplicação"
   ) || mov;
 
   // Compute net valor_investido: sum of aplicações - sum of resgates
