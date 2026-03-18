@@ -176,9 +176,9 @@ function buildDetailRowsFromEngine(
   let rentFatorAcum = 1;
   let cdiFatorAcumRows = 1;
 
-  // Get first liquido as "valor investido" baseline for ganhoAcumulado
-  const firstRow = dailyRows.find(r => r.saldoCotas > 0);
-  const baselineInvestido = firstRow ? firstRow.aplicacoes : 0;
+  // Total flows for ganho acumulado
+  const totalAplicacoes = dailyRows.reduce((sum, r) => sum + r.aplicacoes, 0);
+  const totalResgates = dailyRows.reduce((sum, r) => sum + r.resgates, 0);
 
   for (const year of years) {
     const tMap = rentMonthly.get(year);
@@ -210,11 +210,14 @@ function buildDetailRowsFromEngine(
       ganhoMs.push(gMap?.has(mm) ? parseFloat(gMap.get(mm)!.toFixed(2)) : null);
     }
 
-    // Ganho acumulado: last patrimônio in year minus total aplicações
-    const lastPatrimonio = pMap ? Math.max(...Array.from(pMap.values())) : null;
-    // Sum all aplicações from engine rows for this product
-    const totalAplicacoes = dailyRows.reduce((sum, r) => sum + r.aplicacoes, 0);
-    const ganhoAcum = lastPatrimonio !== null ? parseFloat((lastPatrimonio - totalAplicacoes + dailyRows.reduce((s, r) => s + r.resgates, 0)).toFixed(2)) : null;
+    // Ganho acumulado: patrimônio atual - patrimônio inicial - fluxos líquidos
+    const lastRow = dailyRows.filter(r => r.saldoCotas > 0 || r.liquido > 0).pop();
+    const firstRow = dailyRows.find(r => r.saldoCotas > 0);
+    const lastPatrimonio = lastRow ? lastRow.liquido : null;
+    const firstPatrimonio = firstRow ? firstRow.liquido : 0;
+    const ganhoAcum = lastPatrimonio !== null
+      ? parseFloat((lastPatrimonio - firstPatrimonio - totalAplicacoes + firstRow!.aplicacoes + totalResgates).toFixed(2))
+      : null;
 
     rows.push({
       year,
