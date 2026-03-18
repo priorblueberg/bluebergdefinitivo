@@ -80,6 +80,7 @@ export default function MovimentacoesPage() {
           instituicao: r.instituicoes?.nome ?? null,
           valor_extrato: r.valor_extrato,
           origem: r.origem ?? "manual",
+          codigo_custodia: r.codigo_custodia ?? null,
         }))
       );
     }
