@@ -91,8 +91,8 @@ export default function BoletaCustodiaDialog({
 
     const dateISO = format(d, "yyyy-MM-dd");
 
-    // Para Aplicação: buscar Valor da Cota do dia selecionado
-    if (tipo === "Aplicação" && row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
+    // Para Aplicação e Resgate: buscar Valor da Cota do dia selecionado via engine
+    if (row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
       setLoadingCota(true);
       try {
         const [calRes, movRes] = await Promise.all([
@@ -127,10 +127,10 @@ export default function BoletaCustodiaDialog({
           movimentacoes,
         });
 
-        // Pegar o valorCota do dia selecionado (último row)
         const rowDia = rows.find((r) => r.data === dateISO);
         if (rowDia) {
-          setValorCotaDia(rowDia.valorCota);
+          // Aplicação usa valorCota (Cota 1), Resgate usa valorCota2 (Cota 2)
+          setValorCotaDia(tipo === "Aplicação" ? rowDia.valorCota : rowDia.valorCota2);
         }
       } catch {
         setValorCotaDia(null);
