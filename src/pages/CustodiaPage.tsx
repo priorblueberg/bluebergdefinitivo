@@ -178,6 +178,42 @@ export default function CustodiaPage() {
     setDialogOpen(true);
   };
 
+  const handleDeleteCustodia = async () => {
+    if (!deleteRow || !user) return;
+    const codigoCustodia = deleteRow.codigo_custodia;
+    const categoriaId = deleteRow.categoria_id;
+
+    // Delete all movimentações for this codigo_custodia
+    const { error: movError } = await supabase
+      .from("movimentacoes")
+      .delete()
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", user.id);
+
+    if (movError) {
+      toast.error("Erro ao excluir movimentações do ativo.");
+      console.error(movError);
+      setDeleteRow(null);
+      return;
+    }
+
+    // Delete custodia record
+    const { error: custError } = await supabase
+      .from("custodia")
+      .delete()
+      .eq("id", deleteRow.id);
+
+    if (custError) {
+      toast.error("Erro ao excluir registro de custódia.");
+      console.error(custError);
+    } else {
+      toast.success("Ativo e movimentações excluídos com sucesso.");
+      setRows((prev) => prev.filter((r) => r.id !== deleteRow.id));
+      await fullSyncAfterDelete(codigoCustodia, categoriaId, user.id, dataReferenciaISO);
+    }
+    setDeleteRow(null);
+  };
+
   const fmt = (v: number | null) =>
     v != null
       ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
