@@ -355,7 +355,7 @@ export default function CustodiaPage() {
           row={dialogRow}
           userId={user.id}
           dataReferenciaISO={dataReferenciaISO}
-          onSuccess={fetchData}
+          onSuccess={() => { fetchData(); applyDataReferencia(); }}
         />
       )}
 
