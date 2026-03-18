@@ -67,7 +67,7 @@ export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
-  const { appliedVersion, dataReferenciaISO } = useDataReferencia();
+  const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const { user } = useAuth();
 
   // Dialog state
@@ -210,6 +210,7 @@ export default function CustodiaPage() {
       toast.success("Ativo e movimentações excluídos com sucesso.");
       setRows((prev) => prev.filter((r) => r.id !== deleteRow.id));
       await fullSyncAfterDelete(codigoCustodia, categoriaId, user.id, dataReferenciaISO);
+      applyDataReferencia();
     }
     setDeleteRow(null);
   };
@@ -354,7 +355,7 @@ export default function CustodiaPage() {
           row={dialogRow}
           userId={user.id}
           dataReferenciaISO={dataReferenciaISO}
-          onSuccess={fetchData}
+          onSuccess={() => { fetchData(); applyDataReferencia(); }}
         />
       )}
 

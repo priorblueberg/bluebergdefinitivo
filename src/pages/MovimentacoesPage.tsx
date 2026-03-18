@@ -48,7 +48,7 @@ const COLUMNS: { key: SortField; label: string }[] = [
 
 export default function MovimentacoesPage() {
   const navigate = useNavigate();
-  const { dataReferenciaISO } = useDataReferencia();
+  const { dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>("data");
@@ -150,6 +150,7 @@ export default function MovimentacoesPage() {
         movData.user_id!,
         dataReferenciaISO
       );
+      applyDataReferencia();
     } else {
       // Normal single delete
       const { error } = await supabase.from("movimentacoes").delete().eq("id", deleteId);
@@ -167,6 +168,7 @@ export default function MovimentacoesPage() {
             movData.user_id!,
             dataReferenciaISO
           );
+          applyDataReferencia();
         }
       }
     }

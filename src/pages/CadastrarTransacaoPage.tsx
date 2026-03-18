@@ -113,7 +113,7 @@ import { calcSaldoPrefixado } from "@/lib/saldoCalculations";
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
-  const { dataReferenciaISO } = useDataReferencia();
+  const { dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
@@ -409,6 +409,7 @@ export default function CadastrarTransacaoPage() {
 
         const insertedId = inserted?.[0]?.id || null;
         await fullSyncAfterMovimentacao(insertedId, selectedCustodia.categoria_id, user.id, dataReferenciaISO);
+        applyDataReferencia();
 
         toast.success("Resgate cadastrado com sucesso!");
         resetForm();
@@ -479,6 +480,7 @@ export default function CadastrarTransacaoPage() {
         if (error) throw error;
 
         await fullSyncAfterMovimentacao(editId!, categoriaId, user!.id, dataReferenciaISO);
+        applyDataReferencia();
 
         toast.success("Transação atualizada com sucesso!");
         navigate("/movimentacoes");
@@ -547,6 +549,7 @@ export default function CadastrarTransacaoPage() {
         const insertedId = inserted?.[0]?.id || null;
 
         await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id, dataReferenciaISO);
+        applyDataReferencia();
 
         toast.success("Transação cadastrada com sucesso!");
         resetForm();
