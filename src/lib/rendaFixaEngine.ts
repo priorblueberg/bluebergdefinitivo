@@ -259,7 +259,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const resgatesTotal = mov.resgates + pagamentoJuros;
 
     // 2. Líquido (1) = prev * (1 + mult) + aplicações - resgates
-    const liquido1 = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
+    const liquido1Raw = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
+    const liquido1 = Math.abs(liquido1Raw) < 0.01 ? 0 : liquido1Raw;
 
     // Adjust accumulated period yield proportionally after manual resgates
     // so that subsequent interest payments reflect the reduced patrimony
