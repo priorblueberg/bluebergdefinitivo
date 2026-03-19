@@ -254,6 +254,15 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // 2. Líquido (1) = prev * (1 + mult) + aplicações - resgates
     const liquido1 = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
 
+    // Adjust accumulated period yield proportionally after manual resgates
+    // so that subsequent interest payments reflect the reduced patrimony
+    if (mov.resgates > 0) {
+      const patrimonioAntes = prevLiquido * (1 + dailyMult) + mov.aplicacoes - pagamentoJuros;
+      if (patrimonioAntes > 0.01) {
+        ganhoAcumuladoPeriodo *= Math.max(0, 1 - mov.resgates / patrimonioAntes);
+      }
+    }
+
     // 3. QTD Cotas Compra
     const qtdCotasCompra = prevValorCota > 0 ? mov.aplicacoes / prevValorCota : 0;
 
