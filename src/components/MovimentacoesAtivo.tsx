@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 
 interface Movimentacao {
   id: string;
