@@ -63,6 +63,7 @@ function buildDetailRowsFromEngine(
   dailyRows: DailyRow[],
   cdiRecords: CdiRecord[],
   dataInicio: string,
+  resgateTotal?: string | null,
 ): DetailRow[] {
   if (dailyRows.length === 0) return [];
 
@@ -160,7 +161,9 @@ function buildDetailRowsFromEngine(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    patrimonioMonthly.get(y)!.set(m, row.liquido);
+    // On resgate_total date, show liquido2 (pre-redemption patrimony) instead of liquido (post-redemption = 0)
+    const patrimonioValue = resgateTotal && row.data === resgateTotal ? row.liquido2 : row.liquido;
+    patrimonioMonthly.get(y)!.set(m, patrimonioValue);
 
     // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
@@ -363,11 +366,11 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   // Detail table rows
   const detailRows = useMemo(() => {
     if (isPrefixado && engineRows.length > 0) {
-      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio);
+      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio, product.resgate_total);
     }
     // Fallback for non-prefixado: simple CDI-based detail rows
     // (reuse legacy inline logic or return empty for now)
-    return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio);
+    return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio, product.resgate_total);
   }, [cdiRecords, engineRows, product, isPrefixado]);
 
   const tituloLabel = "Rentabilidade";
