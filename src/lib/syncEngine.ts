@@ -94,6 +94,8 @@ async function syncManualResgatesTotais(
         calendario: calendarioAteData,
         movimentacoes: movsAteData,
         dataResgateTotal: null,
+        pagamento: custodiaRecord.pagamento,
+        vencimento: custodiaRecord.vencimento,
       });
 
       const rowDia = rows[rows.length - 1];
