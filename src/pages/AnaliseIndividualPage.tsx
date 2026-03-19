@@ -366,11 +366,11 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   // Detail table rows
   const detailRows = useMemo(() => {
     if (isPrefixado && engineRows.length > 0) {
-      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio);
+      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio, product.resgate_total);
     }
     // Fallback for non-prefixado: simple CDI-based detail rows
     // (reuse legacy inline logic or return empty for now)
-    return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio);
+    return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio, product.resgate_total);
   }, [cdiRecords, engineRows, product, isPrefixado]);
 
   const tituloLabel = "Rentabilidade";
