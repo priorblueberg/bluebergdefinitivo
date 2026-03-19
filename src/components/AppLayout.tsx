@@ -7,7 +7,6 @@ import { DataReferenciaProvider, useDataReferencia } from "@/contexts/DataRefere
 import { RecalculatingOverlay } from "./RecalculatingOverlay";
 import { useAuth } from "@/hooks/useAuth";
 import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
-import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
 function AppLayoutInner() {
@@ -33,33 +32,6 @@ function AppLayoutInner() {
       }
     })();
   }, [user]);
-
-  // Realtime listener: recalculate on any movimentacoes change
-  useEffect(() => {
-    if (!user) return;
-    let timeout: ReturnType<typeof setTimeout>;
-    const channel = supabase
-      .channel('movimentacoes-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'movimentacoes' }, () => {
-        clearTimeout(timeout);
-        timeout = setTimeout(async () => {
-          setIsRecalculating(true);
-          try {
-            await recalculateAllForDataReferencia(user.id, format(dataReferencia, "yyyy-MM-dd"));
-            applyDataReferencia();
-          } catch (err) {
-            console.error("Erro no recálculo via Realtime", err);
-          } finally {
-            setIsRecalculating(false);
-          }
-        }, 500);
-      })
-      .subscribe();
-    return () => {
-      clearTimeout(timeout);
-      supabase.removeChannel(channel);
-    };
-  }, [user, dataReferencia]);
 
   return (
     <div className="flex min-h-screen w-full">

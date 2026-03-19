@@ -429,15 +429,9 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           {/* Summary cards at data_calculo */}
           {detailRows.length > 0 && (() => {
             const topRow = detailRows[0];
-            // Use engine row at dataReferenciaISO for accurate patrimônio
             let lastPatrimonio: number | null = null;
-            if (isPrefixado && engineRows.length > 0) {
-              const refRow = engineRows.filter(r => r.data <= dataReferenciaISO).pop();
-              lastPatrimonio = refRow ? refRow.liquido : null;
-            } else {
-              for (let m = 11; m >= 0; m--) {
-                if (topRow.patrimonioMonths[m] !== null) { lastPatrimonio = topRow.patrimonioMonths[m]; break; }
-              }
+            for (let m = 11; m >= 0; m--) {
+              if (topRow.patrimonioMonths[m] !== null) { lastPatrimonio = topRow.patrimonioMonths[m]; break; }
             }
             const ganho = topRow.ganhoAcumulado;
             const rent = topRow.rentAcumulado;
