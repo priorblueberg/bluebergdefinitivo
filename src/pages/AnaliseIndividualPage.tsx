@@ -132,11 +132,12 @@ function buildDetailRowsFromEngine(
       }
     }
 
-    // Accumulate flows
+    // Accumulate flows (exclude pagamentoJuros from resgates — it's realized gain, not a withdrawal)
+    const resgatesSemJuros = row.resgates - (row.pagamentoJuros || 0);
     aplicacoesMes += row.aplicacoes;
-    resgatesMes += row.resgates;
+    resgatesMes += resgatesSemJuros;
     aplicacoesAno += row.aplicacoes;
-    resgatesAno += row.resgates;
+    resgatesAno += resgatesSemJuros;
 
     // Titulo/rent factor from engine's rentabilidadeDiaria
     if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
@@ -177,9 +178,9 @@ function buildDetailRowsFromEngine(
   let rentFatorAcum = 1;
   let cdiFatorAcumRows = 1;
 
-  // Total flows for ganho acumulado
+  // Total flows for ganho acumulado (exclude pagamentoJuros from resgates)
   const totalAplicacoes = dailyRows.reduce((sum, r) => sum + r.aplicacoes, 0);
-  const totalResgates = dailyRows.reduce((sum, r) => sum + r.resgates, 0);
+  const totalResgates = dailyRows.reduce((sum, r) => sum + r.resgates - (r.pagamentoJuros || 0), 0);
 
   for (const year of years) {
     const tMap = rentMonthly.get(year);
