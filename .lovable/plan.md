@@ -1,31 +1,42 @@
 
 
-# Atualizar Análise Individual para Pagamento de Juros
+# Correção: Data de Pagamento de Juros Ajustada Incorretamente
 
-## Problema
-A página `/carteira/analise-individual` chama `calcularRendaFixaDiario` sem passar os campos `pagamento` e `vencimento`, então títulos com juros periódicos não consideram os pagamentos no cálculo de rentabilidade e patrimônio.
+## Problema Identificado
 
-## Alterações
+A função `ajustarParaDiaUtil` em `gerarDatasPagamentoJuros` usa uma busca binária que tenta encontrar o último dia útil ≤ data-alvo em uma única passagem. O problema é que a busca binária **não visita todos os elementos** — ela pula índices conforme a lógica de partição. Quando o caminho da busca passa de um dia útil (ex: 27/03) direto para um dia não útil (ex: 29/03), o dia útil intermediário (28/03) nunca é visitado e nunca é registrado como candidato.
 
-### Arquivo: `src/pages/AnaliseIndividualPage.tsx`
+**Exemplo concreto (Março 2024):**
+- Alvo: `2024-03-30` (sábado, não útil)
+- A busca binária visita 27/03 (útil → best = 27/03), depois pula para 29/03 (não útil), depois 30/03 (não útil). O dia 28/03 (útil, quinta-feira) **nunca é visitado**, e `best` fica em 27/03.
 
-1. **Adicionar `pagamento` ao tipo `CustodiaProduct`** (linha ~28): novo campo `pagamento: string | null`
+## Correção
 
-2. **Buscar `pagamento` na query de custódia** (linha 594): adicionar `pagamento` ao select
+**Arquivo: `src/lib/rendaFixaEngine.ts`** — função `ajustarParaDiaUtil` (linhas 91-111)
 
-3. **Mapear `pagamento` no resultado** (linha ~597-614): incluir `pagamento: row.pagamento`
+Separar as duas responsabilidades:
+1. Busca binária para encontrar a **posição** do último elemento ≤ alvo
+2. Varredura linear reversa a partir dessa posição para encontrar o primeiro dia útil
 
-4. **Passar `pagamento` e `vencimento` ao engine** (linhas 295-308): adicionar os dois campos na chamada a `calcularRendaFixaDiario`
+```typescript
+function ajustarParaDiaUtil(targetDate: string): string | null {
+  let lo = 0, hi = allDates.length - 1, pos = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (allDates[mid] <= targetDate) {
+      pos = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  if (pos < 0) return null;
+  for (let i = pos; i >= 0; i--) {
+    if (diasUteisSet.has(allDates[i])) return allDates[i];
+  }
+  return null;
+}
+```
 
-5. **Atualizar `buildDetailRowsFromEngine`**: considerar `pagamentoJuros` nos cálculos de ganho financeiro — o campo `resgates` do engine já inclui o pagamento de juros, então o cálculo de fluxos (aplicações - resgates) já deve capturar o efeito corretamente, mas validar que o ganho financeiro mensal não é distorcido pelos pagamentos de juros (que são resgates "técnicos" e não reduzem o ganho real).
-
-### Lógica de Ganho Financeiro
-O pagamento de juros é incluído nos `resgates` do engine, mas representa rendimento distribuído (não saída de capital). No cálculo do ganho financeiro:
-- Fórmula atual: `liquido - patrimonioAnterior - aplicações + resgates`
-- Os resgates de juros estão em `row.resgates`, que inclui `pagamentoJuros`
-- Para isolar corretamente, subtrair `pagamentoJuros` dos resgates no cálculo de fluxos, ou somar separadamente — precisa ajustar para que juros pagos sejam tratados como ganho realizado.
-
-Na prática: `ganhoMes = liquido - patrimonioAnterior - aplicações + (resgates - pagamentoJuros)` ficaria incorreto pois ignora o juros pago. O correto é manter como está: `liquido - patrimonioAnterior - aplicações + resgates`, pois o juros pago sai do patrimônio (reduz líquido) mas volta como resgate, zerando o efeito no ganho.
-
-Portanto, nenhuma alteração na fórmula de ganho financeiro é necessária — apenas passar os campos faltantes ao engine.
+Essa correção é isolada e não afeta nenhuma outra parte do motor de cálculo. Os pagamentos de juros simplesmente passarão a cair nas datas corretas.
 
