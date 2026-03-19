@@ -133,6 +133,9 @@ function buildDetailRowsFromEngine(
       }
     }
 
+    // Stop processing after resgate_total — days after closure should not feed any metric
+    if (resgateTotal && row.data > resgateTotal) break;
+
     // Accumulate flows
     aplicacoesMes += row.aplicacoes;
     resgatesMes += row.resgates;
@@ -167,9 +170,9 @@ function buildDetailRowsFromEngine(
 
     // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
+    ganhoMensalMonthly.get(y)!.set(m, patrimonioValue - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
 
-    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno - aplicacoesAno + resgatesAno);
+    ganhoAnualMap.set(y, patrimonioValue - patrimonioInicioAno - aplicacoesAno + resgatesAno);
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
