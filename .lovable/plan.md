@@ -1,18 +1,21 @@
 
 
-# Bug Fix: Pagamento de juros indevido na data do seletor
+# Fix: Líquido (1) negativo próximo de zero na Análise Individual
 
-## Causa raiz
-
-O calendário passado ao engine é filtrado até `dataCalculo` (data do seletor). A função `gerarDatasPagamentoJuros` gera datas de pagamento retroativamente a partir do **vencimento** — quando uma data de pagamento (ex: 30/10/2025) é posterior a `dataCalculo` (06/10/2025), a função `ajustarParaDiaUtil` procura o último dia útil ≤ 30/10 **dentro do calendário truncado**, e encontra 06/10/2025 (o último dia do calendário). Isso gera um pagamento de juros falso na data do seletor.
+## Problema
+Arredondamentos no motor de cálculo fazem com que o Líquido (1) no dia do vencimento apareça como `-0,00` em vez de `0`.
 
 ## Correção
 
 **Arquivo: `src/lib/rendaFixaEngine.ts`**
 
-1. Adicionar `dataCalculo` como parâmetro de `gerarDatasPagamentoJuros`
-2. Dentro do loop de geração de datas, ignorar qualquer `targetStr` que seja > `dataCalculo` (não tentar ajustá-lo)
-3. Atualizar a chamada em `calcularRendaFixaDiario` para passar `dataCalculo`
+Após calcular `liquido1`, adicionar uma verificação: se o valor absoluto for menor que `0.01` (1 centavo), forçar para `0`. Isso já é feito para `liquido2` (variável `isZeroLiquido`), basta aplicar a mesma lógica ao próprio `liquido1` antes de usá-lo.
 
-Isso garante que apenas datas de pagamento que realmente ocorrem dentro do período calculado sejam geradas, sem afetar nenhum outro comportamento.
+```typescript
+// Após: const liquido1 = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
+const liquido1Raw = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
+const liquido1 = Math.abs(liquido1Raw) < 0.01 ? 0 : liquido1Raw;
+```
+
+Isso resolve o problema na raiz, afetando todas as páginas que consomem o engine (Calculadora, Análise Individual, Proventos).
 
