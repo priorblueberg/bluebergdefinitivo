@@ -161,7 +161,9 @@ function buildDetailRowsFromEngine(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    patrimonioMonthly.get(y)!.set(m, row.liquido);
+    // On resgate_total date, show liquido2 (pre-redemption patrimony) instead of liquido (post-redemption = 0)
+    const patrimonioValue = resgateTotal && row.data === resgateTotal ? row.liquido2 : row.liquido;
+    patrimonioMonthly.get(y)!.set(m, patrimonioValue);
 
     // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
