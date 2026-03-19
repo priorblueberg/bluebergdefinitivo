@@ -35,6 +35,8 @@ export interface DailyRow {
   rentabilidadeDiaria: number | null;
   multiplicador: number;
   pagamentoJuros: number;
+  ganhoDiario: number;
+  ganhoAcumulado: number;
 }
 
 export interface EngineInput {
