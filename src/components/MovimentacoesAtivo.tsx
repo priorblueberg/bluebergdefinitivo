@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 
 interface Movimentacao {
   id: string;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function MovimentacoesAtivo({ codigoCustodia }: Props) {
+  const { appliedVersion } = useDataReferencia();
   const [rows, setRows] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,7 +34,7 @@ export default function MovimentacoesAtivo({ codigoCustodia }: Props) {
       setLoading(false);
     };
     fetchData();
-  }, [codigoCustodia]);
+  }, [codigoCustodia, appliedVersion]);
 
   const fmtDate = (d: string) =>
     new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
