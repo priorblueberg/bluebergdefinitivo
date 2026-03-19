@@ -211,14 +211,9 @@ function buildDetailRowsFromEngine(
       ganhoMs.push(gMap?.has(mm) ? parseFloat(gMap.get(mm)!.toFixed(2)) : null);
     }
 
-    // Ganho acumulado: patrimônio atual - patrimônio inicial - fluxos líquidos
+    // Ganho acumulado: usar diretamente o valor do engine
     const lastRow = dailyRows.filter(r => r.saldoCotas > 0 || r.liquido > 0).pop();
-    const firstRow = dailyRows.find(r => r.saldoCotas > 0);
-    const lastPatrimonio = lastRow ? lastRow.liquido : null;
-    const firstPatrimonio = firstRow ? firstRow.liquido : 0;
-    const ganhoAcum = lastPatrimonio !== null
-      ? parseFloat((lastPatrimonio - firstPatrimonio - totalAplicacoes + firstRow!.aplicacoes + totalResgates).toFixed(2))
-      : null;
+    const ganhoAcum = lastRow ? parseFloat(lastRow.ganhoAcumulado.toFixed(2)) : null;
 
     rows.push({
       year,
