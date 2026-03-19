@@ -186,6 +186,8 @@ async function syncResgateNoVencimento(
       calendario,
       movimentacoes: movs,
       dataResgateTotal: custodiaRecord.resgate_total,
+      pagamento: custodiaRecord.pagamento,
+      vencimento: custodiaRecord.vencimento,
     });
 
     if (rows.length === 0) return;

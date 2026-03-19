@@ -34,6 +34,7 @@ export interface DailyRow {
   qtdCotasResgate: number;
   rentabilidadeDiaria: number | null;
   multiplicador: number;
+  pagamentoJuros: number;
 }
 
 export interface EngineInput {
@@ -45,7 +46,98 @@ export interface EngineInput {
   calendario: { data: string; dia_util: boolean }[];
   movimentacoes: { data: string; tipo_movimentacao: string; valor: number }[];
   dataResgateTotal?: string | null;
+  pagamento?: string | null;
+  vencimento?: string | null;
 }
+
+// ── Pagamento de Juros Periódico ──
+
+const PERIODICIDADE_MESES: Record<string, number> = {
+  Mensal: 1,
+  Bimestral: 2,
+  Trimestral: 3,
+  Quadrimestral: 4,
+  Semestral: 6,
+};
+
+/**
+ * Gera as datas de pagamento de juros periódico, retroativamente a partir do vencimento.
+ * Ajusta para último dia útil quando a data não existe no mês ou cai em dia não útil.
+ */
+export function gerarDatasPagamentoJuros(
+  dataInicio: string,
+  vencimento: string,
+  pagamento: string,
+  calendario: { data: string; dia_util: boolean }[]
+): Set<string> {
+  const meses = PERIODICIDADE_MESES[pagamento];
+  if (!meses) return new Set();
+
+  const vencDate = new Date(vencimento + "T00:00:00");
+  const diaBase = vencDate.getDate();
+
+  // Build set of business days and sorted list for lookup
+  const diasUteisSet = new Set<string>();
+  const allDates: string[] = [];
+  for (const c of calendario) {
+    allDates.push(c.data);
+    if (c.dia_util) diasUteisSet.add(c.data);
+  }
+  allDates.sort();
+
+  // Find last business day <= target date
+  function ajustarParaDiaUtil(targetDate: string): string | null {
+    // Binary search for last business day <= target
+    let lo = 0, hi = allDates.length - 1, best: string | null = null;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (allDates[mid] <= targetDate) {
+        if (diasUteisSet.has(allDates[mid])) best = allDates[mid];
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    // If binary search missed, linear fallback from hi
+    if (!best) {
+      for (let i = Math.min(hi, allDates.length - 1); i >= 0; i--) {
+        if (allDates[i] <= targetDate && diasUteisSet.has(allDates[i])) {
+          return allDates[i];
+        }
+      }
+    }
+    return best;
+  }
+
+  const result = new Set<string>();
+
+  // Generate dates retroactively from vencimento
+  let cursor = new Date(vencDate);
+  while (true) {
+    // Build target date: same day as vencimento in cursor's month/year
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
+
+    // Clamp day to last day of month
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const targetDay = Math.min(diaBase, lastDayOfMonth);
+    const targetStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
+
+    if (targetStr < dataInicio) break;
+
+    const adjusted = ajustarParaDiaUtil(targetStr);
+    if (adjusted && adjusted >= dataInicio) {
+      result.add(adjusted);
+    }
+
+    // Go back N months
+    cursor.setMonth(cursor.getMonth() - meses);
+  }
+
+  return result;
+}
+
+// ── Engine helpers ──
 
 function getMultiplicador(modalidade: string, taxa: number): number {
   if (modalidade === "Prefixado") {
@@ -79,11 +171,16 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 }
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const multiplicador = getMultiplicador(modalidade, taxa);
   const movMap = buildMovMap(movimentacoes);
+
+  // Generate payment dates if applicable
+  const datasPagamento = pagamento && pagamento !== "No Vencimento" && vencimento
+    ? gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario)
+    : new Set<string>();
 
   const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
   const dayBefore = findDayBefore(dataInicio, calendario);
@@ -100,6 +197,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   let prevLiquido = 0;
   let prevSaldoCotas = 0;
   let prevValorCota = cotaInicial;
+  let ganhoAcumuladoPeriodo = 0; // accumulates daily yield between payment dates
 
   for (let i = startIdx; i < sorted.length; i++) {
     const cal = sorted[i];
@@ -124,18 +222,34 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
         qtdCotasResgate: 0,
         rentabilidadeDiaria: null,
         multiplicador: 0,
+        pagamentoJuros: 0,
       });
       prevValorCota = cotaInicial;
       prevLiquido = 0;
       prevSaldoCotas = 0;
+      ganhoAcumuladoPeriodo = 0;
       continue;
     }
 
     // 1. Daily multiplicador
     const dailyMult = cal.dia_util ? multiplicador : 0;
 
+    // Accumulate daily yield (interest earned today)
+    const dailyYield = prevLiquido * dailyMult;
+    ganhoAcumuladoPeriodo += dailyYield;
+
+    // Check if today is a payment date
+    let pagamentoJuros = 0;
+    if (datasPagamento.has(cal.data) && ganhoAcumuladoPeriodo > 0.001) {
+      pagamentoJuros = ganhoAcumuladoPeriodo;
+      ganhoAcumuladoPeriodo = 0; // reset accumulator
+    }
+
+    // Add pagamentoJuros to resgates for calculation purposes
+    const resgatesTotal = mov.resgates + pagamentoJuros;
+
     // 2. Líquido (1) = prev * (1 + mult) + aplicações - resgates
-    const liquido1 = prevLiquido * (1 + dailyMult) + mov.aplicacoes - mov.resgates;
+    const liquido1 = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
 
     // 3. QTD Cotas Compra
     const qtdCotasCompra = prevValorCota > 0 ? mov.aplicacoes / prevValorCota : 0;
@@ -144,7 +258,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const saldoCotas2 = prevSaldoCotas + qtdCotasCompra;
 
     // 5. Líquido (2) = Líquido(1) + resgates (pré-resgate)
-    const liquido2 = liquido1 + mov.resgates;
+    const liquido2 = liquido1 + resgatesTotal;
 
     // When liquido2 is 0 or near 0 (gap between resgate total and new application),
     // carry forward the previous valorCota to preserve continuity
@@ -154,19 +268,17 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const valorCota2 = isZeroLiquido ? prevValorCota : (saldoCotas2 > 0 ? liquido2 / saldoCotas2 : prevValorCota);
 
     // 7. QTD Cotas Resgate
-    const qtdCotasResgate = mov.resgates > 0 && valorCota2 > 0 ? mov.resgates / valorCota2 : 0;
+    const qtdCotasResgate = resgatesTotal > 0 && valorCota2 > 0 ? resgatesTotal / valorCota2 : 0;
 
     // 8. Saldo de Cotas (1) = Saldo(2) - cotas resgatadas
     const saldoCotas1 = saldoCotas2 - qtdCotasResgate;
 
     // 9. Valor da Cota (1)
-    // When liquido is zero (gap period), carry forward previous cota
-    // No dia do resgate total: valorCota1 = resgates / saldoCotas2
     const isResgateTotal = dataResgateTotal && cal.data === dataResgateTotal;
-    const valorCota1 = isZeroLiquido && mov.aplicacoes === 0 && mov.resgates === 0
+    const valorCota1 = isZeroLiquido && mov.aplicacoes === 0 && resgatesTotal === 0
       ? prevValorCota
-      : isResgateTotal && mov.resgates > 0 && saldoCotas2 > 0
-        ? mov.resgates / saldoCotas2
+      : isResgateTotal && resgatesTotal > 0 && saldoCotas2 > 0
+        ? resgatesTotal / saldoCotas2
         : saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
 
     // 10. Rentabilidade diária
@@ -183,10 +295,11 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       liquido2,
       aplicacoes: mov.aplicacoes,
       qtdCotasCompra,
-      resgates: mov.resgates,
+      resgates: resgatesTotal,
       qtdCotasResgate,
       rentabilidadeDiaria: rentDiaria,
       multiplicador: dailyMult,
+      pagamentoJuros,
     });
 
     prevLiquido = liquido1;

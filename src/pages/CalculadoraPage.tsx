@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
@@ -11,14 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import CalculadoraTable from "@/components/CalculadoraTable";
 
 interface CustodiaOption {
   id: string;
@@ -33,6 +26,8 @@ interface CustodiaOption {
   categoria_nome: string;
   produto_nome: string;
   resgate_total: string | null;
+  pagamento: string | null;
+  vencimento: string | null;
 }
 
 export default function CalculadoraPage() {
@@ -49,7 +44,7 @@ export default function CalculadoraPage() {
     (async () => {
       const { data } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, categorias(nome), produtos(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, pagamento, vencimento, categorias(nome), produtos(nome)")
         .eq("user_id", user.id);
 
       if (data) {
@@ -67,6 +62,8 @@ export default function CalculadoraPage() {
             categoria_nome: r.categorias?.nome || "",
             produto_nome: r.produtos?.nome || "",
             resgate_total: r.resgate_total,
+            pagamento: r.pagamento,
+            vencimento: r.vencimento,
           }))
         );
       }
@@ -85,7 +82,6 @@ export default function CalculadoraPage() {
         const refDate = format(dataReferencia, "yyyy-MM-dd");
         const dataCalc = product.data_calculo || refDate;
 
-        // Fetch calendario from a reasonable range before data_inicio to dataCalculo
         const { data: calData } = await supabase
           .from("calendario_dias_uteis")
           .select("data, dia_util")
@@ -93,7 +89,6 @@ export default function CalculadoraPage() {
           .lte("data", dataCalc)
           .order("data", { ascending: true });
 
-        // Fetch movimentacoes for this codigo_custodia
         const { data: movData } = await supabase
           .from("movimentacoes")
           .select("data, tipo_movimentacao, valor")
@@ -117,6 +112,8 @@ export default function CalculadoraPage() {
             valor: Number(m.valor),
           })),
           dataResgateTotal: product.resgate_total,
+          pagamento: product.pagamento,
+          vencimento: product.vencimento,
         });
 
         setRows(result);
@@ -161,7 +158,8 @@ export default function CalculadoraPage() {
           </span>{" "}
           | Taxa: {selectedProduct.taxa != null ? `${selectedProduct.taxa.toFixed(2)}%` : "—"} |
           Modalidade: {selectedProduct.modalidade || "—"} | Multiplicador:{" "}
-          {selectedProduct.multiplicador || "—"}
+          {selectedProduct.multiplicador || "—"} | Pagamento:{" "}
+          {selectedProduct.pagamento || "—"}
         </div>
       )}
 
@@ -170,80 +168,7 @@ export default function CalculadoraPage() {
       )}
 
       {!loading && rows.length > 0 && (
-        <div className="rounded-md border border-border overflow-x-auto">
-          <Table>
-            <TableHeader>
-             <TableRow className="bg-muted/50">
-                <TableHead className="text-xs whitespace-nowrap">Data</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-center">Dia Útil</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Valor da Cota (1)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Saldo de Cotas (1)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Líquido (1)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Valor da Cota (2)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Saldo de Cotas (2)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Líquido (2)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Aplicações</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Compra)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Resgate</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Resgate)</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Rent. Diária</TableHead>
-                <TableHead className="text-xs whitespace-nowrap text-right">Multiplicador</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r, i) => (
-                <TableRow key={r.data} className={i % 2 === 0 ? "" : "bg-muted/30"}>
-                  <TableCell className="text-xs whitespace-nowrap">
-                    {formatDate(r.data)}
-                  </TableCell>
-                  <TableCell className="text-xs text-center">
-                    {r.diaUtil ? "Sim" : "Não"}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {fmt(r.valorCota, 2)}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {fmt(r.saldoCotas, 2)}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {fmtCurrency(r.liquido)}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {fmt(r.valorCota2, 2)}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {fmt(r.saldoCotas2, 2)}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {fmtCurrency(r.liquido2)}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {r.aplicacoes > 0 ? fmtCurrency(r.aplicacoes) : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {r.qtdCotasCompra > 0 ? fmt(r.qtdCotasCompra, 6) : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {r.resgates > 0 ? fmtCurrency(r.resgates) : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {r.qtdCotasResgate > 0 ? fmt(r.qtdCotasResgate, 6) : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {r.rentabilidadeDiaria != null
-                      ? `${(r.rentabilidadeDiaria * 100).toFixed(2)}%`
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {r.multiplicador > 0
-                      ? r.multiplicador.toFixed(8)
-                      : "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <CalculadoraTable rows={rows} />
       )}
 
       {!loading && selectedId && rows.length === 0 && (
@@ -255,29 +180,8 @@ export default function CalculadoraPage() {
   );
 }
 
-// Helpers
 function getDateMinus(dateStr: string, days: number): string {
   const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
-}
-
-function formatDate(d: string): string {
-  const [y, m, day] = d.split("-");
-  return `${day}/${m}/${y}`;
-}
-
-function fmt(v: number, decimals: number): string {
-  return v.toLocaleString("pt-BR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-function fmtCurrency(v: number): string {
-  return v.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 2,
-  });
 }
