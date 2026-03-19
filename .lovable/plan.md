@@ -1,21 +1,22 @@
 
 
-# Fix: Líquido (1) negativo próximo de zero na Análise Individual
+# Alteração: Card "Posição Fechada" quando título liquidado
 
-## Problema
-Arredondamentos no motor de cálculo fazem com que o Líquido (1) no dia do vencimento apareça como `-0,00` em vez de `0`.
+## O que muda
 
-## Correção
+Na página `/carteira/analise-individual`, quando a data do seletor for ≥ `resgate_total` do título:
+- O label do card muda de **"Patrimônio"** para **"Posição Fechada"**
+- O valor exibido passa a ser o **Líquido (2)** da data do resgate total (valor pré-resgate, que representa o patrimônio no momento do encerramento)
+- O valor aparece em uma cor diferenciada (tom de cinza/muted) para indicar visualmente que não é uma posição ativa
 
-**Arquivo: `src/lib/rendaFixaEngine.ts`**
+## Implementação
 
-Após calcular `liquido1`, adicionar uma verificação: se o valor absoluto for menor que `0.01` (1 centavo), forçar para `0`. Isso já é feito para `liquido2` (variável `isZeroLiquido`), basta aplicar a mesma lógica ao próprio `liquido1` antes de usá-lo.
+**Arquivo: `src/pages/AnaliseIndividualPage.tsx`** (linhas ~430-462)
 
-```typescript
-// Após: const liquido1 = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
-const liquido1Raw = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
-const liquido1 = Math.abs(liquido1Raw) < 0.01 ? 0 : liquido1Raw;
-```
-
-Isso resolve o problema na raiz, afetando todas as páginas que consomem o engine (Calculadora, Análise Individual, Proventos).
+1. Detectar se a posição está fechada: `const isPosicaoFechada = product.resgate_total && dataReferenciaISO >= product.resgate_total`
+2. Quando `isPosicaoFechada` e houver `engineRows`, buscar a row do dia do `resgate_total` e usar `row.liquido2` como valor do patrimônio
+3. Alterar o objeto do card de Patrimônio:
+   - `label`: `"Posição Fechada"` em vez de `"Patrimônio"`
+   - `value`: formatado a partir do Líquido (2) da data de resgate
+   - `color`: `"text-muted-foreground"` em vez de `"text-foreground"` para diferenciar visualmente
 
