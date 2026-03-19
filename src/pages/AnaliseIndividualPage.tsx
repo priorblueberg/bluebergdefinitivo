@@ -132,11 +132,12 @@ function buildDetailRowsFromEngine(
       }
     }
 
-    // Accumulate flows
+    // Accumulate flows (exclude pagamentoJuros from resgates — it's realized gain, not a withdrawal)
+    const resgatesSemJuros = row.resgates - (row.pagamentoJuros || 0);
     aplicacoesMes += row.aplicacoes;
-    resgatesMes += row.resgates;
+    resgatesMes += resgatesSemJuros;
     aplicacoesAno += row.aplicacoes;
-    resgatesAno += row.resgates;
+    resgatesAno += resgatesSemJuros;
 
     // Titulo/rent factor from engine's rentabilidadeDiaria
     if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
