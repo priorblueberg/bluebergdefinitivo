@@ -89,26 +89,23 @@ export function gerarDatasPagamentoJuros(
 
   // Find last business day <= target date
   function ajustarParaDiaUtil(targetDate: string): string | null {
-    // Binary search for last business day <= target
-    let lo = 0, hi = allDates.length - 1, best: string | null = null;
+    // Step 1: Binary search for the position of the last date <= target
+    let lo = 0, hi = allDates.length - 1, pos = -1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
       if (allDates[mid] <= targetDate) {
-        if (diasUteisSet.has(allDates[mid])) best = allDates[mid];
+        pos = mid;
         lo = mid + 1;
       } else {
         hi = mid - 1;
       }
     }
-    // If binary search missed, linear fallback from hi
-    if (!best) {
-      for (let i = Math.min(hi, allDates.length - 1); i >= 0; i--) {
-        if (allDates[i] <= targetDate && diasUteisSet.has(allDates[i])) {
-          return allDates[i];
-        }
-      }
+    if (pos < 0) return null;
+    // Step 2: Linear scan backward to find the first business day
+    for (let i = pos; i >= 0; i--) {
+      if (diasUteisSet.has(allDates[i])) return allDates[i];
     }
-    return best;
+    return null;
   }
 
   const result = new Set<string>();
