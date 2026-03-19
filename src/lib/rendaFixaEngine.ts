@@ -198,7 +198,6 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
   if (startIdx < 0) return [];
 
-  const endDate = dataCalculo || sorted[sorted.length - 1].data;
   const rows: DailyRow[] = [];
 
   let prevLiquido = 0;
