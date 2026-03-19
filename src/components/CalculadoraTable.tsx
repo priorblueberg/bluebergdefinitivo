@@ -30,6 +30,8 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Compra)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">Resgate</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Resgate)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right">R$ Ganho Diário</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right">R$ Ganho Acumulado</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">Pgto Juros</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">Rent. Diária</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">Multiplicador</TableHead>
@@ -73,6 +75,12 @@ export default function CalculadoraTable({ rows }: Props) {
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {r.qtdCotasResgate > 0 ? fmt(r.qtdCotasResgate, 6) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono">
+                {r.ganhoDiario !== 0 ? fmtCurrency(r.ganhoDiario) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono">
+                {r.ganhoAcumulado !== 0 ? fmtCurrency(r.ganhoAcumulado) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {r.pagamentoJuros > 0 ? fmtCurrency(r.pagamentoJuros) : "—"}
