@@ -77,6 +77,12 @@ export default function CalculadoraTable({ rows }: Props) {
                 {r.qtdCotasResgate > 0 ? fmt(r.qtdCotasResgate, 6) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
+                {r.ganhoDiario !== 0 ? fmtCurrency(r.ganhoDiario) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono">
+                {r.ganhoAcumulado !== 0 ? fmtCurrency(r.ganhoAcumulado) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono">
                 {r.pagamentoJuros > 0 ? fmtCurrency(r.pagamentoJuros) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
