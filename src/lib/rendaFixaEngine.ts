@@ -200,6 +200,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   let prevSaldoCotas = 0;
   let prevValorCota = cotaInicial;
   let ganhoAcumuladoPeriodo = 0; // accumulates daily yield between payment dates
+  let ganhoAcumuladoTotal = 0; // accumulates total gain in BRL
 
   for (let i = startIdx; i < sorted.length; i++) {
     const cal = sorted[i];
