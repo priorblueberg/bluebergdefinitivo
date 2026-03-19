@@ -1,62 +1,31 @@
 
 
-# Plano: Pagamento de Juros Periódico
+# Atualizar Análise Individual para Pagamento de Juros
 
-## Resumo
+## Problema
+A página `/carteira/analise-individual` chama `calcularRendaFixaDiario` sem passar os campos `pagamento` e `vencimento`, então títulos com juros periódicos não consideram os pagamentos no cálculo de rentabilidade e patrimônio.
 
-Implementar o cálculo automático de pagamento de juros periódico para títulos de Renda Fixa cujo campo `pagamento` seja diferente de "No Vencimento". O valor do juros será tratado como resgate no motor de cálculo e exibido em coluna dedicada na Calculadora.
+## Alterações
 
-## Escopo
+### Arquivo: `src/pages/AnaliseIndividualPage.tsx`
 
-### 1. Função de geração de datas de pagamento de juros
+1. **Adicionar `pagamento` ao tipo `CustodiaProduct`** (linha ~28): novo campo `pagamento: string | null`
 
-**Arquivo: `src/lib/rendaFixaEngine.ts`**
+2. **Buscar `pagamento` na query de custódia** (linha 594): adicionar `pagamento` ao select
 
-Criar função `gerarDatasPagamentoJuros` que recebe:
-- `dataInicio` (data da aplicação)
-- `vencimento` (data de vencimento do título)
-- `pagamento` (Mensal, Bimestral, Trimestral, Quadrimestral, Semestral)
-- `calendario` (dias úteis)
+3. **Mapear `pagamento` no resultado** (linha ~597-614): incluir `pagamento: row.pagamento`
 
-Lógica:
-- Extrair o **dia** do vencimento (ex: 28/12/2025 → dia 28)
-- Gerar datas retroativamente a partir do vencimento, subtraindo N meses conforme periodicidade (1, 2, 3, 4 ou 6 meses), até cobrir todo o período desde `dataInicio`
-- Para cada data gerada:
-  - Se o dia não existe no mês (ex: dia 31 em fevereiro), usar o último dia útil do mês
-  - Se a data cair em dia não útil, usar o primeiro dia útil imediatamente **anterior**
-- Retornar um `Set<string>` com as datas ajustadas (formato `yyyy-MM-dd`)
+4. **Passar `pagamento` e `vencimento` ao engine** (linhas 295-308): adicionar os dois campos na chamada a `calcularRendaFixaDiario`
 
-### 2. Integrar pagamento de juros no motor de cálculo
+5. **Atualizar `buildDetailRowsFromEngine`**: considerar `pagamentoJuros` nos cálculos de ganho financeiro — o campo `resgates` do engine já inclui o pagamento de juros, então o cálculo de fluxos (aplicações - resgates) já deve capturar o efeito corretamente, mas validar que o ganho financeiro mensal não é distorcido pelos pagamentos de juros (que são resgates "técnicos" e não reduzem o ganho real).
 
-**Arquivo: `src/lib/rendaFixaEngine.ts`**
+### Lógica de Ganho Financeiro
+O pagamento de juros é incluído nos `resgates` do engine, mas representa rendimento distribuído (não saída de capital). No cálculo do ganho financeiro:
+- Fórmula atual: `liquido - patrimonioAnterior - aplicações + resgates`
+- Os resgates de juros estão em `row.resgates`, que inclui `pagamentoJuros`
+- Para isolar corretamente, subtrair `pagamentoJuros` dos resgates no cálculo de fluxos, ou somar separadamente — precisa ajustar para que juros pagos sejam tratados como ganho realizado.
 
-- Adicionar campos ao `EngineInput`: `pagamento?: string`, `vencimento?: string`
-- Adicionar campo ao `DailyRow`: `pagamentoJuros: number`
-- No loop diário, para cada data que esteja no Set de datas de pagamento:
-  - Calcular o **ganho financeiro** desde o último pagamento (ou desde o início): diferença do `liquido` acumulado menos aplicações/resgates no período, ou seja, o rendimento líquido entre as datas-base
-  - Na prática: o valor do pagamento de juros = `prevLiquido * dailyMult` acumulado desde o último pagamento (soma dos rendimentos diários do período)
-  - Somar este valor aos `resgates` do dia para fins de cálculo de cotas e rentabilidade (conforme item 1.3)
-- Rastrear um acumulador de ganho financeiro entre pagamentos, resetado a cada data de pagamento
+Na prática: `ganhoMes = liquido - patrimonioAnterior - aplicações + (resgates - pagamentoJuros)` ficaria incorreto pois ignora o juros pago. O correto é manter como está: `liquido - patrimonioAnterior - aplicações + resgates`, pois o juros pago sai do patrimônio (reduz líquido) mas volta como resgate, zerando o efeito no ganho.
 
-### 3. Atualizar a Calculadora
-
-**Arquivo: `src/pages/CalculadoraPage.tsx`**
-
-- Passar `pagamento` e `vencimento` do produto selecionado para o engine
-- Buscar `vencimento` na query de custódia (adicionar ao select e ao tipo `CustodiaOption`)
-- Adicionar coluna "Pgto Juros" na tabela, após "QTD Cotas (Resgate)"
-- Exibir o valor formatado como moeda nos dias de pagamento, "—" nos demais
-
-### 4. Atualizar syncEngine
-
-**Arquivo: `src/lib/syncEngine.ts`**
-
-- Nas chamadas a `calcularRendaFixaDiario` dentro de `syncManualResgatesTotais` e `syncResgateNoVencimento`, passar `pagamento` e `vencimento` da custódia para que o engine considere os pagamentos de juros no cálculo do líquido final
-
-## Detalhes Técnicos
-
-- Mapeamento de periodicidade: `{ Mensal: 1, Bimestral: 2, Trimestral: 3, Quadrimestral: 4, Semestral: 6 }`
-- Datas geradas retroativamente do vencimento garante alinhamento com o último pagamento na data de vencimento
-- Ajuste de dia não útil: buscar no calendário o maior dia útil ≤ data-alvo
-- Nenhuma alteração de banco de dados necessária
+Portanto, nenhuma alteração na fórmula de ganho financeiro é necessária — apenas passar os campos faltantes ao engine.
 
