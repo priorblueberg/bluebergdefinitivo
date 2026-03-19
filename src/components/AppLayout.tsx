@@ -7,6 +7,7 @@ import { DataReferenciaProvider, useDataReferencia } from "@/contexts/DataRefere
 import { RecalculatingOverlay } from "./RecalculatingOverlay";
 import { useAuth } from "@/hooks/useAuth";
 import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
 function AppLayoutInner() {
