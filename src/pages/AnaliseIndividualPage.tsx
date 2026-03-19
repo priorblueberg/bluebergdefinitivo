@@ -31,6 +31,7 @@ interface CustodiaProduct {
   instituicao_nome: string;
   resgate_total: string | null;
   preco_unitario: number | null;
+  pagamento: string | null;
 }
 
 type SortKey = "nome" | "categoria_nome" | "produto_nome" | "instituicao_nome";
