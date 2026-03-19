@@ -47,6 +47,10 @@ export interface EngineInput {
   dataResgateTotal?: string | null;
 }
 
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
 function getMultiplicador(modalidade: string, taxa: number): number {
   if (modalidade === "Prefixado") {
     return Math.pow(1 + taxa / 100, 1 / 252) - 1;
