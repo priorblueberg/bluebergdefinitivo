@@ -63,6 +63,7 @@ function buildDetailRowsFromEngine(
   dailyRows: DailyRow[],
   cdiRecords: CdiRecord[],
   dataInicio: string,
+  resgateTotal?: string | null,
 ): DetailRow[] {
   if (dailyRows.length === 0) return [];
 
