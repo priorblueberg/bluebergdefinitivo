@@ -395,7 +395,7 @@ export const CarteiraFundos = () => <PageStub title="Fundos de Investimentos" />
 export const CarteiraTesouroDireto = () => <PageStub title="Tesouro Direto" />;
 export { default as CarteiraAnaliseIndividual } from "./AnaliseIndividualPage";
 export { default as Movimentacoes } from "./MovimentacoesPage";
-export const ProventosRecebidos = () => <PageStub title="Proventos Recebidos" />;
+export { default as ProventosRecebidos } from "./ProventosRecebidosPage";
 export { default as CadastrarTransacao } from "./CadastrarTransacaoPage";
 export const Configuracoes = () => <PageStub title="Configurações" />;
 export const Usuario = () => <PageStub title="Usuário" />;
