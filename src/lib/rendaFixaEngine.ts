@@ -70,7 +70,8 @@ export function gerarDatasPagamentoJuros(
   dataInicio: string,
   vencimento: string,
   pagamento: string,
-  calendario: { data: string; dia_util: boolean }[]
+  calendario: { data: string; dia_util: boolean }[],
+  dataCalculo?: string
 ): Set<string> {
   const meses = PERIODICIDADE_MESES[pagamento];
   if (!meses) return new Set();
