@@ -212,7 +212,8 @@ function buildDetailRowsFromEngine(
     }
 
     // Ganho acumulado: usar diretamente o valor do engine
-    const lastRow = dailyRows.filter(r => r.saldoCotas > 0 || r.liquido > 0).pop();
+    // Use the very last engine row (don't filter out resgate day where liquido=0)
+    const lastRow = dailyRows.length > 0 ? dailyRows[dailyRows.length - 1] : null;
     const ganhoAcum = lastRow ? parseFloat(lastRow.ganhoAcumulado.toFixed(2)) : null;
 
     rows.push({
