@@ -30,6 +30,8 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Compra)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">Resgate</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Resgate)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right">R$ Ganho Diário</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right">R$ Ganho Acumulado</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">Pgto Juros</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">Rent. Diária</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right">Multiplicador</TableHead>

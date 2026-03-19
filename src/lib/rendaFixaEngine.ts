@@ -290,6 +290,10 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // 10. Rentabilidade diária
     const rentDiaria = prevValorCota > 0 ? valorCota1 / prevValorCota - 1 : null;
 
+    // 11. Ganho diário em R$ e acumulado
+    const ganhoDiario = dailyYield;
+    ganhoAcumuladoTotal += ganhoDiario;
+
     rows.push({
       data: cal.data,
       diaUtil: cal.dia_util,
@@ -306,6 +310,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       rentabilidadeDiaria: rentDiaria,
       multiplicador: dailyMult,
       pagamentoJuros,
+      ganhoDiario,
+      ganhoAcumulado: ganhoAcumuladoTotal,
     });
 
     prevLiquido = liquido1;
