@@ -306,6 +306,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             valor: m.valor,
           })),
           dataResgateTotal: product.resgate_total,
+          pagamento: product.pagamento,
+          vencimento: product.vencimento,
         });
         setEngineRows(rows);
       }
