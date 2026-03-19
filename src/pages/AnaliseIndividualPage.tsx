@@ -594,7 +594,7 @@ export default function AnaliseIndividualPage() {
       setLoading(true);
       const { data } = await supabase
         .from("custodia")
-        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, preco_unitario, categoria_id, produto_id, instituicao_id, resgate_total, produtos(nome), instituicoes(nome), categorias(nome)");
+        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, preco_unitario, categoria_id, produto_id, instituicao_id, resgate_total, pagamento, produtos(nome), instituicoes(nome), categorias(nome)");
 
       if (data) {
         const mapped: CustodiaProduct[] = data.map((row: any) => ({
