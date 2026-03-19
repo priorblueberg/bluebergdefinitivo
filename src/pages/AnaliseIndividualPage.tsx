@@ -31,6 +31,7 @@ interface CustodiaProduct {
   instituicao_nome: string;
   resgate_total: string | null;
   preco_unitario: number | null;
+  pagamento: string | null;
 }
 
 type SortKey = "nome" | "categoria_nome" | "produto_nome" | "instituicao_nome";
@@ -305,6 +306,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             valor: m.valor,
           })),
           dataResgateTotal: product.resgate_total,
+          pagamento: product.pagamento,
+          vencimento: product.vencimento,
         });
         setEngineRows(rows);
       }
@@ -591,7 +594,7 @@ export default function AnaliseIndividualPage() {
       setLoading(true);
       const { data } = await supabase
         .from("custodia")
-        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, preco_unitario, categoria_id, produto_id, instituicao_id, resgate_total, produtos(nome), instituicoes(nome), categorias(nome)");
+        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, preco_unitario, categoria_id, produto_id, instituicao_id, resgate_total, pagamento, produtos(nome), instituicoes(nome), categorias(nome)");
 
       if (data) {
         const mapped: CustodiaProduct[] = data.map((row: any) => ({
@@ -611,6 +614,7 @@ export default function AnaliseIndividualPage() {
           instituicao_nome: row.instituicoes?.nome || "—",
           resgate_total: row.resgate_total,
           preco_unitario: row.preco_unitario,
+          pagamento: row.pagamento,
         }));
         setProducts(mapped);
 
