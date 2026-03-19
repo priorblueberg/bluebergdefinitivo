@@ -258,7 +258,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // Add pagamentoJuros to resgates for calculation purposes
     const resgatesTotal = mov.resgates + pagamentoJuros;
 
-    // 2. Líquido (1) = prev * (1 + mult) + aplicações - resgates
+    // 2. Líquido (1) = prev * (1 + mult) + aplicações - resgates (clamped to 0 when near-zero)
     const liquido1Raw = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
     const liquido1 = Math.abs(liquido1Raw) < 0.01 ? 0 : liquido1Raw;
 
