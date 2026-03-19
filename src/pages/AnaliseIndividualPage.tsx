@@ -444,8 +444,24 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const fmtPctCard = (v: number | null) =>
               v != null ? `${v.toFixed(2)}%` : "—";
 
+            // Detect closed position: selector date >= resgate_total
+            const isPosicaoFechada = !!(product.resgate_total && dataReferenciaISO >= product.resgate_total);
+            let patrimonioLabel = "Patrimônio";
+            let patrimonioValue = lastPatrimonio;
+            let patrimonioColor = "text-foreground";
+
+            if (isPosicaoFechada && engineRows.length > 0) {
+              patrimonioLabel = "Posição Fechada";
+              patrimonioColor = "text-muted-foreground";
+              // Find the row at resgate_total date and use liquido2
+              const resgateRow = engineRows.find((r) => r.data === product.resgate_total);
+              if (resgateRow) {
+                patrimonioValue = resgateRow.liquido2;
+              }
+            }
+
             const cards = [
-              { label: "Patrimônio", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
+              { label: patrimonioLabel, value: fmtBrlCard(patrimonioValue), color: patrimonioColor },
               { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
               { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
               { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
