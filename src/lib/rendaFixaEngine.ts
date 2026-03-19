@@ -225,11 +225,14 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
         rentabilidadeDiaria: null,
         multiplicador: 0,
         pagamentoJuros: 0,
+        ganhoDiario: 0,
+        ganhoAcumulado: 0,
       });
       prevValorCota = cotaInicial;
       prevLiquido = 0;
       prevSaldoCotas = 0;
       ganhoAcumuladoPeriodo = 0;
+      ganhoAcumuladoTotal = 0;
       continue;
     }
 
