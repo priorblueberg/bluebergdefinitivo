@@ -70,7 +70,8 @@ export function gerarDatasPagamentoJuros(
   dataInicio: string,
   vencimento: string,
   pagamento: string,
-  calendario: { data: string; dia_util: boolean }[]
+  calendario: { data: string; dia_util: boolean }[],
+  dataCalculo?: string
 ): Set<string> {
   const meses = PERIODICIDADE_MESES[pagamento];
   if (!meses) return new Set();
@@ -124,6 +125,12 @@ export function gerarDatasPagamentoJuros(
 
     if (targetStr < dataInicio) break;
 
+    // Skip payment dates beyond the calculation window
+    if (dataCalculo && targetStr > dataCalculo) {
+      cursor.setMonth(cursor.getMonth() - meses);
+      continue;
+    }
+
     const adjusted = ajustarParaDiaUtil(targetStr);
     if (adjusted && adjusted >= dataInicio) {
       result.add(adjusted);
@@ -176,12 +183,13 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   const multiplicador = getMultiplicador(modalidade, taxa);
   const movMap = buildMovMap(movimentacoes);
 
-  // Generate payment dates if applicable
-  const datasPagamento = pagamento && pagamento !== "No Vencimento" && vencimento
-    ? gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario)
-    : new Set<string>();
-
   const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
+  const endDate = dataCalculo || sorted[sorted.length - 1].data;
+
+  // Generate payment dates if applicable (pass endDate to avoid phantom payments)
+  const datasPagamento = pagamento && pagamento !== "No Vencimento" && vencimento
+    ? gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario, endDate)
+    : new Set<string>();
   const dayBefore = findDayBefore(dataInicio, calendario);
 
   const startIdx = dayBefore
@@ -190,7 +198,6 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
   if (startIdx < 0) return [];
 
-  const endDate = dataCalculo || sorted[sorted.length - 1].data;
   const rows: DailyRow[] = [];
 
   let prevLiquido = 0;
