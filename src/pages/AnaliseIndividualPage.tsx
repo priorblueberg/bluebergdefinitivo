@@ -614,6 +614,7 @@ export default function AnaliseIndividualPage() {
           instituicao_nome: row.instituicoes?.nome || "—",
           resgate_total: row.resgate_total,
           preco_unitario: row.preco_unitario,
+          pagamento: row.pagamento,
         }));
         setProducts(mapped);
 
