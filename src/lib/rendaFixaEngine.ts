@@ -125,6 +125,12 @@ export function gerarDatasPagamentoJuros(
 
     if (targetStr < dataInicio) break;
 
+    // Skip payment dates beyond the calculation window
+    if (dataCalculo && targetStr > dataCalculo) {
+      cursor.setMonth(cursor.getMonth() - meses);
+      continue;
+    }
+
     const adjusted = ajustarParaDiaUtil(targetStr);
     if (adjusted && adjusted >= dataInicio) {
       result.add(adjusted);
