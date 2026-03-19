@@ -183,12 +183,13 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   const multiplicador = getMultiplicador(modalidade, taxa);
   const movMap = buildMovMap(movimentacoes);
 
-  // Generate payment dates if applicable
-  const datasPagamento = pagamento && pagamento !== "No Vencimento" && vencimento
-    ? gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario)
-    : new Set<string>();
-
   const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
+  const endDate = dataCalculo || sorted[sorted.length - 1].data;
+
+  // Generate payment dates if applicable (pass endDate to avoid phantom payments)
+  const datasPagamento = pagamento && pagamento !== "No Vencimento" && vencimento
+    ? gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario, endDate)
+    : new Set<string>();
   const dayBefore = findDayBefore(dataInicio, calendario);
 
   const startIdx = dayBefore
