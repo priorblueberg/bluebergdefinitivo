@@ -686,83 +686,45 @@ export async function fullSyncAfterDelete(
   await syncControleCarteiras(categoriaId, userId, dataReferencia);
 }
 
-/** Recalculate ALL custodia and controle_de_carteiras for a user based on a new data_referencia */
+/** Recalculate ALL custodia and controle_de_carteiras for a user based on a new data_referencia.
+ *  Destructive-reconstructive: wipes custodia, controle_de_carteiras, and automatic movimentacoes,
+ *  then replays every manual movimentacao in chronological order.
+ */
 export async function recalculateAllForDataReferencia(userId: string, dataReferencia: string) {
-  // 1. Recalculate all custodia records
-  const { data: allCustodia } = await supabase
-    .from("custodia")
-    .select("id, codigo_custodia, categoria_id, vencimento, data_limite, data_inicio, user_id, modalidade, taxa, produto_id, instituicao_id, emissor_id, pagamento, indexador, nome, preco_unitario, pu_inicial, categorias(nome)")
-    .eq("user_id", userId);
+  // 1. Delete all custodia for the user
+  await supabase.from("custodia").delete().eq("user_id", userId);
 
-  if (allCustodia) {
-    for (const row of allCustodia) {
-      const categoriaNome = (row as any).categorias?.nome || "";
-      const isRendaFixa = categoriaNome === "Renda Fixa";
+  // 2. Delete all controle_de_carteiras for the user
+  await supabase.from("controle_de_carteiras").delete().eq("user_id", userId);
 
-      let resgateTotal: string | null = null;
-      if (isRendaFixa) {
-        resgateTotal = await computeResgateTotal(row.codigo_custodia, userId, row.vencimento);
-      }
+  // 3. Delete all automatic movimentacoes
+  await supabase
+    .from("movimentacoes")
+    .delete()
+    .eq("user_id", userId)
+    .eq("origem", "automatico");
 
-      const dataLimite = isRendaFixa ? row.vencimento : null;
-      const dataCalculo = computeDataCalculo(dataReferencia, resgateTotal, dataLimite);
+  // 4. Fetch all remaining (manual) movimentacoes ordered chronologically
+  const { data: manualMovs } = await supabase
+    .from("movimentacoes")
+    .select("id, categoria_id")
+    .eq("user_id", userId)
+    .order("data", { ascending: true })
+    .order("created_at", { ascending: true });
 
-      await supabase
-        .from("custodia")
-        .update({ resgate_total: resgateTotal, data_calculo: dataCalculo, data_limite: dataLimite })
-        .eq("id", row.id);
+  if (!manualMovs || manualMovs.length === 0) return;
 
-      // Sync manual "Resgate Total" values created by the "Fechar Posição" flow
-      if (isRendaFixa) {
-        await syncManualResgatesTotais(row.codigo_custodia, userId, {
-          vencimento: row.vencimento,
-          resgate_total: resgateTotal,
-          modalidade: row.modalidade,
-          taxa: row.taxa,
-          data_inicio: row.data_inicio,
-          categoria_id: row.categoria_id,
-          produto_id: row.produto_id,
-          instituicao_id: row.instituicao_id,
-          emissor_id: row.emissor_id,
-          pagamento: row.pagamento,
-          indexador: row.indexador,
-          nome: row.nome,
-          preco_unitario: row.pu_inicial ?? row.preco_unitario,
-        });
-
-        // Sync automatic "Resgate no Vencimento"
-        await syncResgateNoVencimento(row.codigo_custodia, userId, {
-          vencimento: row.vencimento,
-          resgate_total: resgateTotal,
-          modalidade: row.modalidade,
-          taxa: row.taxa,
-          data_inicio: row.data_inicio,
-          categoria_id: row.categoria_id,
-          produto_id: row.produto_id,
-          instituicao_id: row.instituicao_id,
-          emissor_id: row.emissor_id,
-          pagamento: row.pagamento,
-          indexador: row.indexador,
-          nome: row.nome,
-          preco_unitario: row.pu_inicial ?? row.preco_unitario,
-        });
-      }
-    }
+  // 5. Replay each movimentacao through the sync engine
+  for (const mov of manualMovs) {
+    await syncCustodiaFromMovimentacao(mov.id, dataReferencia);
   }
 
-  // 2. Recalculate all controle_de_carteiras
-  const { data: allCarteiras } = await supabase
-    .from("controle_de_carteiras")
-    .select("id, categoria_id, nome_carteira")
-    .eq("user_id", userId);
-
-  if (allCarteiras) {
-    for (const carteira of allCarteiras) {
-      if (carteira.nome_carteira === "Investimentos") {
-        await syncCarteiraGeral(userId, dataReferencia);
-      } else {
-        await syncControleCarteiras(carteira.categoria_id, userId, dataReferencia);
-      }
-    }
+  // 6. Collect distinct categoria_ids and sync controle_de_carteiras
+  const categoriaIds = [...new Set(manualMovs.map((m) => m.categoria_id))];
+  for (const catId of categoriaIds) {
+    await syncControleCarteiras(catId, userId, dataReferencia);
   }
+
+  // 7. Sync carteira geral ("Investimentos")
+  await syncCarteiraGeral(userId, dataReferencia);
 }
