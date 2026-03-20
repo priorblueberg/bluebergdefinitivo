@@ -82,6 +82,7 @@ export default function ProventosRecebidosPage() {
             .from("movimentacoes")
             .select("data, tipo_movimentacao, valor")
             .eq("codigo_custodia", prod.codigo_custodia)
+            .eq("user_id", user.id)
             .order("data"),
         ]);
 
@@ -93,7 +94,7 @@ export default function ProventosRecebidosPage() {
         const movimentacoes = (movsRes.data || []).map((m: any) => ({
           data: m.data,
           tipo_movimentacao: m.tipo_movimentacao,
-          valor: m.valor,
+          valor: Number(m.valor),
         }));
 
         const engineRows = calcularRendaFixaDiario({
