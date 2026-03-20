@@ -64,6 +64,7 @@ export default function MovimentacoesPage() {
         valor, origem, codigo_custodia,
         instituicoes(nome)
       `)
+      .neq("tipo_movimentacao", "Resgate no Vencimento")
       .order("data", { ascending: false });
 
     if (!error && data) {
