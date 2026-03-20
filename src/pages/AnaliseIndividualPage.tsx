@@ -436,16 +436,33 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const ganho = topRow.ganhoAcumulado;
             const rent = topRow.rentAcumulado;
             const cdiAcum = topRow.cdiAcumulado;
-            const pctSobreCdi = rent != null && cdiAcum != null && cdiAcum !== 0
-              ? parseFloat(((rent / cdiAcum) * 100).toFixed(2)) : null;
 
             const fmtBrlCard = (v: number | null) =>
               v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
             const fmtPctCard = (v: number | null) =>
               v != null ? `${v.toFixed(2)}%` : "—";
 
+            // Check if position is closed (selector date >= resgate_total)
+            const isPositionClosed = product.resgate_total && dataReferenciaISO >= product.resgate_total;
+            const fmtDateBr = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
+
+            // Find resgate value from engine rows on resgate_total date
+            let resgateValue: number | null = null;
+            if (isPositionClosed && engineRows.length > 0) {
+              const resgateRow = engineRows.find(r => r.data === product.resgate_total);
+              if (resgateRow) {
+                resgateValue = resgateRow.resgates;
+              }
+            }
+
+            const patrimonioLabel = isPositionClosed
+              ? `Valor Resgatado em ${fmtDateBr(product.resgate_total!)}`
+              : "Patrimônio";
+            const patrimonioValue = isPositionClosed ? fmtBrlCard(resgateValue) : fmtBrlCard(lastPatrimonio);
+            const patrimonioColor = isPositionClosed ? "text-blue-500" : "text-foreground";
+
             const cards = [
-              { label: "Patrimônio", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
+              { label: patrimonioLabel, value: patrimonioValue, color: patrimonioColor },
               { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
               { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
               { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
