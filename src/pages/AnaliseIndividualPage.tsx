@@ -451,7 +451,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             if (isPositionClosed && engineRows.length > 0) {
               const resgateRow = engineRows.find(r => r.data === product.resgate_total);
               if (resgateRow) {
-                resgateValue = resgateRow.resgates;
+                resgateValue = resgateRow.resgates - (resgateRow.pagamentoJuros || 0);
               }
             }
 
