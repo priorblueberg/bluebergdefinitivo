@@ -1,18 +1,21 @@
 
 
-# Fix: Usar Líquido (2) no dia do resgate_total em gráficos e tabela
+# Fix: Líquido (1) negativo próximo de zero na Análise Individual
 
 ## Problema
+Arredondamentos no motor de cálculo fazem com que o Líquido (1) no dia do vencimento apareça como `-0,00` em vez de `0`.
 
-A correção anterior (linha 165) só substitui `liquido` por `liquido2` exatamente no dia do `resgate_total`. Porém, se houver dias posteriores ao resgate no mesmo mês (ou se o loop continuar processando), o valor `liquido = 0` desses dias sobrescreve o patrimônio correto. Além disso, os cálculos de "Ganho Financeiro" mensal e anual (linhas 170-172) também usam `row.liquido` diretamente.
+## Correção
 
-## Solução
+**Arquivo: `src/lib/rendaFixaEngine.ts`**
 
-**Arquivo: `src/pages/AnaliseIndividualPage.tsx`** — função `buildDetailRowsFromEngine`
+Após calcular `liquido1`, adicionar uma verificação: se o valor absoluto for menor que `0.01` (1 centavo), forçar para `0`. Isso já é feito para `liquido2` (variável `isZeroLiquido`), basta aplicar a mesma lógica ao próprio `liquido1` antes de usá-lo.
 
-1. **Parar o processamento após o dia do resgate_total**: Quando `resgateTotal` é definido e `row.data > resgateTotal`, fazer `break` no loop. Dias após o encerramento não devem alimentar nenhuma métrica.
+```typescript
+// Após: const liquido1 = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
+const liquido1Raw = prevLiquido * (1 + dailyMult) + mov.aplicacoes - resgatesTotal;
+const liquido1 = Math.abs(liquido1Raw) < 0.01 ? 0 : liquido1Raw;
+```
 
-2. **Usar `patrimonioValue` (que já considera `liquido2`) nos cálculos de Ganho Financeiro** (linhas 170-172): substituir `row.liquido` por `patrimonioValue` para que o ganho mensal e anual reflitam o patrimônio correto no encerramento.
-
-Isso garante que gráfico de barras (Patrimônio Mensal), tabela de rentabilidade e ganho financeiro usem todos o mesmo valor do card "Posição Fechada".
+Isso resolve o problema na raiz, afetando todas as páginas que consomem o engine (Calculadora, Análise Individual, Proventos).
 

@@ -63,7 +63,6 @@ function buildDetailRowsFromEngine(
   dailyRows: DailyRow[],
   cdiRecords: CdiRecord[],
   dataInicio: string,
-  resgateTotal?: string | null,
 ): DetailRow[] {
   if (dailyRows.length === 0) return [];
 
@@ -133,9 +132,6 @@ function buildDetailRowsFromEngine(
       }
     }
 
-    // Stop processing after resgate_total — days after closure should not feed any metric
-    if (resgateTotal && row.data > resgateTotal) break;
-
     // Accumulate flows
     aplicacoesMes += row.aplicacoes;
     resgatesMes += row.resgates;
@@ -164,15 +160,13 @@ function buildDetailRowsFromEngine(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    // On resgate_total date, show liquido2 (pre-redemption patrimony) instead of liquido (post-redemption = 0)
-    const patrimonioValue = resgateTotal && row.data === resgateTotal ? row.liquido2 : row.liquido;
-    patrimonioMonthly.get(y)!.set(m, patrimonioValue);
+    patrimonioMonthly.get(y)!.set(m, row.liquido);
 
     // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, patrimonioValue - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
+    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
 
-    ganhoAnualMap.set(y, patrimonioValue - patrimonioInicioAno - aplicacoesAno + resgatesAno);
+    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno - aplicacoesAno + resgatesAno);
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
@@ -369,11 +363,11 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   // Detail table rows
   const detailRows = useMemo(() => {
     if (isPrefixado && engineRows.length > 0) {
-      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio, product.resgate_total);
+      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio);
     }
     // Fallback for non-prefixado: simple CDI-based detail rows
     // (reuse legacy inline logic or return empty for now)
-    return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio, product.resgate_total);
+    return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio);
   }, [cdiRecords, engineRows, product, isPrefixado]);
 
   const tituloLabel = "Rentabilidade";
@@ -450,24 +444,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const fmtPctCard = (v: number | null) =>
               v != null ? `${v.toFixed(2)}%` : "—";
 
-            // Detect closed position: selector date >= resgate_total
-            const isPosicaoFechada = !!(product.resgate_total && dataReferenciaISO >= product.resgate_total);
-            let patrimonioLabel = "Patrimônio";
-            let patrimonioValue = lastPatrimonio;
-            let patrimonioColor = "text-foreground";
-
-            if (isPosicaoFechada && engineRows.length > 0) {
-              patrimonioLabel = "Posição Fechada";
-              patrimonioColor = "text-muted-foreground";
-              // Find the row at resgate_total date and use liquido2
-              const resgateRow = engineRows.find((r) => r.data === product.resgate_total);
-              if (resgateRow) {
-                patrimonioValue = resgateRow.liquido2;
-              }
-            }
-
             const cards = [
-              { label: patrimonioLabel, value: fmtBrlCard(patrimonioValue), color: patrimonioColor },
+              { label: "Patrimônio", value: fmtBrlCard(lastPatrimonio), color: "text-foreground" },
               { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
               { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
               { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
