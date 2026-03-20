@@ -408,7 +408,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               {product.nome || product.produto_nome}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Período: {fmtDate(product.data_inicio)} a {fmtDate(product.data_calculo)}
+              Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate(product.data_calculo)}
             </p>
           </div>
           <div className="flex items-center gap-2 ml-auto">
