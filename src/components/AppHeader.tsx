@@ -19,9 +19,27 @@ export function AppHeader() {
   const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [isForceRecalculating, setIsForceRecalculating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const handleForceRecalculate = async () => {
+    if (!user || isForceRecalculating) return;
+    setIsForceRecalculating(true);
+    setIsRecalculating(true);
+    try {
+      await recalculateAllForDataReferencia(user.id, format(dataReferencia, "yyyy-MM-dd"));
+      applyDataReferencia();
+      toast.success("Reprocessamento completo realizado com sucesso");
+    } catch (err) {
+      console.error("Erro no reprocessamento forçado", err);
+      toast.error("Erro ao reprocessar");
+    } finally {
+      setIsRecalculating(false);
+      setIsForceRecalculating(false);
+    }
+  };
 
   const applyDate = async (date: Date) => {
     if (!user) return;
