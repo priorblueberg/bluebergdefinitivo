@@ -23,11 +23,11 @@ interface Movimentacao {
   data: string;
   tipo_movimentacao: string;
   pagamento: string | null;
-  vencimento: string | null;
   nome_ativo: string | null;
-  categoria: string;
   instituicao: string | null;
-  valor_extrato: string | null;
+  quantidade: number | null;
+  preco_unitario: number | null;
+  valor: number | null;
   origem: string;
   codigo_custodia: number | null;
 }
@@ -37,13 +37,13 @@ type SortDir = "asc" | "desc";
 
 const COLUMNS: { key: SortField; label: string }[] = [
   { key: "data", label: "Data" },
-  { key: "categoria", label: "Categoria" },
   { key: "nome_ativo", label: "Nome do Ativo" },
   { key: "tipo_movimentacao", label: "Tipo Mov." },
   { key: "instituicao", label: "Instituição" },
   { key: "pagamento", label: "Pagamento" },
-  { key: "valor_extrato", label: "Valor Extrato" },
-  { key: "vencimento", label: "Vencimento" },
+  { key: "quantidade", label: "Quantidade" },
+  { key: "preco_unitario", label: "Preço Unitário" },
+  { key: "valor", label: "Valor" },
 ];
 
 export default function MovimentacoesPage() {
