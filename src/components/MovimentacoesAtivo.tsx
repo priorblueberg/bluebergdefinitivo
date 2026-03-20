@@ -41,7 +41,7 @@ export default function MovimentacoesAtivo({ codigoCustodia }: Props) {
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const fmtQty = (v: number | null) =>
-    v !== null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 6 }) : "—";
+    v !== null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
 
   return (
     <div className="space-y-3 mb-12">
