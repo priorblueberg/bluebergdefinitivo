@@ -169,6 +169,17 @@ export function AppHeader() {
             </button>
           </div>
 
+          <button
+            onClick={handleForceRecalculate}
+            disabled={isForceRecalculating}
+            className="flex items-center gap-1 rounded-md border border-destructive/50 px-2 py-1 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground disabled:opacity-50 bg-background"
+            style={{ transition: "all 120ms linear" }}
+            title="Forçar reprocessamento completo de todos os ativos"
+          >
+            <RefreshCw size={12} strokeWidth={1.5} className={isForceRecalculating ? "animate-spin" : ""} />
+            <span>Reprocessar</span>
+          </button>
+
           <button className="relative text-muted-foreground hover:text-primary" style={{ transition: "color 120ms linear" }}>
             <Bell size={18} strokeWidth={1.5} />
             <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
