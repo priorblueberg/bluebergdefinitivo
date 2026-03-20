@@ -226,15 +226,19 @@ export default function MovimentacoesPage() {
               sortedRows.map((r, i) => (
                 <tr key={r.id} className={`border-t border-border ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
-                  <td className="px-3 py-2 text-foreground">{r.categoria}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
-                    {r.tipo_movimentacao}
-                  </td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
                   <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.valor_extrato ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                    {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                    {r.preco_unitario != null ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                    {r.valor != null ? r.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
                     {r.origem === "automatico" ? (
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Auto</Badge>
