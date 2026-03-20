@@ -253,7 +253,9 @@ export default function CadastrarTransacaoPage() {
             selectedCustodia.data_inicio,
             data,
             selectedCustodia.codigo_custodia,
-            user.id
+            user.id,
+            selectedCustodia.pagamento,
+            selectedCustodia.vencimento
           );
           if (!cancelled) setSaldoDisponivel(saldo);
         } else {

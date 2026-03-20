@@ -158,6 +158,8 @@ export default function BoletaCustodiaDialog({
           calendario,
           movimentacoes,
           dataResgateTotal: custRes.data?.resgate_total ?? null,
+          pagamento: row.pagamento,
+          vencimento: row.vencimento,
         });
 
         const rowDia = rows.find((r) => r.data === dateISO);
