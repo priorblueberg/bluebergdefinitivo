@@ -111,10 +111,13 @@ export default function ProventosRecebidosPage() {
 
         for (const row of engineRows) {
           if (row.pagamentoJuros > 0.01) {
+            const qty = row.saldoCotas || 0;
             allProventos.push({
               data: row.data,
               nome: prod.nome || "—",
               valor: row.pagamentoJuros,
+              valorUnitario: qty > 0 ? row.pagamentoJuros / qty : row.pagamentoJuros,
+              quantidade: qty,
             });
           }
         }
