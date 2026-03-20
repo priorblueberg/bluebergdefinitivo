@@ -203,7 +203,7 @@ export default function MovimentacoesPage() {
           <thead>
             <tr className="bg-primary text-primary-foreground">
               {COLUMNS.map((col) => {
-                const isNumeric = col.key === "quantidade" || col.key === "preco_unitario" || col.key === "valor";
+                const isNumeric = false;
                 return (
                   <th
                     key={col.key}
@@ -233,13 +233,13 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
                   <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
                   </td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.preco_unitario != null ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
                   </td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.valor != null ? r.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
