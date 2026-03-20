@@ -233,13 +233,13 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
                   <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
                   </td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.preco_unitario != null ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
                   </td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.valor != null ? r.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
