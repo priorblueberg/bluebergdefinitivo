@@ -23,11 +23,11 @@ interface Movimentacao {
   data: string;
   tipo_movimentacao: string;
   pagamento: string | null;
-  vencimento: string | null;
   nome_ativo: string | null;
-  categoria: string;
   instituicao: string | null;
-  valor_extrato: string | null;
+  quantidade: number | null;
+  preco_unitario: number | null;
+  valor: number | null;
   origem: string;
   codigo_custodia: number | null;
 }
@@ -37,13 +37,13 @@ type SortDir = "asc" | "desc";
 
 const COLUMNS: { key: SortField; label: string }[] = [
   { key: "data", label: "Data" },
-  { key: "categoria", label: "Categoria" },
   { key: "nome_ativo", label: "Nome do Ativo" },
   { key: "tipo_movimentacao", label: "Tipo Mov." },
   { key: "instituicao", label: "Instituição" },
   { key: "pagamento", label: "Pagamento" },
-  { key: "valor_extrato", label: "Valor Extrato" },
-  { key: "vencimento", label: "Vencimento" },
+  { key: "quantidade", label: "Quantidade" },
+  { key: "preco_unitario", label: "Preço Unitário" },
+  { key: "valor", label: "Valor" },
 ];
 
 export default function MovimentacoesPage() {
@@ -60,9 +60,9 @@ export default function MovimentacoesPage() {
       .from("movimentacoes")
       .select(`
         id, created_at, data, tipo_movimentacao,
-        pagamento, vencimento, nome_ativo,
-        valor_extrato, origem, codigo_custodia,
-        categorias(nome), instituicoes(nome)
+        pagamento, nome_ativo, quantidade, preco_unitario,
+        valor, origem, codigo_custodia,
+        instituicoes(nome)
       `)
       .order("data", { ascending: false });
 
@@ -74,11 +74,11 @@ export default function MovimentacoesPage() {
           data: r.data,
           tipo_movimentacao: r.tipo_movimentacao,
           pagamento: r.pagamento,
-          vencimento: r.vencimento,
           nome_ativo: r.nome_ativo,
-          categoria: r.categorias?.nome ?? "—",
           instituicao: r.instituicoes?.nome ?? null,
-          valor_extrato: r.valor_extrato,
+          quantidade: r.quantidade ?? null,
+          preco_unitario: r.preco_unitario ?? null,
+          valor: r.valor ?? null,
           origem: r.origem ?? "manual",
           codigo_custodia: r.codigo_custodia ?? null,
         }))
@@ -226,15 +226,19 @@ export default function MovimentacoesPage() {
               sortedRows.map((r, i) => (
                 <tr key={r.id} className={`border-t border-border ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
-                  <td className="px-3 py-2 text-foreground">{r.categoria}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
-                    {r.tipo_movimentacao}
-                  </td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
                   <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.valor_extrato ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.vencimento)}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                    {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                    {r.preco_unitario != null ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                    {r.valor != null ? r.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap text-center">
                     {r.origem === "automatico" ? (
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Auto</Badge>
