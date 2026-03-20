@@ -202,18 +202,21 @@ export default function MovimentacoesPage() {
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-primary text-primary-foreground">
-              {COLUMNS.map((col) => (
-                <th
-                  key={col.key}
-                  className="px-3 py-2 text-left font-medium whitespace-nowrap cursor-pointer select-none hover:bg-primary/80 transition-colors"
-                  onClick={() => handleSort(col.key)}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {col.label}
-                    <ArrowUpDown size={12} className={sortField === col.key ? "opacity-100" : "opacity-40"} />
-                  </span>
-                </th>
-              ))}
+              {COLUMNS.map((col) => {
+                const isNumeric = col.key === "quantidade" || col.key === "preco_unitario" || col.key === "valor";
+                return (
+                  <th
+                    key={col.key}
+                    className={`px-3 py-2 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-primary/80 transition-colors ${isNumeric ? "text-right" : "text-left"}`}
+                    onClick={() => handleSort(col.key)}
+                  >
+                    <span className={`inline-flex items-center gap-1 ${isNumeric ? "justify-end" : ""}`}>
+                      {col.label}
+                      <ArrowUpDown size={12} className={sortField === col.key ? "opacity-100" : "opacity-40"} />
+                    </span>
+                  </th>
+                );
+              })}
               <th className="px-3 py-2 text-center font-medium whitespace-nowrap">Ações</th>
             </tr>
           </thead>
