@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { format, parse, isValid, subDays, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { Bell, CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, RefreshCw } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -19,9 +19,27 @@ export function AppHeader() {
   const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [isForceRecalculating, setIsForceRecalculating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const handleForceRecalculate = async () => {
+    if (!user || isForceRecalculating) return;
+    setIsForceRecalculating(true);
+    setIsRecalculating(true);
+    try {
+      await recalculateAllForDataReferencia(user.id, format(dataReferencia, "yyyy-MM-dd"));
+      applyDataReferencia();
+      toast.success("Reprocessamento completo realizado com sucesso");
+    } catch (err) {
+      console.error("Erro no reprocessamento forçado", err);
+      toast.error("Erro ao reprocessar");
+    } finally {
+      setIsRecalculating(false);
+      setIsForceRecalculating(false);
+    }
+  };
 
   const applyDate = async (date: Date) => {
     if (!user) return;
@@ -150,6 +168,17 @@ export function AppHeader() {
               <span>Desde o início</span>
             </button>
           </div>
+
+          <button
+            onClick={handleForceRecalculate}
+            disabled={isForceRecalculating}
+            className="flex items-center gap-1 rounded-md border border-destructive/50 px-2 py-1 text-xs text-destructive hover:bg-destructive hover:text-destructive-foreground disabled:opacity-50 bg-background"
+            style={{ transition: "all 120ms linear" }}
+            title="Forçar reprocessamento completo de todos os ativos"
+          >
+            <RefreshCw size={12} strokeWidth={1.5} className={isForceRecalculating ? "animate-spin" : ""} />
+            <span>Reprocessar</span>
+          </button>
 
           <button className="relative text-muted-foreground hover:text-primary" style={{ transition: "color 120ms linear" }}>
             <Bell size={18} strokeWidth={1.5} />
