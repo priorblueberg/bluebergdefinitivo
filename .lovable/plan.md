@@ -1,36 +1,33 @@
 
 
-# Reorganizar colunas da página /movimentações
+# Reprocessar: Excluir e recadastrar todos os ativos em ordem cronológica
 
-## Alterações
+## O que muda
 
-**Arquivo: `src/pages/MovimentacoesPage.tsx`**
+O botão "Reprocessar" no header passará a executar um processo destrutivo-reconstrutivo:
 
-### 1. Interface `Movimentacao`
-- Remover campos `vencimento` e `categoria`
-- Adicionar `quantidade: number | null`, `preco_unitario: number | null`
-- Substituir `valor_extrato: string | null` por `valor: number | null`
+1. **Excluir toda a custódia** do usuário
+2. **Excluir todas as movimentações automáticas** (origem = 'automatico')
+3. **Buscar todas as movimentações manuais** ordenadas por data (mais antiga primeiro)
+4. **Para cada movimentação**, executar `syncCustodiaFromMovimentacao` — que recria o registro de custódia, sincroniza "Resgate no Vencimento" automático, e recalcula "Resgate Total" manual
+5. **Recalcular controle de carteiras** ao final
 
-### 2. Query Supabase
-- Remover `vencimento` do select e remover join `categorias(nome)`
-- Adicionar `quantidade, preco_unitario, valor` ao select
-- Remover `valor_extrato` do select
+## Arquivo alterado
 
-### 3. Mapeamento no `.map()`
-- Remover `categoria` e `vencimento`
-- Adicionar `quantidade`, `preco_unitario`, `valor`
+**`src/lib/syncEngine.ts`** — reescrever `recalculateAllForDataReferencia`:
 
-### 4. COLUMNS — nova ordem
 ```
-Data, Nome do Ativo, Tipo Mov., Instituição, Pagamento, Quantidade, Preço Unitário, Valor
+async function recalculateAllForDataReferencia(userId, dataReferencia):
+  1. DELETE FROM custodia WHERE user_id = userId
+  2. DELETE FROM controle_de_carteiras WHERE user_id = userId
+  3. DELETE FROM movimentacoes WHERE user_id = userId AND origem = 'automatico'
+  4. SELECT * FROM movimentacoes WHERE user_id = userId ORDER BY data ASC, created_at ASC
+  5. Para cada movimentação:
+     - await syncCustodiaFromMovimentacao(mov.id, dataReferencia)
+  6. Buscar categorias distintas das movimentações
+  7. Para cada categoria: syncControleCarteiras(categoriaId, userId, dataReferencia)
+  8. syncCarteiraGeral(userId, dataReferencia)
 ```
 
-### 5. Células do `<tbody>`
-- Remover `<td>` de Categoria e Vencimento
-- Adicionar `<td>` para Quantidade (2 casas decimais), Preço Unitário (moeda BRL), Valor (moeda BRL)
-- Reordenar conforme a ordem final
-
-### 6. Formatação
-- Quantidade: `toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })`
-- Preço Unitário e Valor: `toLocaleString("pt-BR", { style: "currency", currency: "BRL" })`
+Nenhum outro arquivo precisa ser alterado — o botão no header já chama esta função.
 
