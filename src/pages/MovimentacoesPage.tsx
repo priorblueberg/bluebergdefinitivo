@@ -184,7 +184,12 @@ export default function MovimentacoesPage() {
     const valA = a[sortField] ?? "";
     const valB = b[sortField] ?? "";
     const cmp = String(valA).localeCompare(String(valB), "pt-BR", { numeric: true });
-    return sortDir === "asc" ? cmp : -cmp;
+    const result = sortDir === "asc" ? cmp : -cmp;
+    if (result !== 0) return result;
+    // Secondary sort: when same date, "Aplicação Inicial" and "Aplicação" come first
+    const prioA = a.tipo_movimentacao.startsWith("Aplicação") ? 0 : 1;
+    const prioB = b.tipo_movimentacao.startsWith("Aplicação") ? 0 : 1;
+    return prioA - prioB;
   });
 
   const fmtDate = (d: string | null) =>
