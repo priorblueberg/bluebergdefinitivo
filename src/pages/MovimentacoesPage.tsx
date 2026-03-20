@@ -184,7 +184,12 @@ export default function MovimentacoesPage() {
     const valA = a[sortField] ?? "";
     const valB = b[sortField] ?? "";
     const cmp = String(valA).localeCompare(String(valB), "pt-BR", { numeric: true });
-    return sortDir === "asc" ? cmp : -cmp;
+    const result = sortDir === "asc" ? cmp : -cmp;
+    if (result !== 0) return result;
+    // Secondary sort: when same date, "Aplicação Inicial" and "Aplicação" come first
+    const prioA = a.tipo_movimentacao.startsWith("Aplicação") ? 0 : 1;
+    const prioB = b.tipo_movimentacao.startsWith("Aplicação") ? 0 : 1;
+    return prioA - prioB;
   });
 
   const fmtDate = (d: string | null) =>
@@ -235,7 +240,7 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">
-                    {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                    {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 7, maximumFractionDigits: 7 }) : "—"}
                   </td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.preco_unitario != null ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
