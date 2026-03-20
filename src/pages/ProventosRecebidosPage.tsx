@@ -9,6 +9,8 @@ interface ProventoRow {
   data: string;
   nome: string;
   valor: number;
+  valorUnitario: number;
+  quantidade: number;
 }
 
 type SortField = keyof ProventoRow;
