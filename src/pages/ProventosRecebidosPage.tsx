@@ -9,6 +9,8 @@ interface ProventoRow {
   data: string;
   nome: string;
   valor: number;
+  valorUnitario: number;
+  quantidade: number;
 }
 
 type SortField = keyof ProventoRow;
@@ -18,6 +20,8 @@ const COLUMNS: { key: SortField; label: string }[] = [
   { key: "data", label: "Data" },
   { key: "nome", label: "Nome" },
   { key: "valor", label: "Valor Recebido" },
+  { key: "valorUnitario", label: "Valor Unitário" },
+  { key: "quantidade", label: "Quantidade" },
 ];
 
 function getDateMinus(dateStr: string, days: number): string {
@@ -107,10 +111,13 @@ export default function ProventosRecebidosPage() {
 
         for (const row of engineRows) {
           if (row.pagamentoJuros > 0.01) {
+            const qty = row.saldoCotas || 0;
             allProventos.push({
               data: row.data,
               nome: prod.nome || "—",
               valor: row.pagamentoJuros,
+              valorUnitario: qty > 0 ? row.pagamentoJuros / qty : row.pagamentoJuros,
+              quantidade: qty,
             });
           }
         }
@@ -174,13 +181,13 @@ export default function ProventosRecebidosPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={COLUMNS.length} className="px-4 py-8 text-center text-muted-foreground">
                   Carregando...
                 </td>
               </tr>
             ) : sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={COLUMNS.length} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhum provento encontrado.
                 </td>
               </tr>
@@ -193,6 +200,10 @@ export default function ProventosRecebidosPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
                   <td className="px-3 py-2 text-foreground">{r.nome}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valor)}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valorUnitario)}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                    {r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                 </tr>
               ))
             )}
