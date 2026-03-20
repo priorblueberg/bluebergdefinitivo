@@ -181,13 +181,13 @@ export default function ProventosRecebidosPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={COLUMNS.length} className="px-4 py-8 text-center text-muted-foreground">
                   Carregando...
                 </td>
               </tr>
             ) : sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={COLUMNS.length} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhum provento encontrado.
                 </td>
               </tr>
@@ -200,6 +200,10 @@ export default function ProventosRecebidosPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
                   <td className="px-3 py-2 text-foreground">{r.nome}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valor)}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valorUnitario)}</td>
+                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
+                    {r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                 </tr>
               ))
             )}
