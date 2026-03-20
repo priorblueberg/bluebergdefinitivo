@@ -60,9 +60,9 @@ export default function MovimentacoesPage() {
       .from("movimentacoes")
       .select(`
         id, created_at, data, tipo_movimentacao,
-        pagamento, vencimento, nome_ativo,
-        valor_extrato, origem, codigo_custodia,
-        categorias(nome), instituicoes(nome)
+        pagamento, nome_ativo, quantidade, preco_unitario,
+        valor, origem, codigo_custodia,
+        instituicoes(nome)
       `)
       .order("data", { ascending: false });
 
@@ -74,11 +74,11 @@ export default function MovimentacoesPage() {
           data: r.data,
           tipo_movimentacao: r.tipo_movimentacao,
           pagamento: r.pagamento,
-          vencimento: r.vencimento,
           nome_ativo: r.nome_ativo,
-          categoria: r.categorias?.nome ?? "—",
           instituicao: r.instituicoes?.nome ?? null,
-          valor_extrato: r.valor_extrato,
+          quantidade: r.quantidade ?? null,
+          preco_unitario: r.preco_unitario ?? null,
+          valor: r.valor ?? null,
           origem: r.origem ?? "manual",
           codigo_custodia: r.codigo_custodia ?? null,
         }))
