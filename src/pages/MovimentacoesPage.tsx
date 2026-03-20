@@ -203,7 +203,7 @@ export default function MovimentacoesPage() {
           <thead>
             <tr className="bg-primary text-primary-foreground">
               {COLUMNS.map((col) => {
-                const isNumeric = col.key === "quantidade" || col.key === "preco_unitario" || col.key === "valor";
+                const isNumeric = false;
                 return (
                   <th
                     key={col.key}
