@@ -14,86 +14,110 @@ interface Props {
 
 export default function CalculadoraTable({ rows }: Props) {
   return (
-    <div className="rounded-md border border-border overflow-x-auto">
+    <div className="rounded-md border border-border overflow-auto max-h-[75vh]">
       <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50">
-            <TableHead className="text-xs whitespace-nowrap">Data</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-center">Dia Útil</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Valor da Cota (1)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Saldo de Cotas (1)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Líquido (1)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Valor da Cota (2)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Saldo de Cotas (2)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Líquido (2)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Aplicações</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Compra)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Resgate</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">QTD Cotas (Resgate)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">R$ Ganho Diário</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">R$ Ganho Acumulado</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Pgto Juros</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Rent. Diária</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right">Multiplicador</TableHead>
+        <TableHeader className="sticky top-0 z-10">
+          <TableRow className="bg-muted">
+            <TableHead className="text-xs whitespace-nowrap bg-muted">Data</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Dia Útil</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Valor da Cota (1)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Saldo de Cotas (1)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Líquido (1)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Valor da Cota (2)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Saldo de Cotas (2)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Líquido (2)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Aplicações</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Cotas (Compra)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Resgate</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Cotas (Resgate)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Rent. Diária (R$)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">R$ Rent. Acumulada</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Multiplicador</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Pgto Juros</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Apoio Cupom</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Cupom Acumulado</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Juros Pago</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Valor Investido</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Resgate Limpo</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.map((r, i) => (
             <TableRow key={r.data} className={i % 2 === 0 ? "" : "bg-muted/30"}>
-              <TableCell className="text-xs whitespace-nowrap">
-                {formatDate(r.data)}
-              </TableCell>
-              <TableCell className="text-xs text-center">
-                {r.diaUtil ? "Sim" : "Não"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {fmt(r.valorCota, 2)}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {fmt(r.saldoCotas, 2)}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {fmtCurrency(r.liquido)}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {fmt(r.valorCota2, 2)}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {fmt(r.saldoCotas2, 2)}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {fmtCurrency(r.liquido2)}
-              </TableCell>
+              {/* A: Data */}
+              <TableCell className="text-xs whitespace-nowrap">{formatDate(r.data)}</TableCell>
+              {/* B: Dia Útil */}
+              <TableCell className="text-xs text-center">{r.diaUtil ? "Sim" : "Não"}</TableCell>
+              {/* C: Valor da Cota (1) */}
+              <TableCell className="text-xs text-right font-mono">{fmt(r.valorCota, 2)}</TableCell>
+              {/* D: Saldo de Cotas (1) */}
+              <TableCell className="text-xs text-right font-mono">{fmt(r.saldoCotas, 2)}</TableCell>
+              {/* E: Líquido (1) */}
+              <TableCell className="text-xs text-right font-mono">{fmtCurrency(r.liquido)}</TableCell>
+              {/* F: Valor da Cota (2) */}
+              <TableCell className="text-xs text-right font-mono">{fmt(r.valorCota2, 2)}</TableCell>
+              {/* G: Saldo de Cotas (2) */}
+              <TableCell className="text-xs text-right font-mono">{fmt(r.saldoCotas2, 2)}</TableCell>
+              {/* H: Líquido (2) */}
+              <TableCell className="text-xs text-right font-mono">{fmtCurrency(r.liquido2)}</TableCell>
+              {/* I: Aplicações */}
               <TableCell className="text-xs text-right font-mono">
                 {r.aplicacoes > 0 ? fmtCurrency(r.aplicacoes) : "—"}
               </TableCell>
+              {/* J: QTD Cotas (Compra) */}
               <TableCell className="text-xs text-right font-mono">
                 {r.qtdCotasCompra > 0 ? fmt(r.qtdCotasCompra, 6) : "—"}
               </TableCell>
+              {/* K: Resgate */}
               <TableCell className="text-xs text-right font-mono">
-                {r.resgates > 0 ? fmtCurrency(r.resgates) : "—"}
+                {r.resgates > 0.01 ? fmtCurrency(r.resgates) : "—"}
               </TableCell>
+              {/* L: QTD Cotas (Resgate) */}
               <TableCell className="text-xs text-right font-mono">
-                {r.qtdCotasResgate > 0 ? fmt(r.qtdCotasResgate, 6) : "—"}
+                {r.qtdCotasResgate > 0.001 ? fmt(r.qtdCotasResgate, 6) : "—"}
               </TableCell>
+              {/* M: Rentabilidade diária R$ */}
               <TableCell className="text-xs text-right font-mono">
-                {r.ganhoDiario !== 0 ? fmtCurrency(r.ganhoDiario) : "—"}
+                {Math.abs(r.ganhoDiario) > 0.001 ? fmtCurrency(r.ganhoDiario) : "—"}
               </TableCell>
+              {/* N: R$ Rentabilidade acumulada */}
               <TableCell className="text-xs text-right font-mono">
-                {r.ganhoAcumulado !== 0 ? fmtCurrency(r.ganhoAcumulado) : "—"}
+                {Math.abs(r.ganhoAcumulado) > 0.001 ? fmtCurrency(r.ganhoAcumulado) : "—"}
               </TableCell>
+              {/* O: % Rentabilidade acumulada */}
               <TableCell className="text-xs text-right font-mono">
-                {r.pagamentoJuros > 0 ? fmtCurrency(r.pagamentoJuros) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {r.rentabilidadeDiaria != null
-                  ? `${(r.rentabilidadeDiaria * 100).toFixed(2)}%`
+                {Math.abs(r.rentabilidadeAcumuladaPct) > 0.00001
+                  ? `${(r.rentabilidadeAcumuladaPct * 100).toFixed(2)}%`
                   : "—"}
               </TableCell>
+              {/* P: Multiplicador */}
               <TableCell className="text-xs text-right font-mono">
-                {r.multiplicador > 0
-                  ? r.multiplicador.toFixed(8)
-                  : "—"}
+                {r.multiplicador > 0 ? r.multiplicador.toFixed(8) : "—"}
+              </TableCell>
+              {/* Q: Pagamento de Juros (flag) */}
+              <TableCell className="text-xs text-center">
+                {r.jurosPago > 0.01 ? "Sim" : ""}
+              </TableCell>
+              {/* R: Apoio Cupom */}
+              <TableCell className="text-xs text-right font-mono">
+                {r.apoioCupom > 0.01 ? fmtCurrency(r.apoioCupom) : "—"}
+              </TableCell>
+              {/* S: Cupom Acumulado */}
+              <TableCell className="text-xs text-right font-mono">
+                {r.cupomAcumulado > 0.01 ? fmtCurrency(r.cupomAcumulado) : "—"}
+              </TableCell>
+              {/* T: Juros Pago */}
+              <TableCell className="text-xs text-right font-mono">
+                {r.jurosPago > 0.01 ? fmtCurrency(r.jurosPago) : "—"}
+              </TableCell>
+              {/* U: Valor Investido */}
+              <TableCell className="text-xs text-right font-mono">
+                {Math.abs(r.valorInvestido) > 0.01 ? fmtCurrency(r.valorInvestido) : "—"}
+              </TableCell>
+              {/* V: Resgate Limpo */}
+              <TableCell className="text-xs text-right font-mono">
+                {Math.abs(r.resgateLimpo) > 0.01 ? fmtCurrency(r.resgateLimpo) : "—"}
               </TableCell>
             </TableRow>
           ))}

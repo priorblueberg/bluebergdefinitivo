@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
-import { format } from "date-fns";
 import {
   Select,
   SelectContent,
@@ -32,7 +31,7 @@ interface CustodiaOption {
 
 export default function CalculadoraPage() {
   const { user } = useAuth();
-  const { dataReferencia, appliedVersion } = useDataReferencia();
+  const { appliedVersion } = useDataReferencia();
   const [products, setProducts] = useState<CustodiaOption[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [rows, setRows] = useState<DailyRow[]>([]);
@@ -79,14 +78,14 @@ export default function CalculadoraPage() {
     (async () => {
       setLoading(true);
       try {
-        const refDate = format(dataReferencia, "yyyy-MM-dd");
-        const dataCalc = product.data_calculo || refDate;
+        // End date: always show full lifecycle (resgate_total or vencimento)
+        const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
 
         const { data: calData } = await supabase
           .from("calendario_dias_uteis")
           .select("data, dia_util")
           .gte("data", getDateMinus(product.data_inicio, 5))
-          .lte("data", dataCalc)
+          .lte("data", dataFim)
           .order("data", { ascending: true });
 
         const { data: movData } = await supabase
@@ -98,7 +97,7 @@ export default function CalculadoraPage() {
 
         const result = calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
-          dataCalculo: dataCalc,
+          dataCalculo: dataFim,
           taxa: product.taxa || 0,
           modalidade: product.modalidade || "",
           puInicial: product.preco_unitario || 1000,
