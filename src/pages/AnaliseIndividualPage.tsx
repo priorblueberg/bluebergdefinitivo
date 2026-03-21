@@ -314,7 +314,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
 
   // Chart data: merge both series
   const chartData = useMemo(() => {
-    const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, product.data_calculo || undefined);
+    const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, dataReferenciaISO);
 
     if (isPrefixado && engineRows.length > 0) {
       // Build titulo_acumulado from engine's rentabilidadeDiaria
