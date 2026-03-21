@@ -39,8 +39,6 @@ const COLUMNS: { key: SortField; label: string }[] = [
   { key: "data", label: "Data" },
   { key: "nome_ativo", label: "Nome do Ativo" },
   { key: "tipo_movimentacao", label: "Tipo Mov." },
-  { key: "instituicao", label: "Instituição" },
-  { key: "pagamento", label: "Pagamento" },
   { key: "quantidade", label: "Quantidade" },
   { key: "preco_unitario", label: "Preço Unitário" },
   { key: "valor", label: "Valor" },
