@@ -444,19 +444,38 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const isPositionClosed = product.resgate_total && dataReferenciaISO >= product.resgate_total;
             const fmtDateBr = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
 
-            // Find resgate value from engine rows on resgate_total date
-            let resgateValue: number | null = null;
+            // Find values from engine rows on resgate_total date
+            let patrimonioDisplayValue: number | null = lastPatrimonio;
             if (isPositionClosed && engineRows.length > 0) {
               const resgateRow = engineRows.find(r => r.data === product.resgate_total);
               if (resgateRow) {
-                resgateValue = resgateRow.resgates - (resgateRow.pagamentoJuros || 0);
+                const hasPagamentoJuros = product.pagamento && product.pagamento !== "No Vencimento";
+                if (hasPagamentoJuros) {
+                  // With periodic interest: show resgateLimpo (capital returned)
+                  patrimonioDisplayValue = resgateRow.resgateLimpo;
+                } else {
+                  // No Vencimento: show liquido2 (full patrimônio before redemption)
+                  patrimonioDisplayValue = resgateRow.liquido2;
+                }
               }
             }
+
+            // Rentabilidade: use engine's rentabilidadeAcumuladaPct
+            let rentValue = rent;
+            if (isPrefixado && engineRows.length > 0) {
+              // Find the row matching dataReferenciaISO or the last row
+              const targetRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
+              if (targetRow) {
+                rentValue = parseFloat((targetRow.rentabilidadeAcumuladaPct * 100).toFixed(2));
+              }
+            }
+
+            // CDI: also use the last available value from detail rows for consistency
+            let cdiValue = cdiAcum;
 
             const patrimonioLabel = isPositionClosed
               ? `Valor Resgatado em ${fmtDateBr(product.resgate_total!)}`
               : "Patrimônio";
-            const patrimonioValue = isPositionClosed ? fmtBrlCard(resgateValue) : fmtBrlCard(lastPatrimonio);
             const patrimonioColor = isPositionClosed ? "text-blue-500" : "text-foreground";
 
             const cards = [
