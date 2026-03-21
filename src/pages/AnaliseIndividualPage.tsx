@@ -95,9 +95,11 @@ function buildDetailRowsFromEngine(
   let aplicacoesAno = 0;
   let resgatesAno = 0;
 
-  for (const row of dailyRows) {
-    // Skip the initial day (day before data_inicio with saldoCotas=0)
-    if (row.saldoCotas === 0 && row.liquido === 0) continue;
+  for (let idx = 0; idx < dailyRows.length; idx++) {
+    const row = dailyRows[idx];
+    // Skip the initial day (day before data_inicio with no position), but NOT the vencimento day
+    const isVencimentoDay = idx === dailyRows.length - 1 && row.liquido === 0 && row.resgates > 0;
+    if (row.saldoCotas === 0 && row.liquido === 0 && !isVencimentoDay) continue;
 
     const dt = new Date(row.data + "T00:00:00");
     const m = dt.getMonth();
@@ -317,11 +319,10 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
     const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, dataReferenciaISO);
 
     if (isPrefixado && engineRows.length > 0) {
-      // Build titulo_acumulado from engine's rentabilidadeDiaria
-      let fatorAcum = 1;
+      // Build titulo_acumulado from engine's rentabilidadeAcumuladaPct (column O)
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
-        if (row.saldoCotas === 0 && row.liquido === 0) {
+        if (row.saldoCotas === 0 && row.liquido === 0 && row.resgates === 0) {
           enginePoints.push({
             data: row.data,
             label: new Date(row.data + "T00:00:00").toLocaleDateString("pt-BR"),
@@ -329,13 +330,10 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           });
           continue;
         }
-        if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
-          fatorAcum *= 1 + row.rentabilidadeDiaria;
-        }
         enginePoints.push({
           data: row.data,
           label: new Date(row.data + "T00:00:00").toLocaleDateString("pt-BR"),
-          titulo_acumulado: parseFloat(((fatorAcum - 1) * 100).toFixed(4)),
+          titulo_acumulado: parseFloat((row.rentabilidadeAcumuladaPct * 100).toFixed(4)),
         });
       }
 
@@ -446,26 +444,45 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const isPositionClosed = product.resgate_total && dataReferenciaISO >= product.resgate_total;
             const fmtDateBr = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
 
-            // Find resgate value from engine rows on resgate_total date
-            let resgateValue: number | null = null;
+            // Find values from engine rows on resgate_total date
+            let patrimonioDisplayValue: number | null = lastPatrimonio;
             if (isPositionClosed && engineRows.length > 0) {
               const resgateRow = engineRows.find(r => r.data === product.resgate_total);
               if (resgateRow) {
-                resgateValue = resgateRow.resgates - (resgateRow.pagamentoJuros || 0);
+                const hasPagamentoJuros = product.pagamento && product.pagamento !== "No Vencimento";
+                if (hasPagamentoJuros) {
+                  // With periodic interest: show resgateLimpo (capital returned)
+                  patrimonioDisplayValue = resgateRow.resgateLimpo;
+                } else {
+                  // No Vencimento: show liquido2 (full patrimônio before redemption)
+                  patrimonioDisplayValue = resgateRow.liquido2;
+                }
               }
             }
+
+            // Rentabilidade: use engine's rentabilidadeAcumuladaPct
+            let rentValue = rent;
+            if (isPrefixado && engineRows.length > 0) {
+              // Find the row matching dataReferenciaISO or the last row
+              const targetRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
+              if (targetRow) {
+                rentValue = parseFloat((targetRow.rentabilidadeAcumuladaPct * 100).toFixed(2));
+              }
+            }
+
+            // CDI: also use the last available value from detail rows for consistency
+            let cdiValue = cdiAcum;
 
             const patrimonioLabel = isPositionClosed
               ? `Valor Resgatado em ${fmtDateBr(product.resgate_total!)}`
               : "Patrimônio";
-            const patrimonioValue = isPositionClosed ? fmtBrlCard(resgateValue) : fmtBrlCard(lastPatrimonio);
             const patrimonioColor = isPositionClosed ? "text-blue-500" : "text-foreground";
 
             const cards = [
-              { label: patrimonioLabel, value: patrimonioValue, color: patrimonioColor },
+              { label: patrimonioLabel, value: fmtBrlCard(patrimonioDisplayValue), color: patrimonioColor },
               { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
-              { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
-              { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
+              { label: "Rentabilidade", value: fmtPctCard(rentValue), color: "text-foreground" },
+              { label: "CDI Acumulado", value: fmtPctCard(cdiValue), color: "text-foreground" },
             ];
 
             return (
