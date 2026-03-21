@@ -316,12 +316,17 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
 
   // Chart data: merge both series
   const chartData = useMemo(() => {
-    const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, dataReferenciaISO);
+    // Determine the effective end date for the chart (stop at vencimento/resgate if before selector)
+    const effectiveEnd = product.resgate_total || product.vencimento || dataReferenciaISO;
+    const chartEndDate = effectiveEnd < dataReferenciaISO ? effectiveEnd : dataReferenciaISO;
+
+    const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, chartEndDate);
 
     if (isPrefixado && engineRows.length > 0) {
       // Build titulo_acumulado from engine's rentabilidadeAcumuladaPct (column O)
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
+        if (row.data > chartEndDate) break;
         if (row.saldoCotas === 0 && row.liquido === 0 && row.resgates === 0) {
           enginePoints.push({
             data: row.data,
