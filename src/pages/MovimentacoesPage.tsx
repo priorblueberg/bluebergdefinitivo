@@ -234,8 +234,6 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
-                  <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 7, maximumFractionDigits: 7 }) : "—"}
                   </td>
