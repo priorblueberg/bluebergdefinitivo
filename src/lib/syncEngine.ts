@@ -660,7 +660,120 @@ export async function syncCarteiraGeral(userId: string, dataReferencia?: string)
   }
 }
 
-/** Full sync: update custodia + controle_de_carteiras after a movimentacao change */
+/**
+ * Reprocess all movimentações for a given codigo_custodia.
+ * Updates preco_unitario on each movimentação:
+ *   - Aplicação Inicial: keeps user-entered PU
+ *   - Aplicação: uses Valor da Cota (1) before the application
+ *   - Resgate/Resgate Total/Resgate Parcial: uses Valor da Cota (2)
+ * Then syncs custodia and auto resgates.
+ */
+export async function reprocessMovimentacoesForCodigo(
+  codigoCustodia: number,
+  userId: string,
+  categoriaId: string,
+  dataReferencia?: string
+) {
+  const refDate = dataReferencia || new Date().toISOString().slice(0, 10);
+
+  // 1. Delete auto movimentações for this codigo
+  await supabase
+    .from("movimentacoes")
+    .delete()
+    .eq("codigo_custodia", codigoCustodia)
+    .eq("user_id", userId)
+    .eq("origem", "automatico");
+
+  // 2. Fetch all remaining manual movimentações ordered by date
+  const { data: manualMovs } = await supabase
+    .from("movimentacoes")
+    .select("*")
+    .eq("codigo_custodia", codigoCustodia)
+    .eq("user_id", userId)
+    .eq("origem", "manual")
+    .order("data", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (!manualMovs || manualMovs.length === 0) return;
+
+  // 3. Fetch custodia base info from Aplicação Inicial
+  const aplicacaoInicial = manualMovs.find(
+    (m) => m.tipo_movimentacao === "Aplicação Inicial"
+  ) || manualMovs[0];
+
+  const baseInfo = {
+    dataInicio: aplicacaoInicial.data,
+    taxa: aplicacaoInicial.taxa || 0,
+    modalidade: aplicacaoInicial.modalidade || "Prefixado",
+    puInicial: aplicacaoInicial.preco_unitario || 1000,
+    pagamento: aplicacaoInicial.pagamento,
+    vencimento: aplicacaoInicial.vencimento,
+  };
+
+  // 4. Get the full calendar range needed
+  const lastDate = manualMovs[manualMovs.length - 1].data;
+  const calEnd = baseInfo.vencimento && baseInfo.vencimento > lastDate ? baseInfo.vencimento : lastDate;
+
+  const { data: calendario } = await supabase
+    .from("calendario_dias_uteis")
+    .select("data, dia_util")
+    .gte("data", baseInfo.dataInicio)
+    .lte("data", calEnd > refDate ? calEnd : refDate)
+    .order("data");
+
+  if (!calendario) return;
+
+  // 5. For each movimentação (except Aplicação Inicial), compute engine and update PU
+  for (let i = 0; i < manualMovs.length; i++) {
+    const mov = manualMovs[i];
+
+    // Skip Aplicação Inicial — keeps user-entered PU
+    if (mov.tipo_movimentacao === "Aplicação Inicial") continue;
+
+    // Build movimentações list: all movements BEFORE this one
+    const precedingMovs = manualMovs
+      .filter((m, idx) => idx < i)
+      .map((m) => ({
+        data: m.data,
+        tipo_movimentacao: m.tipo_movimentacao,
+        valor: Number(m.valor),
+      }));
+
+    const rows = calcularRendaFixaDiario({
+      dataInicio: baseInfo.dataInicio,
+      dataCalculo: mov.data,
+      taxa: baseInfo.taxa,
+      modalidade: baseInfo.modalidade,
+      puInicial: baseInfo.puInicial,
+      calendario,
+      movimentacoes: precedingMovs,
+      dataResgateTotal: null,
+      pagamento: baseInfo.pagamento,
+      vencimento: baseInfo.vencimento,
+    });
+
+    const rowDia = rows.find((r) => r.data === mov.data);
+    if (!rowDia) continue;
+
+    // Aplicação → Valor da Cota (1), Resgate → Valor da Cota (2)
+    const isAplicacao = ["Aplicação"].includes(mov.tipo_movimentacao);
+    const newPU = isAplicacao ? rowDia.valorCota : rowDia.valorCota2;
+    const newQuantidade = newPU > 0 ? Number(mov.valor) / newPU : null;
+
+    await supabase
+      .from("movimentacoes")
+      .update({
+        preco_unitario: newPU,
+        quantidade: newQuantidade,
+      })
+      .eq("id", mov.id);
+  }
+
+  // 6. Now run normal custodia sync using the first movimentação
+  await syncCustodiaFromMovimentacao(aplicacaoInicial.id, refDate);
+}
+
+/** Full sync: reprocess all movimentações for the codigo and update custodia + carteiras */
 export async function fullSyncAfterMovimentacao(
   movimentacaoId: string | null,
   categoriaId: string,
@@ -668,7 +781,18 @@ export async function fullSyncAfterMovimentacao(
   dataReferencia?: string
 ) {
   if (movimentacaoId) {
-    await syncCustodiaFromMovimentacao(movimentacaoId, dataReferencia);
+    // Get the codigo_custodia for this movimentação
+    const { data: mov } = await supabase
+      .from("movimentacoes")
+      .select("codigo_custodia")
+      .eq("id", movimentacaoId)
+      .single();
+
+    if (mov?.codigo_custodia) {
+      await reprocessMovimentacoesForCodigo(mov.codigo_custodia, userId, categoriaId, dataReferencia);
+    } else {
+      await syncCustodiaFromMovimentacao(movimentacaoId, dataReferencia);
+    }
   }
   await syncControleCarteiras(categoriaId, userId, dataReferencia);
 }
@@ -681,7 +805,25 @@ export async function fullSyncAfterDelete(
   dataReferencia?: string
 ) {
   if (codigoCustodia) {
-    await syncCustodiaOnDelete(codigoCustodia, userId, dataReferencia);
+    // Check if there are remaining movimentações for this codigo
+    const { data: remaining } = await supabase
+      .from("movimentacoes")
+      .select("id")
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", userId)
+      .limit(1);
+
+    if (remaining && remaining.length > 0) {
+      // Reprocess all remaining movements
+      await reprocessMovimentacoesForCodigo(codigoCustodia, userId, categoriaId, dataReferencia);
+    } else {
+      // No remaining movements — delete custodia
+      await supabase
+        .from("custodia")
+        .delete()
+        .eq("codigo_custodia", codigoCustodia)
+        .eq("user_id", userId);
+    }
   }
   await syncControleCarteiras(categoriaId, userId, dataReferencia);
 }

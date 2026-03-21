@@ -39,8 +39,6 @@ const COLUMNS: { key: SortField; label: string }[] = [
   { key: "data", label: "Data" },
   { key: "nome_ativo", label: "Nome do Ativo" },
   { key: "tipo_movimentacao", label: "Tipo Mov." },
-  { key: "instituicao", label: "Instituição" },
-  { key: "pagamento", label: "Pagamento" },
   { key: "quantidade", label: "Quantidade" },
   { key: "preco_unitario", label: "Preço Unitário" },
   { key: "valor", label: "Valor" },
@@ -64,7 +62,6 @@ export default function MovimentacoesPage() {
         valor, origem, codigo_custodia,
         instituicoes(nome)
       `)
-      .neq("tipo_movimentacao", "Resgate no Vencimento")
       .order("data", { ascending: false });
 
     if (!error && data) {
@@ -237,8 +234,6 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
-                  <td className="px-3 py-2 text-foreground">{r.instituicao ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground">{r.pagamento ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 7, maximumFractionDigits: 7 }) : "—"}
                   </td>
