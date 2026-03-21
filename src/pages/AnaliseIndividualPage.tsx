@@ -479,10 +479,10 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const patrimonioColor = isPositionClosed ? "text-blue-500" : "text-foreground";
 
             const cards = [
-              { label: patrimonioLabel, value: patrimonioValue, color: patrimonioColor },
+              { label: patrimonioLabel, value: fmtBrlCard(patrimonioDisplayValue), color: patrimonioColor },
               { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
-              { label: "Rentabilidade", value: fmtPctCard(rent), color: "text-foreground" },
-              { label: "CDI Acumulado", value: fmtPctCard(cdiAcum), color: "text-foreground" },
+              { label: "Rentabilidade", value: fmtPctCard(rentValue), color: "text-foreground" },
+              { label: "CDI Acumulado", value: fmtPctCard(cdiValue), color: "text-foreground" },
             ];
 
             return (
