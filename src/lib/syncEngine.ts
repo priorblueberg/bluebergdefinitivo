@@ -805,7 +805,25 @@ export async function fullSyncAfterDelete(
   dataReferencia?: string
 ) {
   if (codigoCustodia) {
-    await syncCustodiaOnDelete(codigoCustodia, userId, dataReferencia);
+    // Check if there are remaining movimentações for this codigo
+    const { data: remaining } = await supabase
+      .from("movimentacoes")
+      .select("id")
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", userId)
+      .limit(1);
+
+    if (remaining && remaining.length > 0) {
+      // Reprocess all remaining movements
+      await reprocessMovimentacoesForCodigo(codigoCustodia, userId, categoriaId, dataReferencia);
+    } else {
+      // No remaining movements — delete custodia
+      await supabase
+        .from("custodia")
+        .delete()
+        .eq("codigo_custodia", codigoCustodia)
+        .eq("user_id", userId);
+    }
   }
   await syncControleCarteiras(categoriaId, userId, dataReferencia);
 }
