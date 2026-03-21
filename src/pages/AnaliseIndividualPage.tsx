@@ -251,7 +251,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const endDate = product.data_calculo || "2099-12-31";
+      const endDate = dataReferenciaISO;
 
       // Fetch CDI, dias_uteis, and movimentacoes in parallel
       const [cdiRes, diasRes, movsRes] = await Promise.all([
@@ -314,7 +314,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
 
   // Chart data: merge both series
   const chartData = useMemo(() => {
-    const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, product.data_calculo || undefined);
+    const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, dataReferenciaISO);
 
     if (isPrefixado && engineRows.length > 0) {
       // Build titulo_acumulado from engine's rentabilidadeDiaria
@@ -408,7 +408,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               {product.nome || product.produto_nome}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate(product.data_calculo)}
+              Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate(dataReferenciaISO)}
             </p>
           </div>
           <div className="flex items-center gap-2 ml-auto">
