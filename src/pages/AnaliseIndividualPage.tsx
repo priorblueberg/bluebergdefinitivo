@@ -251,7 +251,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const endDate = product.data_calculo || "2099-12-31";
+      const endDate = dataReferenciaISO;
 
       // Fetch CDI, dias_uteis, and movimentacoes in parallel
       const [cdiRes, diasRes, movsRes] = await Promise.all([
