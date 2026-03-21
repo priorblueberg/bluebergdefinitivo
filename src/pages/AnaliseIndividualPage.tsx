@@ -319,11 +319,10 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
     const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, dataReferenciaISO);
 
     if (isPrefixado && engineRows.length > 0) {
-      // Build titulo_acumulado from engine's rentabilidadeDiaria
-      let fatorAcum = 1;
+      // Build titulo_acumulado from engine's rentabilidadeAcumuladaPct (column O)
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
-        if (row.saldoCotas === 0 && row.liquido === 0) {
+        if (row.saldoCotas === 0 && row.liquido === 0 && row.resgates === 0) {
           enginePoints.push({
             data: row.data,
             label: new Date(row.data + "T00:00:00").toLocaleDateString("pt-BR"),
@@ -331,13 +330,10 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           });
           continue;
         }
-        if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
-          fatorAcum *= 1 + row.rentabilidadeDiaria;
-        }
         enginePoints.push({
           data: row.data,
           label: new Date(row.data + "T00:00:00").toLocaleDateString("pt-BR"),
-          titulo_acumulado: parseFloat(((fatorAcum - 1) * 100).toFixed(4)),
+          titulo_acumulado: parseFloat((row.rentabilidadeAcumuladaPct * 100).toFixed(4)),
         });
       }
 
