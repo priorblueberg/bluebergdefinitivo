@@ -607,8 +607,6 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           {/* Detail tables — one per year */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel={tituloLabel} />
 
-          {/* Movimentações do ativo */}
-          <MovimentacoesAtivo codigoCustodia={product.codigo_custodia} />
         </>
       )}
     </div>
