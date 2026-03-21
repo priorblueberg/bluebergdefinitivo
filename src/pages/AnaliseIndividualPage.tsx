@@ -95,9 +95,11 @@ function buildDetailRowsFromEngine(
   let aplicacoesAno = 0;
   let resgatesAno = 0;
 
-  for (const row of dailyRows) {
-    // Skip the initial day (day before data_inicio with saldoCotas=0)
-    if (row.saldoCotas === 0 && row.liquido === 0) continue;
+  for (let idx = 0; idx < dailyRows.length; idx++) {
+    const row = dailyRows[idx];
+    // Skip the initial day (day before data_inicio with no position), but NOT the vencimento day
+    const isVencimentoDay = idx === dailyRows.length - 1 && row.liquido === 0 && row.resgates > 0;
+    if (row.saldoCotas === 0 && row.liquido === 0 && !isVencimentoDay) continue;
 
     const dt = new Date(row.data + "T00:00:00");
     const m = dt.getMonth();
