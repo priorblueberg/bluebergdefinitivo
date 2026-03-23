@@ -1,33 +1,37 @@
 
 
-# Reprocessar: Excluir e recadastrar todos os ativos em ordem cronológica
+# Alteração de regras: QTD Juros e Resgate no Vencimento
 
-## O que muda
+## Resumo das mudanças
 
-O botão "Reprocessar" no header passará a executar um processo destrutivo-reconstrutivo:
+Duas regras são alteradas:
 
-1. **Excluir toda a custódia** do usuário
-2. **Excluir todas as movimentações automáticas** (origem = 'automatico')
-3. **Buscar todas as movimentações manuais** ordenadas por data (mais antiga primeiro)
-4. **Para cada movimentação**, executar `syncCustodiaFromMovimentacao` — que recria o registro de custódia, sincroniza "Resgate no Vencimento" automático, e recalcula "Resgate Total" manual
-5. **Recalcular controle de carteiras** ao final
+1. **QTD Juros (engine)**: de `valorInvestido / PU_custodia` para `qtdAplicacao - qtdResgate - qtdJuros_anterior` (acumulativo)
+2. **Resgate no Vencimento (movimentações)**: campo "Quantidade" muda de `qtdJurosPU` para `valorInvestido`
 
-## Arquivo alterado
+## Arquivos alterados
 
-**`src/lib/syncEngine.ts`** — reescrever `recalculateAllForDataReferencia`:
+### 1. `src/lib/rendaFixaEngine.ts`
 
+**Linha 63** - Atualizar comentário:
 ```
-async function recalculateAllForDataReferencia(userId, dataReferencia):
-  1. DELETE FROM custodia WHERE user_id = userId
-  2. DELETE FROM controle_de_carteiras WHERE user_id = userId
-  3. DELETE FROM movimentacoes WHERE user_id = userId AND origem = 'automatico'
-  4. SELECT * FROM movimentacoes WHERE user_id = userId ORDER BY data ASC, created_at ASC
-  5. Para cada movimentação:
-     - await syncCustodiaFromMovimentacao(mov.id, dataReferencia)
-  6. Buscar categorias distintas das movimentações
-  7. Para cada categoria: syncControleCarteiras(categoriaId, userId, dataReferencia)
-  8. syncCarteiraGeral(userId, dataReferencia)
+qtdJurosPU: number; // Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros anterior
 ```
 
-Nenhum outro arquivo precisa ser alterado — o botão no header já chama esta função.
+**Linhas 407-408** - Substituir cálculo de `qtdJurosPU`:
+```typescript
+// Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros do dia anterior
+const prevQtdJuros = rows.length > 0 ? rows[rows.length - 1].qtdJurosPU : 0;
+const qtdJurosPU = qtdAplicacaoPU - qtdResgatePU - prevQtdJuros;
+```
+
+**Linha ~474** (makeZeroRow) - manter `qtdJurosPU: 0` (sem mudança necessaria).
+
+### 2. `src/lib/syncEngine.ts`
+
+**Linha ~199** - Alterar campo quantidade do Resgate no Vencimento:
+```typescript
+// De: const quantidade = lastRow.qtdJurosPU;
+const quantidade = lastRow.valorInvestido;
+```
 
