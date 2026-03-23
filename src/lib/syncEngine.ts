@@ -193,9 +193,10 @@ async function syncResgateNoVencimento(
     if (rows.length === 0) return;
 
     const lastRow = rows[rows.length - 1];
-    const valor = lastRow.liquido;
-    const precoUnitario = lastRow.valorCota2;
-    const quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+    // Resgate no Vencimento: Valor = resgateLimpo, Qty = qtdJurosPU, PU = custodia.preco_unitario
+    const valor = lastRow.resgateLimpo;
+    const precoUnitario = custodiaRecord.preco_unitario || 1000;
+    const quantidade = lastRow.qtdJurosPU;
 
     const movData = {
       user_id: userId,
@@ -723,12 +724,9 @@ export async function reprocessMovimentacoesForCodigo(
 
   if (!calendario) return;
 
-  // 5. For each movimentação (except Aplicação Inicial), compute engine and update PU
+  // 5. For each movimentação, compute engine and update PU/Qty from calculator columns
   for (let i = 0; i < manualMovs.length; i++) {
     const mov = manualMovs[i];
-
-    // Skip Aplicação Inicial — keeps user-entered PU
-    if (mov.tipo_movimentacao === "Aplicação Inicial") continue;
 
     // Build movimentações list: all movements BEFORE this one
     const precedingMovs = manualMovs
@@ -755,10 +753,20 @@ export async function reprocessMovimentacoesForCodigo(
     const rowDia = rows.find((r) => r.data === mov.data);
     if (!rowDia) continue;
 
-    // Aplicação → Valor da Cota (1), Resgate → Valor da Cota (2)
-    const isAplicacao = ["Aplicação"].includes(mov.tipo_movimentacao);
-    const newPU = isAplicacao ? rowDia.valorCota : rowDia.valorCota2;
-    const newQuantidade = newPU > 0 ? Number(mov.valor) / newPU : null;
+    const isAplicacao = ["Aplicação", "Aplicação Inicial"].includes(mov.tipo_movimentacao);
+
+    let newPU: number;
+    let newQuantidade: number | null;
+
+    if (isAplicacao) {
+      // Aplicação / Aplicação Inicial: PU = precoUnitario, Qty = qtdAplicacaoPU
+      newPU = rowDia.precoUnitario;
+      newQuantidade = rowDia.qtdAplicacaoPU > 0 ? rowDia.qtdAplicacaoPU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+    } else {
+      // Resgate / Resgate Total / Resgate Parcial: PU = precoUnitario, Qty = qtdResgatePU
+      newPU = rowDia.precoUnitario;
+      newQuantidade = rowDia.qtdResgatePU > 0 ? rowDia.qtdResgatePU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+    }
 
     await supabase
       .from("movimentacoes")
