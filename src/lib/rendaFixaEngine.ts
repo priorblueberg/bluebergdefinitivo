@@ -440,6 +440,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     prevLiquido = liquido1;
     prevSaldoCotas = saldoCotas1;
     prevValorCota = valorCota1;
+    prevPrecoUnitario = precoUnitario;
   }
 
   return rows;
