@@ -40,7 +40,10 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Juros Pago</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Valor Investido</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Resgate Limpo</TableHead>
-          </TableRow>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Preço Unitário</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Aplicação</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Resgate</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Juros</TableHead>
         </TableHeader>
         <TableBody>
           {rows.map((r, i) => (
