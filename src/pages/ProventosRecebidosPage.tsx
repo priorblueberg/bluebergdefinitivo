@@ -113,9 +113,8 @@ export default function ProventosRecebidosPage() {
             allProventos.push({
               data: row.data,
               nome: prod.nome || "—",
+              tipo: "Rendimentos",
               valor: row.pagamentoJuros,
-              valorUnitario: row.precoUnitario - (prod.preco_unitario || 0),
-              quantidade: row.qtdJurosPU,
             });
           }
         }
