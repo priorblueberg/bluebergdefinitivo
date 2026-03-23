@@ -449,21 +449,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const isPositionClosed = product.resgate_total && dataReferenciaISO >= product.resgate_total;
             const fmtDateBr = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
 
-            // Find values from engine rows on resgate_total date
-            let patrimonioDisplayValue: number | null = lastPatrimonio;
-            if (isPositionClosed && engineRows.length > 0) {
-              const resgateRow = engineRows.find(r => r.data === product.resgate_total);
-              if (resgateRow) {
-                const hasPagamentoJuros = product.pagamento && product.pagamento !== "No Vencimento";
-                if (hasPagamentoJuros) {
-                  // With periodic interest: show resgateLimpo (capital returned)
-                  patrimonioDisplayValue = resgateRow.resgateLimpo;
-                } else {
-                  // No Vencimento: show liquido2 (full patrimônio before redemption)
-                  patrimonioDisplayValue = resgateRow.liquido2;
-                }
-              }
-            }
+            // Always use liquido (1) — already stored in patrimonioMonths via detailRows
+            const patrimonioDisplayValue: number | null = lastPatrimonio;
 
             // Rentabilidade: use engine's rentabilidadeAcumuladaPct
             let rentValue = rent;
