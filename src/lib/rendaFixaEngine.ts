@@ -221,6 +221,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   let rentAcumRS = 0;
   let valorInvestidoAcum = 0;
   let cupomAcumuladoAcum = 0;
+  let prevPrecoUnitario = puInicial > 0 ? puInicial : 1000;
+  const puInicialCustodia = puInicial > 0 ? puInicial : 1000;
 
   for (let i = startIdx; i < sorted.length; i++) {
     const cal = sorted[i];
