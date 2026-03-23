@@ -470,6 +470,10 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     jurosPago: 0,
     valorInvestido: 0,
     resgateLimpo: 0,
+    precoUnitario: cotaInicial,
+    qtdAplicacaoPU: 0,
+    qtdResgatePU: 0,
+    qtdJurosPU: 0,
     rentabilidadeDiaria: null,
   };
 }
