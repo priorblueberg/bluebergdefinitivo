@@ -193,10 +193,10 @@ async function syncResgateNoVencimento(
     if (rows.length === 0) return;
 
     const lastRow = rows[rows.length - 1];
-    // Resgate no Vencimento: Valor = resgateLimpo, Qty = qtdJurosPU, PU = custodia.preco_unitario
+    // Resgate no Vencimento: Valor = resgateLimpo, Qty = valorInvestido, PU = custodia.preco_unitario
     const valor = lastRow.resgateLimpo;
     const precoUnitario = custodiaRecord.preco_unitario || 1000;
-    const quantidade = lastRow.qtdJurosPU;
+    const quantidade = lastRow.valorInvestido;
 
     const movData = {
       user_id: userId,
