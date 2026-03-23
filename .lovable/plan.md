@@ -1,28 +1,34 @@
 
 
-# Alterar "Valor Unitário" na página Proventos
+# Corrigir Card de Patrimônio na Análise Individual
 
-## O que muda
+## Problema
 
-O campo **Valor Unitário** na página de Proventos passa a ser calculado como:
+O card busca o valor de `patrimonioMonths` da tabela de rentabilidade (último mês com dados), que reflete o patrimônio no final do mês — não na `data_calculo` exata. No vencimento, mostra zero quando deveria mostrar `resgateLimpo`.
 
-**Preço Unitário (engine) − Preço Unitário (custódia)**
+## Solução
 
-Ou seja: `row.precoUnitario - prod.preco_unitario`
+Substituir a lógica do card para buscar diretamente da engine row na `data_calculo`:
 
-## Alteração
+### `src/pages/AnaliseIndividualPage.tsx` — linhas ~448-453
 
-### `src/pages/ProventosRecebidosPage.tsx` — linha 119
+Trocar a lógica de `patrimonioDisplayValue`:
 
-Substituir:
 ```typescript
-valorUnitario: prod.preco_unitario || 0,
+// Patrimônio: use engine row at data_calculo
+let patrimonioDisplayValue: number | null = lastPatrimonio; // fallback
+
+if (isPrefixado && engineRows.length > 0) {
+  const targetRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
+  if (targetRow) {
+    // On or after vencimento: show resgateLimpo; otherwise: show liquido (1)
+    const isOnOrAfterVencimento = product.vencimento && dataReferenciaISO >= product.vencimento;
+    patrimonioDisplayValue = isOnOrAfterVencimento ? targetRow.resgateLimpo : targetRow.liquido;
+  }
+}
 ```
 
-Por:
-```typescript
-valorUnitario: row.precoUnitario - (prod.preco_unitario || 0),
-```
-
-Isso calcula a diferença entre o PU evoluído pelo multiplicador no dia do pagamento e o PU original da custódia.
+Isso garante:
+- Dias normais → mostra `liquido` (coluna Líquido 1) na data exata do seletor
+- Dia do vencimento ou posterior → mostra `resgateLimpo` em vez de zero
 
