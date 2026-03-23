@@ -122,6 +122,23 @@ export default function CalculadoraTable({ rows }: Props) {
               <TableCell className="text-xs text-right font-mono">
                 {Math.abs(r.resgateLimpo) > 0.01 ? fmtCurrency(r.resgateLimpo) : "—"}
               </TableCell>
+              {/* W: Preço Unitário */}
+              <TableCell className="text-xs text-right font-mono">
+                {fmt(r.precoUnitario, 6)}
+              </TableCell>
+              {/* X: QTD Aplicação */}
+              <TableCell className="text-xs text-right font-mono">
+                {r.qtdAplicacaoPU > 0.0000001 ? fmt(r.qtdAplicacaoPU, 7) : "—"}
+              </TableCell>
+              {/* Y: QTD Resgate */}
+              <TableCell className="text-xs text-right font-mono">
+                {r.qtdResgatePU > 0.0000001 ? fmt(r.qtdResgatePU, 7) : "—"}
+              </TableCell>
+              {/* Z: QTD Juros */}
+              <TableCell className="text-xs text-right font-mono">
+                {Math.abs(r.qtdJurosPU) > 0.0000001 ? fmt(r.qtdJurosPU, 7) : "—"}
+              </TableCell>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
