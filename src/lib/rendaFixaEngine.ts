@@ -402,11 +402,15 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const qtdAplicacaoPU = precoUnitario > 0 && aplicacoes > 0 ? aplicacoes / precoUnitario : 0;
 
     // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
-    const qtdResgatePU = precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0;
+    // No vencimento: Resgate Limpo / PU inicial da custódia
+    const qtdResgatePU = isFinalDay
+      ? (puInicialCustodia > 0 && resgateLimpo > 0.01 ? resgateLimpo / puInicialCustodia : 0)
+      : (precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0);
 
     // Z: QTD Juros = QTD Aplicação - QTD Resgate + QTD Juros do dia anterior
+    // No vencimento: repete QTD Juros do dia anterior
     const prevQtdJuros = rows.length > 0 ? rows[rows.length - 1].qtdJurosPU : 0;
-    const qtdJurosPU = qtdAplicacaoPU - qtdResgatePU + prevQtdJuros;
+    const qtdJurosPU = isFinalDay ? prevQtdJuros : (qtdAplicacaoPU - qtdResgatePU + prevQtdJuros);
 
     rows.push({
       data: cal.data,
