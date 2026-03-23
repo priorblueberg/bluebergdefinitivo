@@ -388,6 +388,25 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // S: Cupom Acumulado
     cupomAcumuladoAcum += jurosPago;
 
+    // W: Preço Unitário
+    let precoUnitario: number;
+    if (isDataInicio) {
+      precoUnitario = puInicialCustodia;
+    } else if (!diaUtil) {
+      precoUnitario = prevPrecoUnitario;
+    } else {
+      precoUnitario = prevPrecoUnitario * rawMultiplicador + prevPrecoUnitario;
+    }
+
+    // X: Quantidade Aplicação = Aplicações / Preço Unitário
+    const qtdAplicacaoPU = precoUnitario > 0 && aplicacoes > 0 ? aplicacoes / precoUnitario : 0;
+
+    // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
+    const qtdResgatePU = precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0;
+
+    // Z: Quantidade de Juros = Valor Investido / PU inicial (custódia)
+    const qtdJurosPU = puInicialCustodia > 0 ? valorInvestido / puInicialCustodia : 0;
+
     rows.push({
       data: cal.data,
       diaUtil,
@@ -405,12 +424,16 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       ganhoAcumulado: rentAcumRS,
       rentabilidadeAcumuladaPct,
       multiplicador: multiplicadorDia,
-      pagamentoJuros: jurosPago, // backward compat
+      pagamentoJuros: jurosPago,
       apoioCupom,
       cupomAcumulado: cupomAcumuladoAcum,
       jurosPago,
       valorInvestido,
       resgateLimpo,
+      precoUnitario,
+      qtdAplicacaoPU,
+      qtdResgatePU,
+      qtdJurosPU,
       rentabilidadeDiaria: rentDiaria,
     });
 
