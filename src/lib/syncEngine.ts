@@ -727,9 +727,6 @@ export async function reprocessMovimentacoesForCodigo(
   for (let i = 0; i < manualMovs.length; i++) {
     const mov = manualMovs[i];
 
-    // Skip Aplicação Inicial — keeps user-entered PU
-    if (mov.tipo_movimentacao === "Aplicação Inicial") continue;
-
     // Build movimentações list: all movements BEFORE this one
     const precedingMovs = manualMovs
       .filter((m, idx) => idx < i)
@@ -755,10 +752,21 @@ export async function reprocessMovimentacoesForCodigo(
     const rowDia = rows.find((r) => r.data === mov.data);
     if (!rowDia) continue;
 
-    // Aplicação → Valor da Cota (1), Resgate → Valor da Cota (2)
-    const isAplicacao = ["Aplicação"].includes(mov.tipo_movimentacao);
-    const newPU = isAplicacao ? rowDia.valorCota : rowDia.valorCota2;
-    const newQuantidade = newPU > 0 ? Number(mov.valor) / newPU : null;
+    const isAplicacao = ["Aplicação", "Aplicação Inicial"].includes(mov.tipo_movimentacao);
+
+    let newPU: number;
+    let newQuantidade: number | null;
+    let newValor: number | undefined;
+
+    if (isAplicacao) {
+      // Aplicação / Aplicação Inicial: PU = precoUnitario, Qty = qtdAplicacaoPU
+      newPU = rowDia.precoUnitario;
+      newQuantidade = rowDia.qtdAplicacaoPU > 0 ? rowDia.qtdAplicacaoPU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+    } else {
+      // Resgate / Resgate Total / Resgate Parcial: PU = precoUnitario, Qty = qtdResgatePU
+      newPU = rowDia.precoUnitario;
+      newQuantidade = rowDia.qtdResgatePU > 0 ? rowDia.qtdResgatePU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+    }
 
     await supabase
       .from("movimentacoes")
