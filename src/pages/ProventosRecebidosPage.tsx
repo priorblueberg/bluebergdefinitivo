@@ -8,9 +8,8 @@ import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 interface ProventoRow {
   data: string;
   nome: string;
+  tipo: string;
   valor: number;
-  valorUnitario: number;
-  quantidade: number;
 }
 
 type SortField = keyof ProventoRow;
@@ -19,9 +18,8 @@ type SortDir = "asc" | "desc";
 const COLUMNS: { key: SortField; label: string }[] = [
   { key: "data", label: "Data" },
   { key: "nome", label: "Nome" },
+  { key: "tipo", label: "Tipo" },
   { key: "valor", label: "Valor Recebido" },
-  { key: "valorUnitario", label: "Valor Unitário" },
-  { key: "quantidade", label: "Quantidade" },
 ];
 
 function getDateMinus(dateStr: string, days: number): string {
@@ -115,9 +113,8 @@ export default function ProventosRecebidosPage() {
             allProventos.push({
               data: row.data,
               nome: prod.nome || "—",
+              tipo: "Rendimentos",
               valor: row.pagamentoJuros,
-              valorUnitario: row.precoUnitario - (prod.preco_unitario || 0),
-              quantidade: row.qtdJurosPU,
             });
           }
         }
@@ -199,11 +196,8 @@ export default function ProventosRecebidosPage() {
                 >
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
                   <td className="px-3 py-2 text-foreground">{r.nome}</td>
+                  <td className="px-3 py-2 text-foreground">{r.tipo}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valor)}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valorUnitario)}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
-                    {r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
                 </tr>
               ))
             )}
