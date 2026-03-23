@@ -370,7 +370,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   // Detail table rows
   const detailRows = useMemo(() => {
     if (isPrefixado && engineRows.length > 0) {
-      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio);
+      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio, product.vencimento);
     }
     // Fallback for non-prefixado: simple CDI-based detail rows
     // (reuse legacy inline logic or return empty for now)
