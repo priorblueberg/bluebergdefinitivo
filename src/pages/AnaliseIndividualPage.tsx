@@ -361,7 +361,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
       ...p,
       titulo_acumulado: p.cdi_acumulado,
     }));
-  }, [cdiRecords, engineRows, product, isPrefixado]);
+  }, [cdiRecords, engineRows, product, isPrefixado, dataReferenciaISO]);
 
   // Detail table rows
   const detailRows = useMemo(() => {
