@@ -757,7 +757,6 @@ export async function reprocessMovimentacoesForCodigo(
 
     let newPU: number;
     let newQuantidade: number | null;
-    let newValor: number | undefined;
 
     if (isAplicacao) {
       // Aplicação / Aplicação Inicial: PU = precoUnitario, Qty = qtdAplicacaoPU
