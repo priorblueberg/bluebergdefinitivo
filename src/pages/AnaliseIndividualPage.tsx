@@ -63,6 +63,7 @@ function buildDetailRowsFromEngine(
   dailyRows: DailyRow[],
   cdiRecords: CdiRecord[],
   dataInicio: string,
+  vencimento?: string | null,
 ): DetailRow[] {
   if (dailyRows.length === 0) return [];
 
@@ -162,13 +163,16 @@ function buildDetailRowsFromEngine(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    patrimonioMonthly.get(y)!.set(m, row.liquido);
+    // On/after vencimento: use resgateLimpo instead of liquido (which is 0)
+    const isOnOrAfterVenc = vencimento && row.data >= vencimento;
+    const patrimonioValue = isOnOrAfterVenc ? row.resgateLimpo : row.liquido;
+    patrimonioMonthly.get(y)!.set(m, patrimonioValue);
 
     // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
+    ganhoMensalMonthly.get(y)!.set(m, patrimonioValue - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
 
-    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno - aplicacoesAno + resgatesAno);
+    ganhoAnualMap.set(y, patrimonioValue - patrimonioInicioAno - aplicacoesAno + resgatesAno);
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
@@ -366,7 +370,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   // Detail table rows
   const detailRows = useMemo(() => {
     if (isPrefixado && engineRows.length > 0) {
-      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio);
+      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio, product.vencimento);
     }
     // Fallback for non-prefixado: simple CDI-based detail rows
     // (reuse legacy inline logic or return empty for now)
