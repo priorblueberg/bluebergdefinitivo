@@ -56,6 +56,11 @@ export interface DailyRow {
   // U-V: Capital tracking
   valorInvestido: number;   // U: Valor Investido (cumulative apps - resgates manuais)
   resgateLimpo: number;     // V: Resgate Limpo (manual resgates only)
+  // W-Z: Novas colunas PU
+  precoUnitario: number;    // W: Preço Unitário (PU da custódia, atualizado pelo multiplicador)
+  qtdAplicacaoPU: number;   // X: Quantidade Aplicação = Aplicações / Preço Unitário
+  qtdResgatePU: number;     // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
+  qtdJurosPU: number;       // Z: Quantidade de Juros = Valor Investido / PU inicial (custódia)
   // Legacy (kept for consumers like AnaliseIndividualPage)
   rentabilidadeDiaria: number | null; // cota-based daily return %
 }
