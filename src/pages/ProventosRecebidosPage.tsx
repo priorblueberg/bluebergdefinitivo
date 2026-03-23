@@ -18,9 +18,8 @@ type SortDir = "asc" | "desc";
 const COLUMNS: { key: SortField; label: string }[] = [
   { key: "data", label: "Data" },
   { key: "nome", label: "Nome" },
+  { key: "tipo", label: "Tipo" },
   { key: "valor", label: "Valor Recebido" },
-  { key: "valorUnitario", label: "Valor Unitário" },
-  { key: "quantidade", label: "Quantidade" },
 ];
 
 function getDateMinus(dateStr: string, days: number): string {
