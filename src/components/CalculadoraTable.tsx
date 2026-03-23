@@ -139,7 +139,6 @@ export default function CalculadoraTable({ rows }: Props) {
               <TableCell className="text-xs text-right font-mono">
                 {Math.abs(r.qtdJurosPU) > 0.0000001 ? fmt(r.qtdJurosPU, 7) : "—"}
               </TableCell>
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>
