@@ -60,7 +60,7 @@ export interface DailyRow {
   precoUnitario: number;    // W: Preço Unitário (PU da custódia, atualizado pelo multiplicador)
   qtdAplicacaoPU: number;   // X: Quantidade Aplicação = Aplicações / Preço Unitário
   qtdResgatePU: number;     // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
-  qtdJurosPU: number;       // Z: Quantidade de Juros = Valor Investido / PU inicial (custódia)
+  qtdJurosPU: number;       // Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros anterior
   // Legacy (kept for consumers like AnaliseIndividualPage)
   rentabilidadeDiaria: number | null; // cota-based daily return %
 }
