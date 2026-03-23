@@ -1,37 +1,28 @@
 
 
-# Alteração de regras: QTD Juros e Resgate no Vencimento
+# Alterar "Valor Unitário" na página Proventos
 
-## Resumo das mudanças
+## O que muda
 
-Duas regras são alteradas:
+O campo **Valor Unitário** na página de Proventos passa a ser calculado como:
 
-1. **QTD Juros (engine)**: de `valorInvestido / PU_custodia` para `qtdAplicacao - qtdResgate - qtdJuros_anterior` (acumulativo)
-2. **Resgate no Vencimento (movimentações)**: campo "Quantidade" muda de `qtdJurosPU` para `valorInvestido`
+**Preço Unitário (engine) − Preço Unitário (custódia)**
 
-## Arquivos alterados
+Ou seja: `row.precoUnitario - prod.preco_unitario`
 
-### 1. `src/lib/rendaFixaEngine.ts`
+## Alteração
 
-**Linha 63** - Atualizar comentário:
-```
-qtdJurosPU: number; // Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros anterior
-```
+### `src/pages/ProventosRecebidosPage.tsx` — linha 119
 
-**Linhas 407-408** - Substituir cálculo de `qtdJurosPU`:
+Substituir:
 ```typescript
-// Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros do dia anterior
-const prevQtdJuros = rows.length > 0 ? rows[rows.length - 1].qtdJurosPU : 0;
-const qtdJurosPU = qtdAplicacaoPU - qtdResgatePU - prevQtdJuros;
+valorUnitario: prod.preco_unitario || 0,
 ```
 
-**Linha ~474** (makeZeroRow) - manter `qtdJurosPU: 0` (sem mudança necessaria).
-
-### 2. `src/lib/syncEngine.ts`
-
-**Linha ~199** - Alterar campo quantidade do Resgate no Vencimento:
+Por:
 ```typescript
-// De: const quantidade = lastRow.qtdJurosPU;
-const quantidade = lastRow.valorInvestido;
+valorUnitario: row.precoUnitario - (prod.preco_unitario || 0),
 ```
+
+Isso calcula a diferença entre o PU evoluído pelo multiplicador no dia do pagamento e o PU original da custódia.
 
