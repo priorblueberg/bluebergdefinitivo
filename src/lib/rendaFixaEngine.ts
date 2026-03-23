@@ -60,7 +60,7 @@ export interface DailyRow {
   precoUnitario: number;    // W: Preço Unitário (PU da custódia, atualizado pelo multiplicador)
   qtdAplicacaoPU: number;   // X: Quantidade Aplicação = Aplicações / Preço Unitário
   qtdResgatePU: number;     // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
-  qtdJurosPU: number;       // Z: Quantidade de Juros = Valor Investido / PU inicial (custódia)
+  qtdJurosPU: number;       // Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros anterior
   // Legacy (kept for consumers like AnaliseIndividualPage)
   rentabilidadeDiaria: number | null; // cota-based daily return %
 }
@@ -404,8 +404,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
     const qtdResgatePU = precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0;
 
-    // Z: Quantidade de Juros = Valor Investido / PU inicial (custódia)
-    const qtdJurosPU = puInicialCustodia > 0 ? valorInvestido / puInicialCustodia : 0;
+    // Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros do dia anterior
+    const prevQtdJuros = rows.length > 0 ? rows[rows.length - 1].qtdJurosPU : 0;
+    const qtdJurosPU = qtdAplicacaoPU - qtdResgatePU - prevQtdJuros;
 
     rows.push({
       data: cal.data,
