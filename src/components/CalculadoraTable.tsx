@@ -44,6 +44,7 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Aplicação</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Resgate</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Juros</TableHead>
+          </TableRow>
         </TableHeader>
         <TableBody>
           {rows.map((r, i) => (
