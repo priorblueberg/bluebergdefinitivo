@@ -196,11 +196,8 @@ export default function ProventosRecebidosPage() {
                 >
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
                   <td className="px-3 py-2 text-foreground">{r.nome}</td>
+                  <td className="px-3 py-2 text-foreground">{r.tipo}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valor)}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valorUnitario)}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap text-right">
-                    {r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
                 </tr>
               ))
             )}
