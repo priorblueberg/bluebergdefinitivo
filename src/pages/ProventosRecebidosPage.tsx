@@ -8,9 +8,8 @@ import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 interface ProventoRow {
   data: string;
   nome: string;
+  tipo: string;
   valor: number;
-  valorUnitario: number;
-  quantidade: number;
 }
 
 type SortField = keyof ProventoRow;
