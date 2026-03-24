@@ -156,6 +156,10 @@ export function gerarDatasPagamentoJuros(
 
 // ── Engine helpers ──
 
+function calcCdiDiario(taxaAnual: number): number {
+  return Math.pow(1 + taxaAnual / 100, 1 / 252) - 1;
+}
+
 function getMultiplicador(modalidade: string, taxa: number): number {
   if (modalidade === "Prefixado") {
     return Math.pow(1 + taxa / 100, 1 / 252) - 1;
