@@ -125,37 +125,32 @@ export default function BoletaCustodiaDialog({
       try {
         const isPosFixadoCDI = (row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.indexador === "CDI";
 
-        const queries: Promise<any>[] = [
-          supabase
+        const calQuery = supabase
             .from("calendario_dias_uteis")
             .select("data, dia_util")
             .gte("data", row.data_inicio)
             .lte("data", dateISO)
-            .order("data"),
-          supabase
+            .order("data");
+        const movQuery = supabase
             .from("movimentacoes")
             .select("data, tipo_movimentacao, valor")
             .eq("codigo_custodia", row.codigo_custodia)
             .eq("user_id", userId)
-            .order("data"),
-          supabase
+            .order("data");
+        const custQuery = supabase
             .from("custodia")
             .select("resgate_total")
             .eq("codigo_custodia", row.codigo_custodia)
             .eq("user_id", userId)
-            .maybeSingle(),
-        ];
-
-        if (isPosFixadoCDI) {
-          queries.push(
-            supabase
+            .maybeSingle();
+        const cdiQuery = isPosFixadoCDI
+          ? supabase
               .from("historico_cdi")
               .select("data, taxa_anual")
               .gte("data", row.data_inicio)
               .lte("data", dateISO)
               .order("data")
-          );
-        }
+          : null;
 
         const results = await Promise.all(queries);
         const [calRes, movRes, custRes] = results;
