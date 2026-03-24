@@ -60,7 +60,7 @@ const PAGAMENTO_OPTIONS = [
 
 const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
 
-const INDEXADOR_OPTIONS = ["% do CDI", "CDI+", "IPCA+", "IGP-M+"];
+const INDEXADOR_OPTIONS = ["CDI", "CDI+", "IPCA+", "IGP-M+"];
 
 // ── Currency formatting helpers ──
 function formatCurrency(value: string): string {
