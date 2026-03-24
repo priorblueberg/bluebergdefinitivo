@@ -327,7 +327,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     let resgatesTotal: number;
     if (isVencimentoDay) {
       // Auto resgate no vencimento: full patrimônio
-      resgatesTotal = prevLiquido * (1 + rawMultiplicador);
+      resgatesTotal = prevLiquido * (1 + dailyMult);
     } else {
       resgatesTotal = resgateLimpo + jurosPago;
     }
