@@ -361,7 +361,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // H: Líquido (2)
     let liquido2: number;
     if (isFinalDay) {
-      liquido2 = prevLiquido * (1 + rawMultiplicador);
+      liquido2 = prevLiquido * (1 + dailyMult);
     } else {
       liquido2 = liquido1 + resgatesTotal;
     }
