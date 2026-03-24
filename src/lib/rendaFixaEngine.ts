@@ -196,10 +196,19 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 // ── Main engine ──
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
+  const isPosFixadoCDI = modalidade === "Pos Fixado" && indexador === "CDI";
+
+  // Build CDI map: data -> taxa_anual
+  const cdiMap = new Map<string, number>();
+  if (cdiRecords) {
+    for (const c of cdiRecords) {
+      cdiMap.set(c.data, c.taxa_anual);
+    }
+  }
   const movMap = buildMovMap(movimentacoes);
 
   const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
