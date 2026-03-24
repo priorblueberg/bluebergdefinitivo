@@ -33,6 +33,7 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Rent. Diária (R$)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">R$ Rent. Acumulada</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">CDI Diário</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Multiplicador</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Pgto Juros</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Apoio Cupom</TableHead>
