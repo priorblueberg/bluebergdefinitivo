@@ -471,8 +471,10 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             // Rentabilidade: use engine's rentabilidadeAcumuladaPct
             let rentValue = rent;
             if (isPrefixado && engineRows.length > 0) {
-              // Find the row matching dataReferenciaISO or the last row
-              const targetRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
+              let targetRow: DailyRow | undefined;
+              for (let i = engineRows.length - 1; i >= 0; i--) {
+                if (engineRows[i].data <= dataReferenciaISO) { targetRow = engineRows[i]; break; }
+              }
               if (targetRow) {
                 rentValue = parseFloat((targetRow.rentabilidadeAcumuladaPct * 100).toFixed(2));
               }
