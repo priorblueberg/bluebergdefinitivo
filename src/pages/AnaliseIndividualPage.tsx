@@ -454,9 +454,16 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             // Check if position is closed (selector date >= resgate_total)
 
             // Patrimônio: use engine row at data_calculo (always liquido)
+            // Search backwards for the last row with data <= dataReferenciaISO
             let patrimonioDisplayValue: number | null = lastPatrimonio; // fallback
             if (isPrefixado && engineRows.length > 0) {
-              const patRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
+              let patRow: DailyRow | undefined;
+              for (let i = engineRows.length - 1; i >= 0; i--) {
+                if (engineRows[i].data <= dataReferenciaISO) {
+                  patRow = engineRows[i];
+                  break;
+                }
+              }
               if (patRow) {
                 patrimonioDisplayValue = patRow.liquido;
               }
