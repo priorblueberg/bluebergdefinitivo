@@ -497,6 +497,7 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     ganhoDiario: 0,
     ganhoAcumulado: 0,
     rentabilidadeAcumuladaPct: 0,
+    cdiDiario: 0,
     multiplicador: 0,
     pagamentoJuros: 0,
     apoioCupom: 0,
