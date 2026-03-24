@@ -98,8 +98,8 @@ function buildNomeAtivo(
       .join(" ");
   }
 
-  if (indexador === "% do CDI") {
-    return [produtoNome, emissorNome, modalidade, taxaFormatted, "do", indexador.replace("% do ", ""), vencFormatted ? `- ${vencFormatted}` : ""]
+  if (indexador === "CDI") {
+    return [produtoNome, emissorNome, modalidade, taxaFormatted, "do CDI", vencFormatted ? `- ${vencFormatted}` : ""]
       .filter(Boolean)
       .join(" ");
   }
