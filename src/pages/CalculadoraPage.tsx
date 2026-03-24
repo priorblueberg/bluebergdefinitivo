@@ -27,6 +27,7 @@ interface CustodiaOption {
   resgate_total: string | null;
   pagamento: string | null;
   vencimento: string | null;
+  indexador: string | null;
 }
 
 export default function CalculadoraPage() {
@@ -43,7 +44,7 @@ export default function CalculadoraPage() {
     (async () => {
       const { data } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, pagamento, vencimento, categorias(nome), produtos(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, pagamento, vencimento, indexador, categorias(nome), produtos(nome)")
         .eq("user_id", user.id);
 
       if (data) {
@@ -63,6 +64,7 @@ export default function CalculadoraPage() {
             resgate_total: r.resgate_total,
             pagamento: r.pagamento,
             vencimento: r.vencimento,
+            indexador: r.indexador,
           }))
         );
       }
@@ -95,6 +97,14 @@ export default function CalculadoraPage() {
           .eq("user_id", user.id)
           .order("data", { ascending: true });
 
+        // Fetch CDI records for the period
+        const { data: cdiData } = await supabase
+          .from("historico_cdi")
+          .select("data, taxa_anual")
+          .gte("data", getDateMinus(product.data_inicio, 5))
+          .lte("data", dataFim)
+          .order("data", { ascending: true });
+
         const result = calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
           dataCalculo: dataFim,
@@ -113,6 +123,11 @@ export default function CalculadoraPage() {
           dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
+          indexador: product.indexador,
+          cdiRecords: (cdiData || []).map((c: any) => ({
+            data: c.data,
+            taxa_anual: Number(c.taxa_anual),
+          })),
         });
 
         setRows(result);

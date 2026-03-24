@@ -46,7 +46,8 @@ export interface DailyRow {
   ganhoDiario: number;      // M: Rentabilidade diária em R$
   ganhoAcumulado: number;   // N: R$ Rentabilidade acumulada
   rentabilidadeAcumuladaPct: number; // O: % Rentabilidade acumulada
-  // P: Multiplicador
+  // CDI Diário + P: Multiplicador
+  cdiDiario: number;        // CDI Diário = ((1 + CDI_anual/100)^(1/252) - 1), 8 decimais
   multiplicador: number;    // P
   // Q-T: Juros / Cupom
   pagamentoJuros: number;   // T: Juros Pago (backward compat name = jurosPago)
@@ -76,6 +77,8 @@ export interface EngineInput {
   dataResgateTotal?: string | null;
   pagamento?: string | null;
   vencimento?: string | null;
+  indexador?: string | null;
+  cdiRecords?: { data: string; taxa_anual: number }[];
 }
 
 // ── Pagamento de Juros Periódico ──
@@ -153,6 +156,10 @@ export function gerarDatasPagamentoJuros(
 
 // ── Engine helpers ──
 
+function calcCdiDiario(taxaAnual: number): number {
+  return Math.pow(1 + taxaAnual / 100, 1 / 252) - 1;
+}
+
 function getMultiplicador(modalidade: string, taxa: number): number {
   if (modalidade === "Prefixado") {
     return Math.pow(1 + taxa / 100, 1 / 252) - 1;
@@ -189,10 +196,19 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 // ── Main engine ──
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
+  const isPosFixadoCDI = modalidade === "Pos Fixado" && indexador === "CDI";
+
+  // Build CDI map: data -> taxa_anual
+  const cdiMap = new Map<string, number>();
+  if (cdiRecords) {
+    for (const c of cdiRecords) {
+      cdiMap.set(c.data, c.taxa_anual);
+    }
+  }
   const movMap = buildMovMap(movimentacoes);
 
   const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
@@ -250,13 +266,25 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const isFinalDay = isVencimentoDay || isResgateTotalDay;
 
     const diaUtil = cal.dia_util;
-    const dailyMult = diaUtil ? rawMultiplicador : 0;
+
+    // CDI Diário: lookup CDI for this date
+    const cdiAnual = cdiMap.get(cal.data) ?? 0;
+    const cdiDiarioVal = diaUtil && cdiAnual > 0 ? calcCdiDiario(cdiAnual) : 0;
+
+    // Pós Fixado CDI: multiplicador = CDI diário do dia anterior * taxa (%)
+    let dailyMult: number;
+    if (isPosFixadoCDI) {
+      const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
+      dailyMult = diaUtil ? prevCdiDiario * (taxa / 100) : 0;
+    } else {
+      dailyMult = diaUtil ? rawMultiplicador : 0;
+    }
 
     const mov = movMap.get(cal.data) || { aplicacoes: 0, resgates: 0 };
     const aplicacoes = mov.aplicacoes;
     const manualResgates = mov.resgates;
 
-    // P: Multiplicador (always computed, but yield only on business days)
+    // P: Multiplicador
     const multiplicadorDia = dailyMult;
 
     // R: Apoio para o cupom automático
@@ -299,7 +327,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     let resgatesTotal: number;
     if (isVencimentoDay) {
       // Auto resgate no vencimento: full patrimônio
-      resgatesTotal = prevLiquido * (1 + rawMultiplicador);
+      resgatesTotal = prevLiquido * (1 + dailyMult);
     } else {
       resgatesTotal = resgateLimpo + jurosPago;
     }
@@ -333,7 +361,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // H: Líquido (2)
     let liquido2: number;
     if (isFinalDay) {
-      liquido2 = prevLiquido * (1 + rawMultiplicador);
+      liquido2 = prevLiquido * (1 + dailyMult);
     } else {
       liquido2 = liquido1 + resgatesTotal;
     }
@@ -428,6 +456,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       ganhoDiario,
       ganhoAcumulado: rentAcumRS,
       rentabilidadeAcumuladaPct,
+      cdiDiario: parseFloat(cdiDiarioVal.toFixed(8)),
       multiplicador: multiplicadorDia,
       pagamentoJuros: jurosPago,
       apoioCupom,
@@ -468,6 +497,7 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     ganhoDiario: 0,
     ganhoAcumulado: 0,
     rentabilidadeAcumuladaPct: 0,
+    cdiDiario: 0,
     multiplicador: 0,
     pagamentoJuros: 0,
     apoioCupom: 0,
