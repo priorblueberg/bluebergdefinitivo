@@ -248,7 +248,11 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   const [engineRows, setEngineRows] = useState<DailyRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const isPrefixado = product.categoria_nome === "Renda Fixa" && product.modalidade === "Prefixado";
+  const isPrefixado = product.categoria_nome === "Renda Fixa" && (
+    product.modalidade === "Prefixado" ||
+    product.modalidade === "Pos Fixado" ||
+    product.modalidade === "Pós Fixado"
+  );
 
   useEffect(() => {
     (async () => {
@@ -306,6 +310,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
+          indexador: product.indexador,
+          cdiRecords: (cdiRes.data || []).map((r: any) => ({ data: r.data, taxa_anual: r.taxa_anual })),
         });
         setEngineRows(rows);
       }
