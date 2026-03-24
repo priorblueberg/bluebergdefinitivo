@@ -446,8 +446,6 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               v != null ? `${v.toFixed(2)}%` : "—";
 
             // Check if position is closed (selector date >= resgate_total)
-            const isPositionClosed = product.resgate_total && dataReferenciaISO >= product.resgate_total;
-            const fmtDateBr = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
 
             // Patrimônio: use engine row at data_calculo (always liquido)
             let patrimonioDisplayValue: number | null = lastPatrimonio; // fallback
