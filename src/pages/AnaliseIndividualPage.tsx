@@ -63,7 +63,6 @@ function buildDetailRowsFromEngine(
   dailyRows: DailyRow[],
   cdiRecords: CdiRecord[],
   dataInicio: string,
-  vencimento?: string | null,
 ): DetailRow[] {
   if (dailyRows.length === 0) return [];
 
@@ -163,16 +162,13 @@ function buildDetailRowsFromEngine(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    // On/after vencimento: use resgateLimpo instead of liquido (which is 0)
-    const isOnOrAfterVenc = vencimento && row.data >= vencimento;
-    const patrimonioValue = isOnOrAfterVenc ? row.resgateLimpo : row.liquido;
-    patrimonioMonthly.get(y)!.set(m, patrimonioValue);
+    patrimonioMonthly.get(y)!.set(m, row.liquido);
 
     // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, patrimonioValue - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
+    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
 
-    ganhoAnualMap.set(y, patrimonioValue - patrimonioInicioAno - aplicacoesAno + resgatesAno);
+    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno - aplicacoesAno + resgatesAno);
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
@@ -370,7 +366,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   // Detail table rows
   const detailRows = useMemo(() => {
     if (isPrefixado && engineRows.length > 0) {
-      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio, product.vencimento);
+      return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio);
     }
     // Fallback for non-prefixado: simple CDI-based detail rows
     // (reuse legacy inline logic or return empty for now)
@@ -450,16 +446,13 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               v != null ? `${v.toFixed(2)}%` : "—";
 
             // Check if position is closed (selector date >= resgate_total)
-            const isPositionClosed = product.resgate_total && dataReferenciaISO >= product.resgate_total;
-            const fmtDateBr = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
 
-            // Patrimônio: use engine row at data_calculo
+            // Patrimônio: use engine row at data_calculo (always liquido)
             let patrimonioDisplayValue: number | null = lastPatrimonio; // fallback
             if (isPrefixado && engineRows.length > 0) {
               const patRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
               if (patRow) {
-                const isOnOrAfterVencimento = product.vencimento && dataReferenciaISO >= product.vencimento;
-                patrimonioDisplayValue = isOnOrAfterVencimento ? patRow.resgateLimpo : patRow.liquido;
+                patrimonioDisplayValue = patRow.liquido;
               }
             }
 
@@ -476,13 +469,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             // CDI: also use the last available value from detail rows for consistency
             let cdiValue = cdiAcum;
 
-            const patrimonioLabel = isPositionClosed
-              ? `Valor Resgatado em ${fmtDateBr(product.resgate_total!)}`
-              : "Patrimônio";
-            const patrimonioColor = isPositionClosed ? "text-blue-500" : "text-foreground";
-
             const cards = [
-              { label: patrimonioLabel, value: fmtBrlCard(patrimonioDisplayValue), color: patrimonioColor },
+              { label: "Patrimônio", value: fmtBrlCard(patrimonioDisplayValue), color: "text-foreground" },
               { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
               { label: "Rentabilidade", value: fmtPctCard(rentValue), color: "text-foreground" },
               { label: "CDI Acumulado", value: fmtPctCard(cdiValue), color: "text-foreground" },
