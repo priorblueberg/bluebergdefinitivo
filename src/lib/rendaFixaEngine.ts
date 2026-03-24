@@ -266,13 +266,25 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const isFinalDay = isVencimentoDay || isResgateTotalDay;
 
     const diaUtil = cal.dia_util;
-    const dailyMult = diaUtil ? rawMultiplicador : 0;
+
+    // CDI Diário: lookup CDI for this date
+    const cdiAnual = cdiMap.get(cal.data) ?? 0;
+    const cdiDiarioVal = diaUtil && cdiAnual > 0 ? calcCdiDiario(cdiAnual) : 0;
+
+    // Pós Fixado CDI: multiplicador = CDI diário do dia anterior * taxa (%)
+    let dailyMult: number;
+    if (isPosFixadoCDI) {
+      const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
+      dailyMult = diaUtil ? prevCdiDiario * (taxa / 100) : 0;
+    } else {
+      dailyMult = diaUtil ? rawMultiplicador : 0;
+    }
 
     const mov = movMap.get(cal.data) || { aplicacoes: 0, resgates: 0 };
     const aplicacoes = mov.aplicacoes;
     const manualResgates = mov.resgates;
 
-    // P: Multiplicador (always computed, but yield only on business days)
+    // P: Multiplicador
     const multiplicadorDia = dailyMult;
 
     // R: Apoio para o cupom automático
