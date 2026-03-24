@@ -117,29 +117,43 @@ export default function BoletaCustodiaDialog({
 
     const dateISO = format(d, "yyyy-MM-dd");
 
-    if (row.modalidade === "Prefixado" && row.taxa && row.preco_unitario) {
+    const isRendaFixaEngine = (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.taxa && row.preco_unitario;
+
+    if (isRendaFixaEngine) {
       setLoadingCota(true);
       if (tipo === "Resgate") setLoadingSaldo(true);
       try {
-        const [calRes, movRes, custRes] = await Promise.all([
-          supabase
+        const isPosFixadoCDI = (row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.indexador === "CDI";
+
+        const calQuery = supabase
             .from("calendario_dias_uteis")
             .select("data, dia_util")
             .gte("data", row.data_inicio)
             .lte("data", dateISO)
-            .order("data"),
-          supabase
+            .order("data");
+        const movQuery = supabase
             .from("movimentacoes")
             .select("data, tipo_movimentacao, valor")
             .eq("codigo_custodia", row.codigo_custodia)
             .eq("user_id", userId)
-            .order("data"),
-          supabase
+            .order("data");
+        const custQuery = supabase
             .from("custodia")
             .select("resgate_total")
             .eq("codigo_custodia", row.codigo_custodia)
             .eq("user_id", userId)
-            .maybeSingle(),
+            .maybeSingle();
+        const cdiQuery = isPosFixadoCDI
+          ? supabase
+              .from("historico_cdi")
+              .select("data, taxa_anual")
+              .gte("data", row.data_inicio)
+              .lte("data", dateISO)
+              .order("data")
+          : null;
+
+        const [calRes, movRes, custRes, cdiRes] = await Promise.all([
+          calQuery, movQuery, custQuery, ...(cdiQuery ? [cdiQuery] : []),
         ]);
 
         const calendario = calRes.data || [];
@@ -149,17 +163,23 @@ export default function BoletaCustodiaDialog({
           valor: Number(m.valor),
         }));
 
+        const cdiRecords = isPosFixadoCDI && cdiRes
+          ? ((cdiRes as any).data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) }))
+          : undefined;
+
         const rows = calcularRendaFixaDiario({
           dataInicio: row.data_inicio,
           dataCalculo: dateISO,
-          taxa: row.taxa,
-          modalidade: row.modalidade,
-          puInicial: row.preco_unitario,
+          taxa: row.taxa!,
+          modalidade: row.modalidade!,
+          puInicial: row.preco_unitario!,
           calendario,
           movimentacoes,
           dataResgateTotal: custRes.data?.resgate_total ?? null,
           pagamento: row.pagamento,
           vencimento: row.vencimento,
+          indexador: row.indexador,
+          cdiRecords,
         });
 
         const rowDia = rows.find((r) => r.data === dateISO);
