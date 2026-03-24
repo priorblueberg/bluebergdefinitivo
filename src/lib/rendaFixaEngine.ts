@@ -200,7 +200,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
-  const isPosFixadoCDI = modalidade === "Pos Fixado" && indexador === "CDI";
+  const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
 
   // Build CDI map: data -> taxa_anual
   const cdiMap = new Map<string, number>();
