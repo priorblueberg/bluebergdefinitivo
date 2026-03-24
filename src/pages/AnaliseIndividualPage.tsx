@@ -248,7 +248,11 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   const [engineRows, setEngineRows] = useState<DailyRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const isPrefixado = product.categoria_nome === "Renda Fixa" && product.modalidade === "Prefixado";
+  const isPrefixado = product.categoria_nome === "Renda Fixa" && (
+    product.modalidade === "Prefixado" ||
+    product.modalidade === "Pos Fixado" ||
+    product.modalidade === "Pós Fixado"
+  );
 
   useEffect(() => {
     (async () => {
