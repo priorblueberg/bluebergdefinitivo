@@ -167,9 +167,9 @@ function buildDetailRowsFromEngine(
 
     // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, patrimonioValue - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
+    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
 
-    ganhoAnualMap.set(y, patrimonioValue - patrimonioInicioAno - aplicacoesAno + resgatesAno);
+    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno - aplicacoesAno + resgatesAno);
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
