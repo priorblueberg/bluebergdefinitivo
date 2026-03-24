@@ -46,7 +46,8 @@ export interface DailyRow {
   ganhoDiario: number;      // M: Rentabilidade diária em R$
   ganhoAcumulado: number;   // N: R$ Rentabilidade acumulada
   rentabilidadeAcumuladaPct: number; // O: % Rentabilidade acumulada
-  // P: Multiplicador
+  // CDI Diário + P: Multiplicador
+  cdiDiario: number;        // CDI Diário = ((1 + CDI_anual/100)^(1/252) - 1), 8 decimais
   multiplicador: number;    // P
   // Q-T: Juros / Cupom
   pagamentoJuros: number;   // T: Juros Pago (backward compat name = jurosPago)
