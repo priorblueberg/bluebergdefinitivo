@@ -456,6 +456,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       ganhoDiario,
       ganhoAcumulado: rentAcumRS,
       rentabilidadeAcumuladaPct,
+      cdiDiario: parseFloat(cdiDiarioVal.toFixed(8)),
       multiplicador: multiplicadorDia,
       pagamentoJuros: jurosPago,
       apoioCupom,
