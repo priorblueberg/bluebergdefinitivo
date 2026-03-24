@@ -453,13 +453,12 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const isPositionClosed = product.resgate_total && dataReferenciaISO >= product.resgate_total;
             const fmtDateBr = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
 
-            // Patrimônio: use engine row at data_calculo
+            // Patrimônio: use engine row at data_calculo (always liquido)
             let patrimonioDisplayValue: number | null = lastPatrimonio; // fallback
             if (isPrefixado && engineRows.length > 0) {
               const patRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
               if (patRow) {
-                const isOnOrAfterVencimento = product.vencimento && dataReferenciaISO >= product.vencimento;
-                patrimonioDisplayValue = isOnOrAfterVencimento ? patRow.resgateLimpo : patRow.liquido;
+                patrimonioDisplayValue = patRow.liquido;
               }
             }
 
