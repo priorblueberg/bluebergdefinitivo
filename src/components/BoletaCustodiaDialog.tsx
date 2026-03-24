@@ -152,8 +152,9 @@ export default function BoletaCustodiaDialog({
               .order("data")
           : null;
 
-        const results = await Promise.all(queries);
-        const [calRes, movRes, custRes] = results;
+        const [calRes, movRes, custRes, cdiRes] = await Promise.all([
+          calQuery, movQuery, custQuery, ...(cdiQuery ? [cdiQuery] : []),
+        ]);
 
         const calendario = calRes.data || [];
         const movimentacoes = (movRes.data || []).map((m: any) => ({
@@ -162,8 +163,8 @@ export default function BoletaCustodiaDialog({
           valor: Number(m.valor),
         }));
 
-        const cdiRecords = isPosFixadoCDI && results[3]
-          ? (results[3].data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) }))
+        const cdiRecords = isPosFixadoCDI && cdiRes
+          ? ((cdiRes as any).data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) }))
           : undefined;
 
         const rows = calcularRendaFixaDiario({
