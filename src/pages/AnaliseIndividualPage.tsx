@@ -411,7 +411,13 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               {product.nome || product.produto_nome}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate(dataReferenciaISO)}
+              Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate((() => {
+                const candidates = [dataReferenciaISO];
+                if (product.resgate_total) candidates.push(product.resgate_total);
+                if (product.vencimento) candidates.push(product.vencimento);
+                return candidates.sort()[0];
+              })())}
+            </p>
             </p>
           </div>
           <div className="flex items-center gap-2 ml-auto">
