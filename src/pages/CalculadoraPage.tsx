@@ -27,6 +27,7 @@ interface CustodiaOption {
   resgate_total: string | null;
   pagamento: string | null;
   vencimento: string | null;
+  indexador: string | null;
 }
 
 export default function CalculadoraPage() {
