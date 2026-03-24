@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
-import { format, parse, isValid, subDays, addDays } from "date-fns";
+import { format, parse, isValid, subDays, addDays, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, RefreshCw } from "lucide-react";
+import { Bell, CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, RefreshCw, Plus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -14,6 +14,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+function getMaxDate() {
+  return subDays(startOfDay(new Date()), 1);
+}
+
+function clampDate(date: Date): Date {
+  const max = getMaxDate();
+  return date > max ? max : date;
+}
 
 export function AppHeader() {
   const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
@@ -43,11 +52,12 @@ export function AppHeader() {
 
   const applyDate = async (date: Date) => {
     if (!user) return;
-    setDataReferencia(date);
-    setInputValue(format(date, "dd/MM/yyyy"));
+    const clamped = clampDate(date);
+    setDataReferencia(clamped);
+    setInputValue(format(clamped, "dd/MM/yyyy"));
     setIsRecalculating(true);
     try {
-      await recalculateAllForDataReferencia(user.id, format(date, "yyyy-MM-dd"));
+      await recalculateAllForDataReferencia(user.id, format(clamped, "yyyy-MM-dd"));
       applyDataReferencia();
       toast.success("Data de referência aplicada com sucesso");
     } catch (err) {
@@ -70,7 +80,7 @@ export function AppHeader() {
     if (raw.length === 8) {
       const parsed = parse(formatted, "dd/MM/yyyy", new Date());
       if (isValid(parsed)) {
-        setDataReferencia(parsed);
+        setDataReferencia(clampDate(parsed));
       }
     }
   };
@@ -102,6 +112,8 @@ export function AppHeader() {
     navigate("/auth");
   };
 
+  const maxDate = getMaxDate();
+
   return (
     <div className="relative">
       <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
@@ -121,6 +133,15 @@ export function AppHeader() {
         </DropdownMenu>
 
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate("/cadastrar-transacao")}
+            className="flex items-center gap-1 rounded-md border border-primary px-2 py-1 text-xs text-primary hover:bg-primary hover:text-primary-foreground bg-background"
+            style={{ transition: "all 120ms linear" }}
+          >
+            <Plus size={14} strokeWidth={1.5} />
+            <span>Cadastrar Transação</span>
+          </button>
+
           <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground">Posição em:</span>
             <div className="flex items-center gap-1 rounded-md border border-border px-2 py-1 bg-background">
@@ -151,15 +172,19 @@ export function AppHeader() {
               <ChevronLeft size={14} strokeWidth={1.5} />
             </button>
             <button
-              onClick={() => applyDate(addDays(dataReferencia, 1))}
-              className="rounded-md border border-border p-1 text-muted-foreground hover:text-primary hover:border-primary bg-background"
+              onClick={() => {
+                const next = addDays(dataReferencia, 1);
+                if (next <= maxDate) applyDate(next);
+              }}
+              disabled={dataReferencia >= maxDate}
+              className="rounded-md border border-border p-1 text-muted-foreground hover:text-primary hover:border-primary bg-background disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ transition: "all 120ms linear" }}
               title="Próximo dia"
             >
               <ChevronRight size={14} strokeWidth={1.5} />
             </button>
             <button
-              onClick={() => applyDate(subDays(new Date(), 1))}
+              onClick={() => applyDate(maxDate)}
               className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-primary hover:border-primary bg-background"
               style={{ transition: "all 120ms linear" }}
               title="Desde o início (data padrão)"
@@ -194,6 +219,7 @@ export function AppHeader() {
             selected={dataReferencia}
             onSelect={handleDateSelect}
             locale={ptBR}
+            disabled={{ after: maxDate }}
             className="pointer-events-auto"
           />
         </div>

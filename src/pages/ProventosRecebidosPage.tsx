@@ -113,7 +113,7 @@ export default function ProventosRecebidosPage() {
             allProventos.push({
               data: row.data,
               nome: prod.nome || "—",
-              tipo: "Rendimentos",
+              tipo: "Pagamento de Juros",
               valor: row.pagamentoJuros,
             });
           }

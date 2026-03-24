@@ -4,7 +4,7 @@ import {
   ArrowLeftRight,
   Vault,
   DollarSign,
-  Plus,
+  
   Settings,
   Shield,
   Briefcase,
