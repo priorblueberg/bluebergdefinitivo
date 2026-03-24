@@ -96,6 +96,10 @@ export default function CalculadoraTable({ rows }: Props) {
                   ? `${(r.rentabilidadeAcumuladaPct * 100).toFixed(2)}%`
                   : "—"}
               </TableCell>
+              {/* CDI Diário */}
+              <TableCell className="text-xs text-right font-mono">
+                {r.cdiDiario > 0 ? r.cdiDiario.toFixed(8) : "—"}
+              </TableCell>
               {/* P: Multiplicador */}
               <TableCell className="text-xs text-right font-mono">
                 {r.multiplicador > 0 ? r.multiplicador.toFixed(8) : "—"}

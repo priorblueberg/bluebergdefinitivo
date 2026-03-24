@@ -64,6 +64,7 @@ export default function CalculadoraPage() {
             resgate_total: r.resgate_total,
             pagamento: r.pagamento,
             vencimento: r.vencimento,
+            indexador: r.indexador,
           }))
         );
       }
