@@ -163,10 +163,7 @@ function buildDetailRowsFromEngine(
     cdiMonthly.get(y)!.set(m, (cdiFatorMensal - 1) * 100);
 
     if (!patrimonioMonthly.has(y)) patrimonioMonthly.set(y, new Map());
-    // On/after vencimento: use resgateLimpo instead of liquido (which is 0)
-    const isOnOrAfterVenc = vencimento && row.data >= vencimento;
-    const patrimonioValue = isOnOrAfterVenc ? row.resgateLimpo : row.liquido;
-    patrimonioMonthly.get(y)!.set(m, patrimonioValue);
+    patrimonioMonthly.get(y)!.set(m, row.liquido);
 
     // Ganho Financeiro = variação do patrimônio - fluxos líquidos (aplicações - resgates)
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
