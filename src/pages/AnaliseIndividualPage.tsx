@@ -475,13 +475,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             // CDI: also use the last available value from detail rows for consistency
             let cdiValue = cdiAcum;
 
-            const patrimonioLabel = isPositionClosed
-              ? `Valor Resgatado em ${fmtDateBr(product.resgate_total!)}`
-              : "Patrimônio";
-            const patrimonioColor = isPositionClosed ? "text-blue-500" : "text-foreground";
-
             const cards = [
-              { label: patrimonioLabel, value: fmtBrlCard(patrimonioDisplayValue), color: patrimonioColor },
+              { label: "Patrimônio", value: fmtBrlCard(patrimonioDisplayValue), color: "text-foreground" },
               { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
               { label: "Rentabilidade", value: fmtPctCard(rentValue), color: "text-foreground" },
               { label: "CDI Acumulado", value: fmtPctCard(cdiValue), color: "text-foreground" },
