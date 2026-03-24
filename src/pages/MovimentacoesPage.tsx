@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { ArrowUpDown, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +52,8 @@ export default function MovimentacoesPage() {
   const [sortField, setSortField] = useState<SortField>("data");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [filterNome, setFilterNome] = useState("");
+  const [filterTipo, setFilterTipo] = useState("");
 
   const fetchData = async () => {
     const { data, error } = await supabase
@@ -89,6 +91,28 @@ export default function MovimentacoesPage() {
     fetchData();
   }, [appliedVersion]);
 
+  // Unique values for filters
+  const uniqueNomes = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach(r => { if (r.nome_ativo) set.add(r.nome_ativo); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [rows]);
+
+  const uniqueTipos = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach(r => set.add(r.tipo_movimentacao));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [rows]);
+
+  // Filtered rows
+  const filteredRows = useMemo(() => {
+    return rows.filter(r => {
+      if (filterNome && r.nome_ativo !== filterNome) return false;
+      if (filterTipo && r.tipo_movimentacao !== filterTipo) return false;
+      return true;
+    });
+  }, [rows, filterNome, filterTipo]);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -101,10 +125,6 @@ export default function MovimentacoesPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
 
-    // Find the row to check if it's "Aplicação Inicial"
-    const deletingRow = rows.find((r) => r.id === deleteId);
-
-    // Fetch movimentacao details before deleting (for sync)
     const { data: movData } = await supabase
       .from("movimentacoes")
       .select("codigo_custodia, categoria_id, user_id, tipo_movimentacao")
@@ -114,7 +134,6 @@ export default function MovimentacoesPage() {
     const isAplicacaoInicial = movData?.tipo_movimentacao === "Aplicação Inicial";
 
     if (isAplicacaoInicial && movData?.codigo_custodia) {
-      // Delete all movimentações for this codigo_custodia
       const { error: movError } = await supabase
         .from("movimentacoes")
         .delete()
@@ -128,7 +147,6 @@ export default function MovimentacoesPage() {
         return;
       }
 
-      // Delete custodia record
       const { error: custError } = await supabase
         .from("custodia")
         .delete()
@@ -150,7 +168,6 @@ export default function MovimentacoesPage() {
       );
       applyDataReferencia();
     } else {
-      // Normal single delete
       const { error } = await supabase.from("movimentacoes").delete().eq("id", deleteId);
       if (error) {
         toast.error("Erro ao excluir movimentação.");
@@ -177,13 +194,12 @@ export default function MovimentacoesPage() {
     navigate(`/cadastrar-transacao?edit=${id}`);
   };
 
-  const sortedRows = [...rows].sort((a, b) => {
+  const sortedRows = [...filteredRows].sort((a, b) => {
     const valA = a[sortField] ?? "";
     const valB = b[sortField] ?? "";
     const cmp = String(valA).localeCompare(String(valB), "pt-BR", { numeric: true });
     const result = sortDir === "asc" ? cmp : -cmp;
     if (result !== 0) return result;
-    // Secondary sort: when same date, "Aplicação Inicial" and "Aplicação" come first
     const prioA = a.tipo_movimentacao.startsWith("Aplicação") ? 0 : 1;
     const prioB = b.tipo_movimentacao.startsWith("Aplicação") ? 0 : 1;
     return prioA - prioB;
@@ -194,6 +210,8 @@ export default function MovimentacoesPage() {
 
   const colSpan = COLUMNS.length + 1;
 
+  const isPagamentoJuros = (tipo: string) => tipo === "Pagamento de Juros";
+
   return (
     <div className="space-y-6">
       <div>
@@ -201,25 +219,52 @@ export default function MovimentacoesPage() {
         <p className="text-xs text-muted-foreground">Extrato de todas as movimentações registradas</p>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">Nome do Ativo:</label>
+          <select
+            value={filterNome}
+            onChange={(e) => setFilterNome(e.target.value)}
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/30 min-w-[160px]"
+          >
+            <option value="">Todos</option>
+            {uniqueNomes.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">Tipo de Movimentação:</label>
+          <select
+            value={filterTipo}
+            onChange={(e) => setFilterTipo(e.target.value)}
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/30 min-w-[160px]"
+          >
+            <option value="">Todos</option>
+            {uniqueTipos.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="rounded-md border border-border overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-primary text-primary-foreground">
-              {COLUMNS.map((col) => {
-                const isNumeric = false;
-                return (
-                  <th
-                    key={col.key}
-                    className={`px-3 py-2 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-primary/80 transition-colors ${isNumeric ? "text-right" : "text-left"}`}
-                    onClick={() => handleSort(col.key)}
-                  >
-                    <span className={`inline-flex items-center gap-1 ${isNumeric ? "justify-end" : ""}`}>
-                      {col.label}
-                      <ArrowUpDown size={12} className={sortField === col.key ? "opacity-100" : "opacity-40"} />
-                    </span>
-                  </th>
-                );
-              })}
+              {COLUMNS.map((col) => (
+                <th
+                  key={col.key}
+                  className="px-3 py-2 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-primary/80 transition-colors text-left"
+                  onClick={() => handleSort(col.key)}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    <ArrowUpDown size={12} className={sortField === col.key ? "opacity-100" : "opacity-40"} />
+                  </span>
+                </th>
+              ))}
               <th className="px-3 py-2 text-center font-medium whitespace-nowrap">Ações</th>
             </tr>
           </thead>
@@ -235,10 +280,18 @@ export default function MovimentacoesPage() {
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">
-                    {r.quantidade != null ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 7, maximumFractionDigits: 7 }) : "—"}
+                    {isPagamentoJuros(r.tipo_movimentacao)
+                      ? "—"
+                      : r.quantidade != null
+                        ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 7, maximumFractionDigits: 7 })
+                        : "—"}
                   </td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">
-                    {r.preco_unitario != null ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                    {isPagamentoJuros(r.tipo_movimentacao)
+                      ? "—"
+                      : r.preco_unitario != null
+                        ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                        : "—"}
                   </td>
                   <td className="px-3 py-2 text-foreground whitespace-nowrap">
                     {r.valor != null ? r.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}

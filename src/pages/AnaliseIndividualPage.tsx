@@ -411,7 +411,12 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               {product.nome || product.produto_nome}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate(dataReferenciaISO)}
+              Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate((() => {
+                const candidates = [dataReferenciaISO];
+                if (product.resgate_total) candidates.push(product.resgate_total);
+                if (product.vencimento) candidates.push(product.vencimento);
+                return candidates.sort()[0];
+              })())}
             </p>
           </div>
           <div className="flex items-center gap-2 ml-auto">
@@ -448,9 +453,16 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             // Check if position is closed (selector date >= resgate_total)
 
             // Patrimônio: use engine row at data_calculo (always liquido)
+            // Search backwards for the last row with data <= dataReferenciaISO
             let patrimonioDisplayValue: number | null = lastPatrimonio; // fallback
             if (isPrefixado && engineRows.length > 0) {
-              const patRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
+              let patRow: DailyRow | undefined;
+              for (let i = engineRows.length - 1; i >= 0; i--) {
+                if (engineRows[i].data <= dataReferenciaISO) {
+                  patRow = engineRows[i];
+                  break;
+                }
+              }
               if (patRow) {
                 patrimonioDisplayValue = patRow.liquido;
               }
@@ -459,8 +471,10 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             // Rentabilidade: use engine's rentabilidadeAcumuladaPct
             let rentValue = rent;
             if (isPrefixado && engineRows.length > 0) {
-              // Find the row matching dataReferenciaISO or the last row
-              const targetRow = engineRows.find(r => r.data === dataReferenciaISO) || engineRows[engineRows.length - 1];
+              let targetRow: DailyRow | undefined;
+              for (let i = engineRows.length - 1; i >= 0; i--) {
+                if (engineRows[i].data <= dataReferenciaISO) { targetRow = engineRows[i]; break; }
+              }
               if (targetRow) {
                 rentValue = parseFloat((targetRow.rentabilidadeAcumuladaPct * 100).toFixed(2));
               }

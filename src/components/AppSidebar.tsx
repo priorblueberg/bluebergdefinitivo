@@ -4,7 +4,7 @@ import {
   ArrowLeftRight,
   Vault,
   DollarSign,
-  Plus,
+  
   Settings,
   Shield,
   Briefcase,
@@ -25,7 +25,7 @@ const menuItems: MenuItem[] = [
   { title: "Custódia", url: "/custodia", icon: Vault },
   { title: "Controle de Carteiras", url: "/controle-carteiras", icon: Briefcase },
   { title: "Proventos Recebidos", url: "/proventos", icon: DollarSign },
-  { title: "Cadastrar Transação", url: "/cadastrar-transacao", icon: Plus },
+  
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Admin", url: "/admin", icon: Shield },
   { title: "Calculadora", url: "/calculadora", icon: Calculator },
