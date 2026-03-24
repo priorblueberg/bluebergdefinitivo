@@ -418,7 +418,6 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
                 return candidates.sort()[0];
               })())}
             </p>
-            </p>
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-xs text-muted-foreground">Status em {fmtDateShort(dataReferencia)}</span>
