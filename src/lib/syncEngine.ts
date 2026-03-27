@@ -211,11 +211,11 @@ async function syncResgateNoVencimento(
     let quantidade: number;
 
     if (isNoVencimento) {
-      valor = lastRow.resgateLimpo;
+      valor = lastRow.resgates;
       precoUnitario = lastRow.precoUnitario;
       quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
     } else {
-      valor = lastRow.resgateLimpo;
+      valor = lastRow.resgates;
       precoUnitario = lastRow.puJurosPeriodicos;
       quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
     }
