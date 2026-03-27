@@ -797,12 +797,14 @@ export async function reprocessMovimentacoesForCodigo(
       }
     } else {
       // Other pagamento types: uses PU Juros Periódicos and QTD Aplicação (2) / QTD Resgate (2)
+      newPU = rowDia.puJurosPeriodicos;
       if (isAplicacao) {
-        newPU = rowDia.puJurosPeriodicos;
-        newQuantidade = rowDia.qtdAplicacao2 > 0 ? rowDia.qtdAplicacao2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
+        newQuantidade = newPU > 0 ? Number(mov.valor) / newPU : null;
       } else {
-        newPU = rowDia.puJurosPeriodicos;
-        newQuantidade = rowDia.qtdResgate2 > 0 ? rowDia.qtdResgate2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
+        // Always compute qty directly from valor / PU for manual resgates,
+        // since the engine row doesn't include the current movement and its
+        // qtdResgate2 may reflect juros payments on the same day instead.
+        newQuantidade = newPU > 0 ? Number(mov.valor) / newPU : null;
       }
     }
 
