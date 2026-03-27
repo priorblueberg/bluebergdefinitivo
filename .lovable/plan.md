@@ -1,25 +1,29 @@
 
 
-# Corrigir Multiplicador Pós-Fixado — Incompatibilidade de texto
+# Correção: Quantidade de resgate incorreta na movimentação
 
-## Problema
+## Problema identificado
 
-O formulário de cadastro salva a modalidade como **"Pós Fixado"** (com acento), mas o engine compara com **"Pos Fixado"** (sem acento). Por isso `isPosFixadoCDI` é sempre `false` e o multiplicador fica zerado.
+Na função `reprocessMovimentacoesForCodigo` (syncEngine.ts, linha 754), o motor é chamado passando apenas as movimentações **anteriores** à movimentação atual:
+
+```text
+precedingMovs = manualMovs.filter((m, idx) => idx < i)
+```
+
+Isso significa que, ao processar um **Resgate**, o próprio resgate **não está incluído** nos dados enviados ao motor. Sem o resgate nos inputs, o motor calcula `qtdResgate2 = 0` (porque `resgatesTotal = 0`). O código então cai no fallback `mov.valor / puJurosPeriodicos`, que dá **1,7131831** — o valor errado.
+
+Na **Calculadora**, todas as movimentações (incluindo o resgate) são passadas ao motor, por isso `qtdResgate2` retorna corretamente **29,9043062**.
 
 ## Solução
 
-Alterar o engine (`src/lib/rendaFixaEngine.ts`) para aceitar ambas as formas:
+Para movimentações de **resgate**, incluir a própria movimentação na lista enviada ao motor, para que ele calcule `qtdResgate2` (e `qtdResgatePU`) corretamente.
 
-### `src/lib/rendaFixaEngine.ts` — linha 203
+## Arquivo alterado
 
-Trocar:
-```typescript
-const isPosFixadoCDI = modalidade === "Pos Fixado" && indexador === "CDI";
-```
-Por:
-```typescript
-const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
-```
+**`src/lib/syncEngine.ts`** — função `reprocessMovimentacoesForCodigo`
 
-Isso é suficiente para corrigir o cálculo do multiplicador para títulos Pós-Fixados CDI.
+- Ao montar a lista de movimentações para o motor (`precedingMovs`), quando a movimentação atual for um resgate, incluir também a movimentação atual na lista (idx <= i em vez de idx < i).
+- Aplicações continuam usando apenas movimentações anteriores (idx < i), pois a lógica de `qtdAplicacaoPU` depende do PU do dia anterior.
+
+A mudança é mínima: apenas a condição do filtro na linha 755, condicionada ao tipo de movimentação.
 
