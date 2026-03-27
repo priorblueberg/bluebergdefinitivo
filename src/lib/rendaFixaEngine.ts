@@ -82,6 +82,7 @@ export interface EngineInput {
   vencimento?: string | null;
   indexador?: string | null;
   cdiRecords?: { data: string; taxa_anual: number }[];
+  dataLimite?: string | null;
 }
 
 // ── Pagamento de Juros Periódico ──
