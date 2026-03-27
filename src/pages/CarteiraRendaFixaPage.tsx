@@ -1,142 +1,262 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
+import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
+import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
+import { buildCdiSeries, CdiRecord } from "@/lib/cdiCalculations";
+import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
+import RentabilidadeDetailTable from "@/components/RentabilidadeDetailTable";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { buildCdiSeries, buildRentabilidadeRows, CdiRecord } from "@/lib/cdiCalculations";
-import RentabilidadeTable from "@/components/RentabilidadeTable";
 
 interface CarteiraInfo {
   nome_carteira: string;
   status: string;
   data_inicio: string | null;
   data_calculo: string | null;
+  data_limite: string | null;
+  resgate_total: string | null;
 }
 
-interface CdiRaw { data: string; taxa_anual: number; }
-interface DiaUtil { data: string; dia_util: boolean; }
+interface CustodiaProduct {
+  id: string;
+  codigo_custodia: number;
+  nome: string | null;
+  data_inicio: string;
+  taxa: number | null;
+  modalidade: string | null;
+  preco_unitario: number | null;
+  resgate_total: string | null;
+  pagamento: string | null;
+  vencimento: string | null;
+  indexador: string | null;
+  data_limite: string | null;
+  categoria_nome: string;
+}
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltipChart = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
       <div className="rounded-md border border-border bg-card px-3 py-2 text-xs shadow-sm">
-        <p className="text-foreground">{label}</p>
-        <p className="text-primary font-semibold">
-          CDI Acumulado: {Number(payload[0].value).toFixed(2)}%
-        </p>
+        <p className="text-foreground font-medium mb-1">{label}</p>
+        {payload.map((entry: any) => (
+          <p key={entry.dataKey} style={{ color: entry.color }} className="font-semibold">
+            {entry.name}: {entry.value?.toFixed(2)}%
+          </p>
+        ))}
       </div>
     );
   }
   return null;
 };
 
+function getDateMinus(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function CarteiraRendaFixaPage() {
+  const { user } = useAuth();
+  const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
+  const [carteiraRows, setCarteiraRows] = useState<CarteiraRFRow[]>([]);
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const { appliedVersion } = useDataReferencia();
 
   useEffect(() => {
+    if (!user) return;
     (async () => {
       setLoading(true);
 
-      const { data: carteiraData } = await supabase
+      // 1. Fetch carteira info
+      const { data: cartData } = await supabase
         .from("controle_de_carteiras")
-        .select("nome_carteira, status, data_inicio, data_calculo")
+        .select("nome_carteira, status, data_inicio, data_calculo, data_limite, resgate_total")
         .eq("nome_carteira", "Renda Fixa")
+        .eq("user_id", user.id)
         .maybeSingle();
 
-      if (carteiraData) {
-        setCarteiraInfo({
-          nome_carteira: carteiraData.nome_carteira,
-          status: carteiraData.status,
-          data_inicio: carteiraData.data_inicio,
-          data_calculo: carteiraData.data_calculo,
-        });
-
-        if (carteiraData.data_inicio && carteiraData.data_calculo && carteiraData.status !== "Não Iniciada") {
-          const [{ data: cdiData }, { data: calData }] = await Promise.all([
-            supabase
-              .from("historico_cdi")
-              .select("data, taxa_anual")
-              .gte("data", carteiraData.data_inicio)
-              .lte("data", carteiraData.data_calculo)
-              .order("data", { ascending: true }),
-            supabase
-              .from("calendario_dias_uteis")
-              .select("data, dia_util")
-              .gte("data", carteiraData.data_inicio)
-              .lte("data", carteiraData.data_calculo),
-          ]);
-
-          if (cdiData && calData) {
-            const calMap = new Map((calData as DiaUtil[]).map(d => [d.data, d.dia_util]));
-            const merged: CdiRecord[] = (cdiData as CdiRaw[]).map(r => ({
-              ...r,
-              dia_util: calMap.get(r.data) ?? false,
-            }));
-            setCdiRecords(merged);
-          }
-        } else {
-          setCdiRecords([]);
-        }
-      } else {
-        setCarteiraInfo(null);
+      if (!cartData || !cartData.data_inicio || !cartData.data_calculo || cartData.status === "Não Iniciada") {
+        setCarteiraInfo(cartData ? {
+          nome_carteira: cartData.nome_carteira,
+          status: cartData.status,
+          data_inicio: cartData.data_inicio,
+          data_calculo: cartData.data_calculo,
+          data_limite: cartData.data_limite,
+          resgate_total: cartData.resgate_total,
+        } : null);
+        setCarteiraRows([]);
         setCdiRecords([]);
+        setLoading(false);
+        return;
       }
 
+      const info: CarteiraInfo = {
+        nome_carteira: cartData.nome_carteira,
+        status: cartData.status,
+        data_inicio: cartData.data_inicio,
+        data_calculo: cartData.data_calculo,
+        data_limite: cartData.data_limite,
+        resgate_total: cartData.resgate_total,
+      };
+      setCarteiraInfo(info);
+
+      const dataInicio = cartData.data_inicio;
+      const dataCalculo = cartData.data_calculo;
+
+      // 2. Fetch RF products
+      const { data: custodiaData } = await supabase
+        .from("custodia")
+        .select("id, codigo_custodia, nome, data_inicio, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, categorias(nome)")
+        .eq("user_id", user.id);
+
+      const rfProducts: CustodiaProduct[] = (custodiaData || [])
+        .filter((r: any) => r.categorias?.nome === "Renda Fixa")
+        .map((r: any) => ({
+          id: r.id,
+          codigo_custodia: r.codigo_custodia,
+          nome: r.nome,
+          data_inicio: r.data_inicio,
+          taxa: r.taxa,
+          modalidade: r.modalidade,
+          preco_unitario: r.preco_unitario,
+          resgate_total: r.resgate_total,
+          pagamento: r.pagamento,
+          vencimento: r.vencimento,
+          indexador: r.indexador,
+          data_limite: r.data_limite,
+          categoria_nome: r.categorias?.nome || "",
+        }));
+
+      if (rfProducts.length === 0) {
+        setCarteiraRows([]);
+        setCdiRecords([]);
+        setLoading(false);
+        return;
+      }
+
+      // 3. Fetch calendar, CDI, dias_uteis
+      const [calRes, cdiRes] = await Promise.all([
+        supabase.from("calendario_dias_uteis").select("data, dia_util")
+          .gte("data", getDateMinus(dataInicio, 5)).lte("data", dataCalculo).order("data"),
+        supabase.from("historico_cdi").select("data, taxa_anual")
+          .gte("data", dataInicio).lte("data", dataCalculo).order("data"),
+      ]);
+
+      const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
+      const cdiRaw = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
+
+      // Build CdiRecord[] with dia_util for detail table
+      const calMap = new Map<string, boolean>();
+      calendario.forEach(c => calMap.set(c.data, c.dia_util));
+      const mergedCdi: CdiRecord[] = cdiRaw.map(r => ({
+        ...r,
+        dia_util: calMap.get(r.data) ?? false,
+      }));
+      setCdiRecords(mergedCdi);
+
+      // 4. For each RF product, fetch movs and run engine
+      const productRowsPromises = rfProducts.map(async (product) => {
+        const dataFim = product.resgate_total || product.vencimento || dataCalculo;
+        const { data: movData } = await supabase
+          .from("movimentacoes")
+          .select("data, tipo_movimentacao, valor")
+          .eq("codigo_custodia", product.codigo_custodia)
+          .eq("user_id", user!.id)
+          .order("data");
+
+        return calcularRendaFixaDiario({
+          dataInicio: product.data_inicio,
+          dataCalculo: dataFim > dataCalculo ? dataCalculo : dataFim,
+          taxa: product.taxa || 0,
+          modalidade: product.modalidade || "",
+          puInicial: product.preco_unitario || 1000,
+          calendario,
+          movimentacoes: (movData || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
+          dataResgateTotal: product.resgate_total,
+          pagamento: product.pagamento,
+          vencimento: product.vencimento,
+          indexador: product.indexador,
+          cdiRecords: cdiRaw,
+          dataLimite: product.data_limite,
+        });
+      });
+
+      const allProductRows = await Promise.all(productRowsPromises);
+
+      // 5. Aggregate
+      const result = calcularCarteiraRendaFixa({
+        productRows: allProductRows,
+        calendario,
+        dataInicio,
+        dataCalculo,
+      });
+
+      setCarteiraRows(result);
       setLoading(false);
     })();
-  }, [appliedVersion]);
+  }, [user, appliedVersion]);
 
-  const chartData = useMemo(
-    () => buildCdiSeries(cdiRecords, carteiraInfo?.data_inicio ?? "", carteiraInfo?.data_calculo ?? undefined),
-    [cdiRecords, carteiraInfo?.data_inicio, carteiraInfo?.data_calculo]
-  );
+  // Chart: Rentabilidade vs CDI
+  const chartData = useMemo(() => {
+    if (!carteiraInfo?.data_inicio || carteiraRows.length === 0) return [];
 
-  const rentabilidadeRows = useMemo(
-    () => buildRentabilidadeRows(cdiRecords, carteiraInfo?.data_inicio ?? "", carteiraInfo?.data_calculo ?? undefined),
-    [cdiRecords, carteiraInfo?.data_inicio, carteiraInfo?.data_calculo]
-  );
+    const cdiSeries = buildCdiSeries(cdiRecords, carteiraInfo.data_inicio, carteiraInfo.data_calculo ?? undefined);
+
+    const enginePoints = carteiraRows
+      .filter(r => r.saldoCotas > 0 || r.liquido > 0 || r.resgates > 0)
+      .map(r => ({
+        data: r.data,
+        label: new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR"),
+        titulo_acumulado: parseFloat((r.rentabilidadeAcumuladaPct * 100).toFixed(4)),
+      }));
+
+    const map = new Map<string, any>();
+    for (const p of cdiSeries) {
+      map.set(p.data, { data: p.data, label: p.label, cdi_acumulado: p.cdi_acumulado });
+    }
+    for (const p of enginePoints) {
+      const existing = map.get(p.data) || { data: p.data, label: p.label };
+      existing.titulo_acumulado = p.titulo_acumulado;
+      existing.label = existing.label || p.label;
+      map.set(p.data, existing);
+    }
+    return Array.from(map.values()).sort((a: any, b: any) => a.data.localeCompare(b.data));
+  }, [carteiraRows, cdiRecords, carteiraInfo]);
+
+  // Detail rows for table
+  const detailRows = useMemo(() => {
+    if (carteiraRows.length === 0 || !carteiraInfo?.data_inicio) return [];
+    return buildDetailRowsFromEngine(carteiraRows, cdiRecords, carteiraInfo.data_inicio);
+  }, [carteiraRows, cdiRecords, carteiraInfo]);
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
-  const renderStatusMessage = () => {
-    if (!carteiraInfo) return null;
-    if (carteiraInfo.status === "Ativa") {
-      return (
-        <p className="text-sm text-muted-foreground mt-1">
-          Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
-        </p>
-      );
-    }
-    if (carteiraInfo.status === "Não Iniciada") {
-      return (
-        <p className="text-sm text-muted-foreground mt-1">
-          Data selecionada anterior ao início dos seus investimentos em Renda Fixa
-        </p>
-      );
-    }
-    if (carteiraInfo.status === "Encerrada") {
-      return (
-        <p className="text-sm text-muted-foreground mt-1">
-          Carteira Encerrada em {fmtDate(carteiraInfo.data_calculo)}
-        </p>
-      );
-    }
-    return null;
-  };
-
-  const showContent = carteiraInfo?.status === "Ativa" || carteiraInfo?.status === "Encerrada";
-  const tickInterval = chartData.length > 60 ? Math.floor(chartData.length / 12) : undefined;
+  const showContent = carteiraInfo && (carteiraInfo.status === "Ativa" || carteiraInfo.status === "Encerrada") && carteiraRows.length > 0;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-lg font-semibold text-foreground">Renda Fixa</h1>
-        {renderStatusMessage()}
+        {carteiraInfo && (
+          carteiraInfo.status === "Ativa" ? (
+            <p className="text-sm text-muted-foreground mt-1">
+              Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
+            </p>
+          ) : carteiraInfo.status === "Não Iniciada" ? (
+            <p className="text-sm text-muted-foreground mt-1">
+              Data selecionada anterior ao início dos seus investimentos em Renda Fixa
+            </p>
+          ) : carteiraInfo.status === "Encerrada" ? (
+            <p className="text-sm text-muted-foreground mt-1">
+              Carteira Encerrada em {fmtDate(carteiraInfo.data_calculo)}
+            </p>
+          ) : null
+        )}
       </div>
 
       {loading ? (
@@ -149,47 +269,113 @@ export default function CarteiraRendaFixaPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-md border border-border bg-card p-6">
-            <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
-            <p className="mt-1 text-xs text-muted-foreground">CDI Acumulado no período</p>
-            <div className="mt-4 h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(215, 20%, 88%)" />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
-                    axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
-                    tickLine={false}
-                    interval={tickInterval}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "hsl(215, 15%, 50%)" }}
-                    axisLine={{ stroke: "hsl(215, 20%, 88%)" }}
-                    tickLine={false}
-                    tickFormatter={(v) => `${v.toFixed(1)}%`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend
-                    iconType="plainline"
-                    wrapperStyle={{ fontSize: 11 }}
-                    formatter={(value: string) => <span className="text-muted-foreground">{value}</span>}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="cdi_acumulado"
-                    name="CDI Acumulado"
-                    stroke="hsl(210, 100%, 45%)"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 5, fill: "hsl(210, 100%, 45%)", strokeWidth: 0 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+          {/* Summary Cards */}
+          {detailRows.length > 0 && (() => {
+            const topRow = detailRows[0];
+            let lastPatrimonio: number | null = null;
+            for (let m = 11; m >= 0; m--) {
+              if (topRow.patrimonioMonths[m] !== null) { lastPatrimonio = topRow.patrimonioMonths[m]; break; }
+            }
+
+            // Use engine row for precise patrimônio
+            let patrimonioValue = lastPatrimonio;
+            if (carteiraRows.length > 0) {
+              for (let i = carteiraRows.length - 1; i >= 0; i--) {
+                if (carteiraRows[i].data <= dataReferenciaISO) {
+                  patrimonioValue = carteiraRows[i].liquido;
+                  break;
+                }
+              }
+            }
+
+            let rentValue = topRow.rentAcumulado;
+            if (carteiraRows.length > 0) {
+              for (let i = carteiraRows.length - 1; i >= 0; i--) {
+                if (carteiraRows[i].data <= dataReferenciaISO) {
+                  rentValue = parseFloat((carteiraRows[i].rentabilidadeAcumuladaPct * 100).toFixed(2));
+                  break;
+                }
+              }
+            }
+
+            const ganho = topRow.ganhoAcumulado;
+            const cdiAcum = topRow.cdiAcumulado;
+
+            const fmtBrl = (v: number | null) =>
+              v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+            const fmtPct = (v: number | null) =>
+              v != null ? `${v.toFixed(2)}%` : "—";
+
+            const cards = [
+              { label: "Patrimônio", value: fmtBrl(patrimonioValue) },
+              { label: "Ganho Financeiro", value: fmtBrl(ganho) },
+              { label: "Rentabilidade", value: fmtPct(rentValue) },
+              { label: "CDI Acumulado", value: fmtPct(cdiAcum) },
+            ];
+
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {cards.map((c) => (
+                  <div key={c.label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
+                    <p className="text-lg font-semibold text-foreground">{c.value}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-md border border-border bg-card p-6">
+              <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
+              <div className="mt-4 h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip content={<CustomTooltipChart />} />
+                    <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" dataKey="titulo_acumulado" name="Carteira RF" stroke="hsl(210, 100%, 45%)" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} connectNulls />
+                    <Line type="monotone" dataKey="cdi_acumulado" name="CDI" stroke="hsl(0, 0%, 55%)" strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} strokeDasharray="5 3" connectNulls />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-border bg-card p-6">
+              <h2 className="text-sm font-semibold text-foreground">Patrimônio Mensal</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
+              <div className="mt-4 h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={(() => {
+                    const MONTH_LABELS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+                    const barData: { mes: string; patrimonio: number }[] = [];
+                    const chronRows = [...detailRows].reverse();
+                    for (const row of chronRows) {
+                      for (let m = 0; m < 12; m++) {
+                        if (row.patrimonioMonths[m] !== null) {
+                          barData.push({ mes: `${MONTH_LABELS[m]}/${String(row.year).slice(2)}`, patrimonio: row.patrimonioMonths[m]! });
+                        }
+                      }
+                    }
+                    return barData;
+                  })()}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} tickFormatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} />
+                    <Tooltip formatter={(value: number) => [value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "Patrimônio"]} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }} />
+                    <Bar dataKey="patrimonio" name="Patrimônio" fill="hsl(210, 100%, 45%)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
-          <RentabilidadeTable rows={rentabilidadeRows} />
+          {/* Detail Table */}
+          <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
         </>
       )}
     </div>
