@@ -320,8 +320,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const isPagamento = datasPagamento.has(cal.data);
 
     // T: Juros Pago
+    // "No Vencimento" titles should NOT compute juros on the final day
     let jurosPago: number;
-    if (isFinalDay) {
+    if (isFinalDay && pagamento !== "No Vencimento") {
       jurosPago = apoioCupom - valorInvestido;
     } else if (isPagamento) {
       jurosPago = apoioCupom - valorInvestido - resgateLimpo;
