@@ -3,14 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
+import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import CalculadoraTable from "@/components/CalculadoraTable";
+import CalculadoraCarteiraTable from "@/components/CalculadoraCarteiraTable";
+
+const CARTEIRA_RF_ID = "__carteira_rf__";
 
 interface CustodiaOption {
   id: string;
@@ -37,6 +37,7 @@ export default function CalculadoraPage() {
   const [products, setProducts] = useState<CustodiaOption[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [rows, setRows] = useState<DailyRow[]>([]);
+  const [carteiraRows, setCarteiraRows] = useState<CarteiraRFRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Load custodia products
@@ -76,36 +77,29 @@ export default function CalculadoraPage() {
   // Calculate when product is selected
   useEffect(() => {
     if (!selectedId || !user) return;
+
+    if (selectedId === CARTEIRA_RF_ID) {
+      calculateCarteira();
+      return;
+    }
+
     const product = products.find((p) => p.id === selectedId);
     if (!product) return;
 
     (async () => {
       setLoading(true);
+      setCarteiraRows([]);
       try {
-        // End date: always show full lifecycle (resgate_total or vencimento)
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
 
-        const { data: calData } = await supabase
-          .from("calendario_dias_uteis")
-          .select("data, dia_util")
-          .gte("data", getDateMinus(product.data_inicio, 5))
-          .lte("data", dataFim)
-          .order("data", { ascending: true });
-
-        const { data: movData } = await supabase
-          .from("movimentacoes")
-          .select("data, tipo_movimentacao, valor")
-          .eq("codigo_custodia", product.codigo_custodia)
-          .eq("user_id", user.id)
-          .order("data", { ascending: true });
-
-        // Fetch CDI records for the period
-        const { data: cdiData } = await supabase
-          .from("historico_cdi")
-          .select("data, taxa_anual")
-          .gte("data", getDateMinus(product.data_inicio, 5))
-          .lte("data", dataFim)
-          .order("data", { ascending: true });
+        const [calRes, movRes, cdiRes] = await Promise.all([
+          supabase.from("calendario_dias_uteis").select("data, dia_util")
+            .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+          supabase.from("movimentacoes").select("data, tipo_movimentacao, valor")
+            .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).order("data"),
+          supabase.from("historico_cdi").select("data, taxa_anual")
+            .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+        ]);
 
         const result = calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
@@ -113,26 +107,15 @@ export default function CalculadoraPage() {
           taxa: product.taxa || 0,
           modalidade: product.modalidade || "",
           puInicial: product.preco_unitario || 1000,
-          calendario: (calData || []).map((c: any) => ({
-            data: c.data,
-            dia_util: c.dia_util,
-          })),
-          movimentacoes: (movData || []).map((m: any) => ({
-            data: m.data,
-            tipo_movimentacao: m.tipo_movimentacao,
-            valor: Number(m.valor),
-          })),
+          calendario: (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util })),
+          movimentacoes: (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
           dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
           indexador: product.indexador,
-          cdiRecords: (cdiData || []).map((c: any) => ({
-            data: c.data,
-            taxa_anual: Number(c.taxa_anual),
-          })),
+          cdiRecords: (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) })),
           dataLimite: product.data_limite,
         });
-
         setRows(result);
       } catch (err) {
         console.error("Erro ao calcular:", err);
@@ -143,7 +126,89 @@ export default function CalculadoraPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, appliedVersion]);
 
-  const selectedProduct = products.find((p) => p.id === selectedId);
+  async function calculateCarteira() {
+    if (!user) return;
+    setLoading(true);
+    setRows([]);
+    try {
+      // Fetch carteira info
+      const { data: carteiraData } = await supabase
+        .from("controle_de_carteiras")
+        .select("data_inicio, data_calculo, data_limite, resgate_total")
+        .eq("nome_carteira", "Renda Fixa")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!carteiraData?.data_inicio || !carteiraData?.data_calculo) {
+        setCarteiraRows([]);
+        setLoading(false);
+        return;
+      }
+
+      const dataInicio = carteiraData.data_inicio;
+      const dataCalculo = carteiraData.data_calculo;
+
+      // Fetch RF products
+      const rfProducts = products.filter(p => p.categoria_nome === "Renda Fixa");
+      if (rfProducts.length === 0) { setCarteiraRows([]); setLoading(false); return; }
+
+      // Fetch calendar + CDI for portfolio period
+      const [calRes, cdiRes] = await Promise.all([
+        supabase.from("calendario_dias_uteis").select("data, dia_util")
+          .gte("data", getDateMinus(dataInicio, 5)).lte("data", dataCalculo).order("data"),
+        supabase.from("historico_cdi").select("data, taxa_anual")
+          .gte("data", getDateMinus(dataInicio, 5)).lte("data", dataCalculo).order("data"),
+      ]);
+
+      const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
+      const cdiRecords = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
+
+      // For each RF product, fetch movs and run individual engine
+      const productRowsPromises = rfProducts.map(async (product) => {
+        const dataFim = product.resgate_total || product.vencimento || dataCalculo;
+        const { data: movData } = await supabase
+          .from("movimentacoes")
+          .select("data, tipo_movimentacao, valor")
+          .eq("codigo_custodia", product.codigo_custodia)
+          .eq("user_id", user!.id)
+          .order("data");
+
+        return calcularRendaFixaDiario({
+          dataInicio: product.data_inicio,
+          dataCalculo: dataFim > dataCalculo ? dataCalculo : dataFim,
+          taxa: product.taxa || 0,
+          modalidade: product.modalidade || "",
+          puInicial: product.preco_unitario || 1000,
+          calendario,
+          movimentacoes: (movData || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
+          dataResgateTotal: product.resgate_total,
+          pagamento: product.pagamento,
+          vencimento: product.vencimento,
+          indexador: product.indexador,
+          cdiRecords,
+          dataLimite: product.data_limite,
+        });
+      });
+
+      const allProductRows = await Promise.all(productRowsPromises);
+
+      const result = calcularCarteiraRendaFixa({
+        productRows: allProductRows,
+        calendario,
+        dataInicio,
+        dataCalculo,
+      });
+
+      setCarteiraRows(result);
+    } catch (err) {
+      console.error("Erro ao calcular carteira RF:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const selectedProduct = selectedId !== CARTEIRA_RF_ID ? products.find((p) => p.id === selectedId) : null;
+  const isCarteira = selectedId === CARTEIRA_RF_ID;
 
   return (
     <div className="space-y-6">
@@ -158,6 +223,9 @@ export default function CalculadoraPage() {
             <SelectValue placeholder="Escolha um produto..." />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={CARTEIRA_RF_ID} className="font-semibold text-primary">
+              📊 Carteira Renda Fixa (Consolidado)
+            </SelectItem>
             {products.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.nome || p.produto_nome} — {p.categoria_nome}{" "}
@@ -180,18 +248,25 @@ export default function CalculadoraPage() {
         </div>
       )}
 
-      {loading && (
-        <p className="text-sm text-muted-foreground">Calculando...</p>
+      {isCarteira && !loading && (
+        <div className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Carteira Renda Fixa</span>{" "}
+          | Visão consolidada de todos os produtos de Renda Fixa
+        </div>
       )}
 
-      {!loading && rows.length > 0 && (
-        <CalculadoraTable rows={rows} />
+      {loading && <p className="text-sm text-muted-foreground">Calculando...</p>}
+
+      {!loading && !isCarteira && rows.length > 0 && <CalculadoraTable rows={rows} />}
+
+      {!loading && isCarteira && carteiraRows.length > 0 && <CalculadoraCarteiraTable rows={carteiraRows} />}
+
+      {!loading && selectedId && !isCarteira && rows.length === 0 && (
+        <p className="text-sm text-muted-foreground">Nenhum dado encontrado para o produto selecionado.</p>
       )}
 
-      {!loading && selectedId && rows.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          Nenhum dado encontrado para o produto selecionado.
-        </p>
+      {!loading && isCarteira && carteiraRows.length === 0 && (
+        <p className="text-sm text-muted-foreground">Nenhum dado encontrado para a Carteira de Renda Fixa.</p>
       )}
     </div>
   );
