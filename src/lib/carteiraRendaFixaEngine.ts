@@ -46,6 +46,8 @@ export interface CarteiraRFInput {
   dataInicio: string;
   /** Portfolio end date from controle_de_carteiras */
   dataCalculo: string;
+  /** Resgate total date from controle_de_carteiras (final day) */
+  resgateTotal?: string | null;
 }
 
 /**
