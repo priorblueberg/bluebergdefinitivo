@@ -783,17 +783,15 @@ export async function reprocessMovimentacoesForCodigo(
     let newQuantidade: number | null;
 
     if (isNoVencimento) {
-      // Pagamento "No Vencimento": uses Preço Unitário and QTD Aplicação / QTD Resgate
+      // Pagamento "No Vencimento": uses Preço Unitário
+      newPU = rowDia.precoUnitario;
       if (isAplicacao) {
-        newPU = rowDia.precoUnitario;
-        newQuantidade = rowDia.qtdAplicacaoPU > 0 ? rowDia.qtdAplicacaoPU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+        newQuantidade = newPU > 0 ? Number(mov.valor) / newPU : null;
       } else if (isResgateTotalMov) {
         // On resgate_total day: use QTD Resgate (2)
-        newPU = rowDia.precoUnitario;
         newQuantidade = rowDia.qtdResgate2 > 0 ? rowDia.qtdResgate2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
       } else {
-        newPU = rowDia.precoUnitario;
-        newQuantidade = rowDia.qtdResgatePU > 0 ? rowDia.qtdResgatePU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+        newQuantidade = newPU > 0 ? Number(mov.valor) / newPU : null;
       }
     } else {
       // Other pagamento types: uses PU Juros Periódicos and QTD Aplicação (2) / QTD Resgate (2)
