@@ -119,6 +119,9 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
 
     const { liquido: liquido1, aplicacoes, resgates, ganhoDiario, jurosPago } = agg;
 
+    // Detect final day (resgate_total)
+    const isFinalDay = !!resgateTotal && cal.data === resgateTotal;
+
     // Líquido (2) = Líquido (1) + Resgates
     const liquido2 = liquido1 + resgates;
 
@@ -137,8 +140,13 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
     // Saldo de Cotas (1) = Saldo de Cotas (2) - QTD Cotas Resgate
     const saldoCotas1 = saldoCotas2 - qtdCotasResgate;
 
-    // Valor da Cota (1) = Líquido (1) / Saldo de Cotas (1)
-    const valorCota1 = saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
+    // Valor da Cota (1): on final day use liquido2 (since liquido1 is 0)
+    let valorCota1: number;
+    if (isFinalDay && saldoCotas2 > 0) {
+      valorCota1 = liquido2 / saldoCotas2;
+    } else {
+      valorCota1 = saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
+    }
 
     // Rentabilidade acumulada
     rentAcumRS += ganhoDiario;
