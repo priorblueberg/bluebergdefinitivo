@@ -54,12 +54,9 @@ const CustomTooltipChart = ({ active, payload, label }: any) => {
 };
 
 /* ── helper: derive DetailRow[] from engine DailyRow[] + CDI records ── */
+import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 
 function calcFatorDiarioCdi(taxaAnual: number): number {
-  return Math.pow(taxaAnual / 100 + 1, 1 / 252) - 1;
-}
-
-function buildDetailRowsFromEngine(
   dailyRows: DailyRow[],
   cdiRecords: CdiRecord[],
   dataInicio: string,
