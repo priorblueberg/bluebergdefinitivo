@@ -1,29 +1,28 @@
 
 
-# Correção: Quantidade de resgate incorreta na movimentação
+# Correção: Valor do Resgate no Vencimento automático
 
-## Problema identificado
+## Problema
 
-Na função `reprocessMovimentacoesForCodigo` (syncEngine.ts, linha 754), o motor é chamado passando apenas as movimentações **anteriores** à movimentação atual:
+Na função `syncResgateNoVencimento` (syncEngine.ts, linha 214/218), o valor da movimentação automática de "Resgate no Vencimento" usa `lastRow.resgateLimpo` — que representa apenas o capital investido, sem juros.
 
-```text
-precedingMovs = manualMovs.filter((m, idx) => idx < i)
-```
-
-Isso significa que, ao processar um **Resgate**, o próprio resgate **não está incluído** nos dados enviados ao motor. Sem o resgate nos inputs, o motor calcula `qtdResgate2 = 0` (porque `resgatesTotal = 0`). O código então cai no fallback `mov.valor / puJurosPeriodicos`, que dá **1,7131831** — o valor errado.
-
-Na **Calculadora**, todas as movimentações (incluindo o resgate) são passadas ao motor, por isso `qtdResgate2` retorna corretamente **29,9043062**.
+O correto é usar `lastRow.resgates` — a coluna **Resgate** da calculadora, que inclui capital + juros acumulados.
 
 ## Solução
 
-Para movimentações de **resgate**, incluir a própria movimentação na lista enviada ao motor, para que ele calcule `qtdResgate2` (e `qtdResgatePU`) corretamente.
+**`src/lib/syncEngine.ts`** — função `syncResgateNoVencimento`, linhas 213-221:
 
-## Arquivo alterado
+Trocar `lastRow.resgateLimpo` por `lastRow.resgates` em ambos os branches (No Vencimento e periódico).
 
-**`src/lib/syncEngine.ts`** — função `reprocessMovimentacoesForCodigo`
+Antes:
+```
+valor = lastRow.resgateLimpo;
+```
 
-- Ao montar a lista de movimentações para o motor (`precedingMovs`), quando a movimentação atual for um resgate, incluir também a movimentação atual na lista (idx <= i em vez de idx < i).
-- Aplicações continuam usando apenas movimentações anteriores (idx < i), pois a lógica de `qtdAplicacaoPU` depende do PU do dia anterior.
+Depois:
+```
+valor = lastRow.resgates;
+```
 
-A mudança é mínima: apenas a condição do filtro na linha 755, condicionada ao tipo de movimentação.
+A mudança é em duas linhas (214 e 218). Tudo o mais (PU, quantidade, formatação) permanece igual.
 
