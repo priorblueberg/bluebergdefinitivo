@@ -750,9 +750,11 @@ export async function reprocessMovimentacoesForCodigo(
   for (let i = 0; i < manualMovs.length; i++) {
     const mov = manualMovs[i];
 
-    // Build movimentações list: all movements BEFORE this one
+    // Build movimentações list: for resgates include the current movement so
+    // the engine computes qtdResgate2 correctly; for aplicações use only preceding.
+    const isResgate = ["Resgate", "Resgate Parcial", "Resgate Total"].includes(mov.tipo_movimentacao);
     const precedingMovs = manualMovs
-      .filter((m, idx) => idx < i)
+      .filter((m, idx) => isResgate ? idx <= i : idx < i)
       .map((m) => ({
         data: m.data,
         tipo_movimentacao: m.tipo_movimentacao,
