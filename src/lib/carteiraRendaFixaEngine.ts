@@ -54,7 +54,7 @@ export interface CarteiraRFInput {
  * Aggregate individual product rows into a portfolio-level daily series.
  */
 export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow[] {
-  const { productRows, calendario, dataInicio, dataCalculo } = input;
+  const { productRows, calendario, dataInicio, dataCalculo, resgateTotal } = input;
   const PU_INICIAL = 1000;
 
   // Build per-date aggregation maps from all products
