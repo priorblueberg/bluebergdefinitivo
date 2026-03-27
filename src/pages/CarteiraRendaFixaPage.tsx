@@ -193,7 +193,7 @@ export default function CarteiraRendaFixaPage() {
         calendario,
         dataInicio,
         dataCalculo,
-        resgateTotal: carteiraInfo?.resgate_total,
+        resgateTotal: cartData.resgate_total,
       });
 
       setCarteiraRows(result);
