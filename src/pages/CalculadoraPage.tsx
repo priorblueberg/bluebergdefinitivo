@@ -130,6 +130,7 @@ export default function CalculadoraPage() {
             data: c.data,
             taxa_anual: Number(c.taxa_anual),
           })),
+          dataLimite: product.data_limite,
         });
 
         setRows(result);
