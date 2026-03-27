@@ -193,10 +193,22 @@ async function syncResgateNoVencimento(
     if (rows.length === 0) return;
 
     const lastRow = rows[rows.length - 1];
-    // Resgate no Vencimento: Valor = resgateLimpo, Qty = valorInvestido, PU = custodia.preco_unitario
-    const valor = lastRow.resgateLimpo;
-    const precoUnitario = custodiaRecord.preco_unitario || 1000;
-    const quantidade = lastRow.valorInvestido;
+    const isNoVencimento = custodiaRecord.pagamento === "No Vencimento";
+
+    // Resgate no Vencimento: PU and Qty depend on pagamento type
+    let valor: number;
+    let precoUnitario: number;
+    let quantidade: number;
+
+    if (isNoVencimento) {
+      valor = lastRow.resgateLimpo;
+      precoUnitario = lastRow.precoUnitario;
+      quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
+    } else {
+      valor = lastRow.resgateLimpo;
+      precoUnitario = lastRow.puJurosPeriodicos;
+      quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
+    }
 
     const movData = {
       user_id: userId,
