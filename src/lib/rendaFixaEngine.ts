@@ -47,23 +47,26 @@ export interface DailyRow {
   ganhoAcumulado: number;   // N: R$ Rentabilidade acumulada
   rentabilidadeAcumuladaPct: number; // O: % Rentabilidade acumulada
   // CDI Diário + P: Multiplicador
-  cdiDiario: number;        // CDI Diário = ((1 + CDI_anual/100)^(1/252) - 1), 8 decimais
+  cdiDiario: number;
   multiplicador: number;    // P
   // Q-T: Juros / Cupom
-  pagamentoJuros: number;   // T: Juros Pago (backward compat name = jurosPago)
-  apoioCupom: number;       // R: Apoio para o cupom automático
-  cupomAcumulado: number;   // S: Cupom Acumulado
-  jurosPago: number;        // T: Juros Pago
+  pagamentoJuros: number;
+  apoioCupom: number;       // R
+  cupomAcumulado: number;   // S
+  jurosPago: number;        // T
   // U-V: Capital tracking
-  valorInvestido: number;   // U: Valor Investido (cumulative apps - resgates manuais)
-  resgateLimpo: number;     // V: Resgate Limpo (manual resgates only)
-  // W-Z: Novas colunas PU
-  precoUnitario: number;    // W: Preço Unitário (PU da custódia, atualizado pelo multiplicador)
-  qtdAplicacaoPU: number;   // X: Quantidade Aplicação = Aplicações / Preço Unitário
-  qtdResgatePU: number;     // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
-  qtdJurosPU: number;       // Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros anterior
+  valorInvestido: number;   // U
+  resgateLimpo: number;     // V
+  // W-Y: PU columns
+  precoUnitario: number;    // W: Preço Unitário
+  qtdAplicacaoPU: number;   // X: QTD Aplicação
+  qtdResgatePU: number;     // Y: QTD Resgate
+  // New columns
+  puJurosPeriodicos: number;  // PU Juros Periódicos
+  qtdAplicacao2: number;      // QTD Aplicação (2) = Aplicações / PU Juros Periódicos
+  qtdResgate2: number;        // QTD Resgate (2)
   // Legacy (kept for consumers like AnaliseIndividualPage)
-  rentabilidadeDiaria: number | null; // cota-based daily return %
+  rentabilidadeDiaria: number | null;
 }
 
 export interface EngineInput {
