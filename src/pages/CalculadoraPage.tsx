@@ -28,6 +28,7 @@ interface CustodiaOption {
   pagamento: string | null;
   vencimento: string | null;
   indexador: string | null;
+  data_limite: string | null;
 }
 
 export default function CalculadoraPage() {
