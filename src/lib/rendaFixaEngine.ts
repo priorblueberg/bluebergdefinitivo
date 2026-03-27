@@ -543,7 +543,9 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     precoUnitario: cotaInicial,
     qtdAplicacaoPU: 0,
     qtdResgatePU: 0,
-    qtdJurosPU: 0,
+    puJurosPeriodicos: cotaInicial,
+    qtdAplicacao2: 0,
+    qtdResgate2: 0,
     rentabilidadeDiaria: null,
   };
 }
