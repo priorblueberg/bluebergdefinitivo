@@ -47,23 +47,26 @@ export interface DailyRow {
   ganhoAcumulado: number;   // N: R$ Rentabilidade acumulada
   rentabilidadeAcumuladaPct: number; // O: % Rentabilidade acumulada
   // CDI Diário + P: Multiplicador
-  cdiDiario: number;        // CDI Diário = ((1 + CDI_anual/100)^(1/252) - 1), 8 decimais
+  cdiDiario: number;
   multiplicador: number;    // P
   // Q-T: Juros / Cupom
-  pagamentoJuros: number;   // T: Juros Pago (backward compat name = jurosPago)
-  apoioCupom: number;       // R: Apoio para o cupom automático
-  cupomAcumulado: number;   // S: Cupom Acumulado
-  jurosPago: number;        // T: Juros Pago
+  pagamentoJuros: number;
+  apoioCupom: number;       // R
+  cupomAcumulado: number;   // S
+  jurosPago: number;        // T
   // U-V: Capital tracking
-  valorInvestido: number;   // U: Valor Investido (cumulative apps - resgates manuais)
-  resgateLimpo: number;     // V: Resgate Limpo (manual resgates only)
-  // W-Z: Novas colunas PU
-  precoUnitario: number;    // W: Preço Unitário (PU da custódia, atualizado pelo multiplicador)
-  qtdAplicacaoPU: number;   // X: Quantidade Aplicação = Aplicações / Preço Unitário
-  qtdResgatePU: number;     // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
-  qtdJurosPU: number;       // Z: QTD Juros = QTD Aplicação - QTD Resgate - QTD Juros anterior
+  valorInvestido: number;   // U
+  resgateLimpo: number;     // V
+  // W-Y: PU columns
+  precoUnitario: number;    // W: Preço Unitário
+  qtdAplicacaoPU: number;   // X: QTD Aplicação
+  qtdResgatePU: number;     // Y: QTD Resgate
+  // New columns
+  puJurosPeriodicos: number;  // PU Juros Periódicos
+  qtdAplicacao2: number;      // QTD Aplicação (2) = Aplicações / PU Juros Periódicos
+  qtdResgate2: number;        // QTD Resgate (2)
   // Legacy (kept for consumers like AnaliseIndividualPage)
-  rentabilidadeDiaria: number | null; // cota-based daily return %
+  rentabilidadeDiaria: number | null;
 }
 
 export interface EngineInput {
@@ -79,6 +82,7 @@ export interface EngineInput {
   vencimento?: string | null;
   indexador?: string | null;
   cdiRecords?: { data: string; taxa_anual: number }[];
+  dataLimite?: string | null;
 }
 
 // ── Pagamento de Juros Periódico ──
@@ -196,7 +200,7 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 // ── Main engine ──
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
@@ -238,7 +242,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   let valorInvestidoAcum = 0;
   let cupomAcumuladoAcum = 0;
   let prevPrecoUnitario = puInicial > 0 ? puInicial : 1000;
+  let prevPuJurosPeriodicos = puInicial > 0 ? puInicial : 1000;
   const puInicialCustodia = puInicial > 0 ? puInicial : 1000;
+  const effectiveDataLimite = dataLimite || vencimento || null;
 
   for (let i = startIdx; i < sorted.length; i++) {
     const cal = sorted[i];
@@ -430,16 +436,41 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // X: Quantidade Aplicação = Aplicações / Preço Unitário
     const qtdAplicacaoPU = precoUnitario > 0 && aplicacoes > 0 ? aplicacoes / precoUnitario : 0;
 
-    // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
-    // No vencimento: Resgate Limpo / PU inicial da custódia
-    const qtdResgatePU = isFinalDay
-      ? (puInicialCustodia > 0 && resgateLimpo > 0.01 ? resgateLimpo / puInicialCustodia : 0)
-      : (precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0);
+    // Y: Quantidade de Resgate
+    // No dia do resgate_total: (Resgate Limpo + R$ Rent. Acumulada) / Preço Unitário
+    // Caso contrário: Resgate Limpo / Preço Unitário
+    let qtdResgatePU: number;
+    if (isFinalDay) {
+      qtdResgatePU = precoUnitario > 0 && (resgateLimpo + rentAcumRS) > 0.01
+        ? (resgateLimpo + rentAcumRS) / precoUnitario : 0;
+    } else {
+      qtdResgatePU = precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0;
+    }
 
-    // Z: QTD Juros = QTD Aplicação - QTD Resgate + QTD Juros do dia anterior
-    // No vencimento: repete QTD Juros do dia anterior
-    const prevQtdJuros = rows.length > 0 ? rows[rows.length - 1].qtdJurosPU : 0;
-    const qtdJurosPU = isFinalDay ? prevQtdJuros : (qtdAplicacaoPU - qtdResgatePU + prevQtdJuros);
+    // PU Juros Periódicos
+    let puJurosPeriodicos: number;
+    if (isDataInicio) {
+      puJurosPeriodicos = puInicialCustodia;
+    } else if (!diaUtil) {
+      puJurosPeriodicos = prevPuJurosPeriodicos;
+    } else if (isPagamento && effectiveDataLimite && cal.data !== effectiveDataLimite) {
+      puJurosPeriodicos = puInicialCustodia;
+    } else {
+      puJurosPeriodicos = prevPuJurosPeriodicos * dailyMult + prevPuJurosPeriodicos;
+    }
+
+    // QTD Aplicação (2) = Aplicações / PU Juros Periódicos
+    const qtdAplicacao2 = puJurosPeriodicos > 0 && aplicacoes > 0 ? aplicacoes / puJurosPeriodicos : 0;
+
+    // QTD Resgate (2)
+    let qtdResgate2: number;
+    if (effectiveDataLimite && cal.data === effectiveDataLimite) {
+      qtdResgate2 = puJurosPeriodicos > 0 && resgatesTotal > 0.01 ? resgatesTotal / puJurosPeriodicos : 0;
+    } else if (isPagamento && resgateLimpo > 0.01) {
+      qtdResgate2 = puJurosPeriodicos > 0 ? resgateLimpo / puJurosPeriodicos : 0;
+    } else {
+      qtdResgate2 = puJurosPeriodicos > 0 && resgatesTotal > 0.01 ? resgatesTotal / puJurosPeriodicos : 0;
+    }
 
     rows.push({
       data: cal.data,
@@ -468,7 +499,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       precoUnitario,
       qtdAplicacaoPU,
       qtdResgatePU,
-      qtdJurosPU,
+      puJurosPeriodicos,
+      qtdAplicacao2,
+      qtdResgate2,
       rentabilidadeDiaria: rentDiaria,
     });
 
@@ -476,6 +509,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     prevSaldoCotas = saldoCotas1;
     prevValorCota = valorCota1;
     prevPrecoUnitario = precoUnitario;
+    prevPuJurosPeriodicos = puJurosPeriodicos;
   }
 
   return rows;
@@ -509,7 +543,9 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     precoUnitario: cotaInicial,
     qtdAplicacaoPU: 0,
     qtdResgatePU: 0,
-    qtdJurosPU: 0,
+    puJurosPeriodicos: cotaInicial,
+    qtdAplicacao2: 0,
+    qtdResgate2: 0,
     rentabilidadeDiaria: null,
   };
 }

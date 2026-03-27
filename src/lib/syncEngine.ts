@@ -102,8 +102,18 @@ async function syncManualResgatesTotais(
       if (!rowDia) continue;
 
       const valor = Math.max(rowDia.liquido, 0);
-      const precoUnitario = rowDia.valorCota2;
-      const quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+      const isNoVencimento = custodiaRecord.pagamento === "No Vencimento";
+
+      let precoUnitario: number;
+      let quantidade: number;
+
+      if (isNoVencimento) {
+        precoUnitario = rowDia.precoUnitario;
+        quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+      } else {
+        precoUnitario = rowDia.puJurosPeriodicos;
+        quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+      }
 
       await supabase
         .from("movimentacoes")
@@ -193,10 +203,22 @@ async function syncResgateNoVencimento(
     if (rows.length === 0) return;
 
     const lastRow = rows[rows.length - 1];
-    // Resgate no Vencimento: Valor = resgateLimpo, Qty = valorInvestido, PU = custodia.preco_unitario
-    const valor = lastRow.resgateLimpo;
-    const precoUnitario = custodiaRecord.preco_unitario || 1000;
-    const quantidade = lastRow.valorInvestido;
+    const isNoVencimento = custodiaRecord.pagamento === "No Vencimento";
+
+    // Resgate no Vencimento: PU and Qty depend on pagamento type
+    let valor: number;
+    let precoUnitario: number;
+    let quantidade: number;
+
+    if (isNoVencimento) {
+      valor = lastRow.resgateLimpo;
+      precoUnitario = lastRow.precoUnitario;
+      quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
+    } else {
+      valor = lastRow.resgateLimpo;
+      precoUnitario = lastRow.puJurosPeriodicos;
+      quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
+    }
 
     const movData = {
       user_id: userId,
@@ -754,18 +776,34 @@ export async function reprocessMovimentacoesForCodigo(
     if (!rowDia) continue;
 
     const isAplicacao = ["Aplicação", "Aplicação Inicial"].includes(mov.tipo_movimentacao);
+    const isNoVencimento = baseInfo.pagamento === "No Vencimento";
+    const isResgateTotalMov = ["Resgate Total", "Resgate no Vencimento"].includes(mov.tipo_movimentacao);
 
     let newPU: number;
     let newQuantidade: number | null;
 
-    if (isAplicacao) {
-      // Aplicação / Aplicação Inicial: PU = precoUnitario, Qty = qtdAplicacaoPU
-      newPU = rowDia.precoUnitario;
-      newQuantidade = rowDia.qtdAplicacaoPU > 0 ? rowDia.qtdAplicacaoPU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+    if (isNoVencimento) {
+      // Pagamento "No Vencimento": uses Preço Unitário and QTD Aplicação / QTD Resgate
+      if (isAplicacao) {
+        newPU = rowDia.precoUnitario;
+        newQuantidade = rowDia.qtdAplicacaoPU > 0 ? rowDia.qtdAplicacaoPU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+      } else if (isResgateTotalMov) {
+        // On resgate_total day: use QTD Resgate (2)
+        newPU = rowDia.precoUnitario;
+        newQuantidade = rowDia.qtdResgate2 > 0 ? rowDia.qtdResgate2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
+      } else {
+        newPU = rowDia.precoUnitario;
+        newQuantidade = rowDia.qtdResgatePU > 0 ? rowDia.qtdResgatePU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+      }
     } else {
-      // Resgate / Resgate Total / Resgate Parcial: PU = precoUnitario, Qty = qtdResgatePU
-      newPU = rowDia.precoUnitario;
-      newQuantidade = rowDia.qtdResgatePU > 0 ? rowDia.qtdResgatePU : (newPU > 0 ? Number(mov.valor) / newPU : null);
+      // Other pagamento types: uses PU Juros Periódicos and QTD Aplicação (2) / QTD Resgate (2)
+      if (isAplicacao) {
+        newPU = rowDia.puJurosPeriodicos;
+        newQuantidade = rowDia.qtdAplicacao2 > 0 ? rowDia.qtdAplicacao2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
+      } else {
+        newPU = rowDia.puJurosPeriodicos;
+        newQuantidade = rowDia.qtdResgate2 > 0 ? rowDia.qtdResgate2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
+      }
     }
 
     await supabase

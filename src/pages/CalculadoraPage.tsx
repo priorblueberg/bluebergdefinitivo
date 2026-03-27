@@ -28,6 +28,7 @@ interface CustodiaOption {
   pagamento: string | null;
   vencimento: string | null;
   indexador: string | null;
+  data_limite: string | null;
 }
 
 export default function CalculadoraPage() {
@@ -44,7 +45,7 @@ export default function CalculadoraPage() {
     (async () => {
       const { data } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, pagamento, vencimento, indexador, categorias(nome), produtos(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, categorias(nome), produtos(nome)")
         .eq("user_id", user.id);
 
       if (data) {
@@ -65,6 +66,7 @@ export default function CalculadoraPage() {
             pagamento: r.pagamento,
             vencimento: r.vencimento,
             indexador: r.indexador,
+            data_limite: r.data_limite,
           }))
         );
       }
@@ -128,6 +130,7 @@ export default function CalculadoraPage() {
             data: c.data,
             taxa_anual: Number(c.taxa_anual),
           })),
+          dataLimite: product.data_limite,
         });
 
         setRows(result);
