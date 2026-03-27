@@ -436,16 +436,41 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // X: Quantidade Aplicação = Aplicações / Preço Unitário
     const qtdAplicacaoPU = precoUnitario > 0 && aplicacoes > 0 ? aplicacoes / precoUnitario : 0;
 
-    // Y: Quantidade de Resgate = Resgate Limpo / Preço Unitário
-    // No vencimento: Resgate Limpo / PU inicial da custódia
-    const qtdResgatePU = isFinalDay
-      ? (puInicialCustodia > 0 && resgateLimpo > 0.01 ? resgateLimpo / puInicialCustodia : 0)
-      : (precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0);
+    // Y: Quantidade de Resgate
+    // No dia do resgate_total: (Resgate Limpo + R$ Rent. Acumulada) / Preço Unitário
+    // Caso contrário: Resgate Limpo / Preço Unitário
+    let qtdResgatePU: number;
+    if (isFinalDay) {
+      qtdResgatePU = precoUnitario > 0 && (resgateLimpo + rentAcumRS) > 0.01
+        ? (resgateLimpo + rentAcumRS) / precoUnitario : 0;
+    } else {
+      qtdResgatePU = precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0;
+    }
 
-    // Z: QTD Juros = QTD Aplicação - QTD Resgate + QTD Juros do dia anterior
-    // No vencimento: repete QTD Juros do dia anterior
-    const prevQtdJuros = rows.length > 0 ? rows[rows.length - 1].qtdJurosPU : 0;
-    const qtdJurosPU = isFinalDay ? prevQtdJuros : (qtdAplicacaoPU - qtdResgatePU + prevQtdJuros);
+    // PU Juros Periódicos
+    let puJurosPeriodicos: number;
+    if (isDataInicio) {
+      puJurosPeriodicos = puInicialCustodia;
+    } else if (!diaUtil) {
+      puJurosPeriodicos = prevPuJurosPeriodicos;
+    } else if (isPagamento && effectiveDataLimite && cal.data !== effectiveDataLimite) {
+      puJurosPeriodicos = puInicialCustodia;
+    } else {
+      puJurosPeriodicos = prevPuJurosPeriodicos * dailyMult + prevPuJurosPeriodicos;
+    }
+
+    // QTD Aplicação (2) = Aplicações / PU Juros Periódicos
+    const qtdAplicacao2 = puJurosPeriodicos > 0 && aplicacoes > 0 ? aplicacoes / puJurosPeriodicos : 0;
+
+    // QTD Resgate (2)
+    let qtdResgate2: number;
+    if (effectiveDataLimite && cal.data === effectiveDataLimite) {
+      qtdResgate2 = puJurosPeriodicos > 0 && resgatesTotal > 0.01 ? resgatesTotal / puJurosPeriodicos : 0;
+    } else if (isPagamento && resgateLimpo > 0.01) {
+      qtdResgate2 = puJurosPeriodicos > 0 ? resgateLimpo / puJurosPeriodicos : 0;
+    } else {
+      qtdResgate2 = puJurosPeriodicos > 0 && resgatesTotal > 0.01 ? resgatesTotal / puJurosPeriodicos : 0;
+    }
 
     rows.push({
       data: cal.data,
@@ -474,7 +499,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       precoUnitario,
       qtdAplicacaoPU,
       qtdResgatePU,
-      qtdJurosPU,
+      puJurosPeriodicos,
+      qtdAplicacao2,
+      qtdResgate2,
       rentabilidadeDiaria: rentDiaria,
     });
 
@@ -482,6 +509,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     prevSaldoCotas = saldoCotas1;
     prevValorCota = valorCota1;
     prevPrecoUnitario = precoUnitario;
+    prevPuJurosPeriodicos = puJurosPeriodicos;
   }
 
   return rows;
