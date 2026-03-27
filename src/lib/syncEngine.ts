@@ -102,8 +102,18 @@ async function syncManualResgatesTotais(
       if (!rowDia) continue;
 
       const valor = Math.max(rowDia.liquido, 0);
-      const precoUnitario = rowDia.valorCota2;
-      const quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+      const isNoVencimento = custodiaRecord.pagamento === "No Vencimento";
+
+      let precoUnitario: number;
+      let quantidade: number;
+
+      if (isNoVencimento) {
+        precoUnitario = rowDia.precoUnitario;
+        quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+      } else {
+        precoUnitario = rowDia.puJurosPeriodicos;
+        quantidade = precoUnitario > 0 ? valor / precoUnitario : 0;
+      }
 
       await supabase
         .from("movimentacoes")
