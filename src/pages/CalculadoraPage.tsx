@@ -197,6 +197,7 @@ export default function CalculadoraPage() {
         calendario,
         dataInicio,
         dataCalculo,
+        resgateTotal: carteiraData.resgate_total,
       });
 
       setCarteiraRows(result);
