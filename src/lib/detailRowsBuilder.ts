@@ -1,6 +1,6 @@
 /**
  * Shared utility to build DetailRow[] from engine rows + CDI records.
- * Used by both AnaliseIndividualPage and CarteiraRendaFixaPage.
+ * Used by AnaliseIndividualPage and CarteiraRendaFixaPage.
  */
 
 import { CdiRecord } from "./cdiCalculations";
