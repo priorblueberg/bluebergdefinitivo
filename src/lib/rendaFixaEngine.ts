@@ -71,6 +71,8 @@ export interface DailyRow {
   resgateExCupom: number;     // Resgate Ex Cupom
   // Legacy (kept for consumers like AnaliseIndividualPage)
   rentabilidadeDiaria: number | null;
+  // Rent. Acum. (2): compounding daily cota returns, immune to PU resets
+  rentabilidadeAcumulada2: number;
 }
 
 export interface EngineInput {
@@ -243,6 +245,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   let prevSaldoCotas = 0;
   let prevValorCota = cotaInicial;
   let rentAcumRS = 0;
+  let fatorAcum = 1;
   let valorInvestidoAcum = 0;
   let cupomAcumuladoAcum = 0;
   let prevPrecoUnitario = puInicial > 0 ? puInicial : 1000;
@@ -264,6 +267,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       prevLiquido = 0;
       prevSaldoCotas = 0;
       rentAcumRS = 0;
+      fatorAcum = 1;
       valorInvestidoAcum = 0;
       cupomAcumuladoAcum = 0;
       prevBaseEconomica = 0;
@@ -440,6 +444,11 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       ? valorCota1 / prevValorCota - 1
       : null;
 
+    // Rent. Acum. (2): compound daily cota returns
+    if (rentDiaria !== null) {
+      fatorAcum *= (1 + rentDiaria);
+    }
+
     // S: Cupom Acumulado
     cupomAcumuladoAcum += jurosPago;
 
@@ -519,6 +528,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       aplicacaoExCupom,
       resgateExCupom,
       rentabilidadeDiaria: rentDiaria,
+      rentabilidadeAcumulada2: fatorAcum - 1,
     });
 
     prevLiquido = liquido1;
@@ -567,5 +577,6 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     aplicacaoExCupom: 0,
     resgateExCupom: 0,
     rentabilidadeDiaria: null,
+    rentabilidadeAcumulada2: 0,
   };
 }
