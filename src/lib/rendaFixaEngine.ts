@@ -347,7 +347,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     if (isFinalDay && pagamento !== "No Vencimento") {
       jurosPago = apoioCupom - tempBaseEconomica;
     } else if (isPagamento) {
-      jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
+      jurosPago = apoioCupom - tempBaseEconomica;
     } else {
       jurosPago = 0;
     }
