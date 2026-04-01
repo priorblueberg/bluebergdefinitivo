@@ -1,25 +1,37 @@
 
 
-# Nova coluna "Rent. Acum. (2)" na Calculadora
+# Fix: Juros Pago zerado quando há Resgate no mesmo dia de pagamento
 
-## Contexto
+## Problema
 
-A coluna atual "% Rent. Acumulada" é baseada no Valor da Cota (1), que por sua vez depende do PU do papel. Em dias de pagamento de juros o PU reseta para o valor de emissão, o que pode distorcer a leitura da rentabilidade acumulada.
+No dia 29/02/2024 (último dia útil antes do dia 30, data de corte mensal), a coluna "Pgto Juros" não mostra "Sim" apesar de ser um dia de pagamento periódico.
 
-A nova coluna "Rent. Acum. (2)" calcula a rentabilidade acumulada compondo os retornos diários da cota, independente do PU. Fórmula: encadear `(1 + rentDiária%)` dia a dia, onde `rentDiária% = valorCota1[hoje] / valorCota1[ontem] - 1`.
+A causa raiz está na linha 350 de `src/lib/rendaFixaEngine.ts`:
 
-## Alterações
+```typescript
+jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
+```
 
-### 1. `src/lib/rendaFixaEngine.ts`
+No dia 29/02 há um Resgate de R$ 30.000 e o juros acumulado no período é ~R$ 1.700. A subtração do `resgateLimpo` (30.000) torna o resultado negativo (-28.300), que é clampeado para zero. Por isso "Pgto Juros" não mostra "Sim".
 
-- Adicionar `rentabilidadeAcumulada2: number` à interface `DailyRow`
-- No loop de cálculo, manter um fator acumulado: `fatorAcum *= (1 + rentDiaria)` em dias úteis com retorno válido
-- `rentabilidadeAcumulada2 = fatorAcum - 1`
-- Incluir no `rows.push(...)` e no `makeZeroRow()`
-- **Zero impacto** nas colunas existentes — apenas leitura de `rentDiaria` que já é calculado
+Os outros dias funcionam porque:
+- 30/01: sem resgate (resgateLimpo = 0)
+- 28/03: sem movimentação (resgateLimpo = 0)
+- 30/04: usa a branch `isFinalDay`, que não subtrai resgateLimpo
 
-### 2. `src/components/CalculadoraTable.tsx`
+## Correção
 
-- Adicionar coluna "Rent. Acum. (2)" após a última coluna (Resgate Ex Cupom)
-- Formato: percentual com 2 casas decimais, mesmo estilo das demais colunas de rentabilidade
+**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 350
+
+O `resgateLimpo` é uma saída de capital, não de juros. O juros periódico deve ser calculado independentemente do resgate de capital.
+
+```typescript
+// Antes:
+jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
+
+// Depois:
+jurosPago = apoioCupom - tempBaseEconomica;
+```
+
+Uma única alteração. Nenhuma outra coluna será modificada.
 

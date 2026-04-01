@@ -47,7 +47,6 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Base Econômica</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Aplicação Ex Cupom</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Resgate Ex Cupom</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-blue-50 dark:bg-blue-950">Rent. Acum. (2)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -122,11 +121,6 @@ export default function CalculadoraTable({ rows }: Props) {
               </TableCell>
               <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
                 {r.resgateExCupom > 0.01 ? fmtCurrency(r.resgateExCupom) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
-                {Math.abs(r.rentabilidadeAcumulada2) > 0.00001
-                  ? `${(r.rentabilidadeAcumulada2 * 100).toFixed(2)}%`
-                  : "—"}
               </TableCell>
             </TableRow>
           ))}
