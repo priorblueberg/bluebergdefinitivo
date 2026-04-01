@@ -63,13 +63,17 @@ export function buildDetailRowsFromEngine(
   let ganhoDiarioMes = 0;
   let ganhoDiarioAno = 0;
   let ganhoDiarioAcum = 0;
+  let prevRowLiquido = 0;
 
   for (let idx = 0; idx < dailyRows.length; idx++) {
     const row = dailyRows[idx];
     const rowJurosPago = row.jurosPago ?? 0;
     const totalOutflow = row.resgates + rowJurosPago;
     const isVencimentoDay = idx === dailyRows.length - 1 && row.liquido === 0 && totalOutflow > 0;
-    if (row.saldoCotas === 0 && row.liquido === 0 && !isVencimentoDay) continue;
+    if (row.saldoCotas === 0 && row.liquido === 0 && !isVencimentoDay) {
+      prevRowLiquido = row.liquido;
+      continue;
+    }
 
     const dt = new Date(row.data + "T00:00:00");
     const m = dt.getMonth();
@@ -116,13 +120,22 @@ export function buildDetailRowsFromEngine(
     ganhoDiarioAno += row.ganhoDiario;
     ganhoDiarioAcum += row.ganhoDiario;
 
-    const dailyRent = useRentAcum2
-      ? (row.diaUtil ? (row.rentDiariaPct ?? 0) : 0)
-      : (row.rentabilidadeDiaria ?? 0);
+    let dailyRent: number;
+    if (useRentAcum2) {
+      if (row.diaUtil && prevRowLiquido > 0.01) {
+        dailyRent = row.ganhoDiario / (prevRowLiquido + row.aplicacoes);
+      } else {
+        dailyRent = 0;
+      }
+    } else {
+      dailyRent = row.rentabilidadeDiaria ?? 0;
+    }
     if (dailyRent !== 0) {
       rentFatorMensal *= 1 + dailyRent;
       rentFatorAnual *= 1 + dailyRent;
     }
+
+    prevRowLiquido = row.liquido;
 
     const cdiRec = cdiMap.get(row.data);
     if (cdiRec && row.diaUtil) {
