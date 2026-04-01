@@ -145,9 +145,44 @@ export function buildDetailRowsFromEngine(
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
     ganhoMensalMonthly.get(y)!.set(m, parseFloat(ganhoDiarioMes.toFixed(2)));
 
+    // Track engine's rentAcumulada2 per month (last value wins)
+    if (useRentAcum2 && row.rentAcumulada2 != null) {
+      if (!rentAcum2Monthly.has(y)) rentAcum2Monthly.set(y, new Map());
+      rentAcum2Monthly.get(y)!.set(m, row.rentAcumulada2);
+    }
+
     ganhoAnualMap.set(y, parseFloat(ganhoDiarioAno.toFixed(2)));
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
+  }
+
+  // Override monthly/annual rents using engine's rentAcumulada2 for useRentAcum2
+  if (useRentAcum2) {
+    const allMonths: { y: number; m: number; acum2: number }[] = [];
+    for (const [yr, mMap] of rentAcum2Monthly) {
+      for (const [mo, acum2] of mMap) {
+        allMonths.push({ y: yr, m: mo, acum2 });
+      }
+    }
+    allMonths.sort((a, b) => a.y !== b.y ? a.y - b.y : a.m - b.m);
+
+    let prevAcum2 = 0;
+    let prevYearEndAcum2 = 0;
+    let curYear = -1;
+
+    for (const item of allMonths) {
+      if (item.y !== curYear) {
+        prevYearEndAcum2 = prevAcum2;
+        curYear = item.y;
+      }
+      const monthRent = ((1 + item.acum2) / (1 + prevAcum2) - 1) * 100;
+      rentMonthly.get(item.y)!.set(item.m, monthRent);
+
+      const yearRent = ((1 + item.acum2) / (1 + prevYearEndAcum2) - 1) * 100;
+      rentYearly.set(item.y, yearRent);
+
+      prevAcum2 = item.acum2;
+    }
   }
 
   const years = Array.from(new Set([...rentMonthly.keys(), ...cdiMonthly.keys()])).sort();
