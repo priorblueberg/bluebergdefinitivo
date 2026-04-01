@@ -1,37 +1,33 @@
 
 
-# Fix: Juros Pago zerado quando há Resgate no mesmo dia de pagamento
+# Correção: Linha "Rentabilidade" na Tabela de Rentabilidade
 
-## Problema
+## Análise
 
-No dia 29/02/2024 (último dia útil antes do dia 30, data de corte mensal), a coluna "Pgto Juros" não mostra "Sim" apesar de ser um dia de pagamento periódico.
-
-A causa raiz está na linha 350 de `src/lib/rendaFixaEngine.ts`:
+O código em `src/lib/detailRowsBuilder.ts` já implementa a lógica condicional correta (linhas 36, 119-125):
 
 ```typescript
-jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
+const useRentAcum2 = pagamento != null && pagamento !== "No Vencimento";
+// ...
+const dailyRent = useRentAcum2
+  ? (row.rentDiariaPct ?? 0)       // Rent. Acum (2) logic
+  : (row.rentabilidadeDiaria ?? 0); // % Rent. Acumulada logic
+rentFatorMensal *= 1 + dailyRent;
+rentFatorAnual *= 1 + dailyRent;
 ```
 
-No dia 29/02 há um Resgate de R$ 30.000 e o juros acumulado no período é ~R$ 1.700. A subtração do `resgateLimpo` (30.000) torna o resultado negativo (-28.300), que é clampeado para zero. Por isso "Pgto Juros" não mostra "Sim".
+A composição mensal e anual já é feita corretamente via fatores multiplicativos.
 
-Os outros dias funcionam porque:
-- 30/01: sem resgate (resgateLimpo = 0)
-- 28/03: sem movimentação (resgateLimpo = 0)
-- 30/04: usa a branch `isFinalDay`, que não subtrai resgateLimpo
+## Problema real
 
-## Correção
+O erro de build anterior (HTTP 429 — rate limiting do npm registry) impediu a compilação. Não é um erro de código. A lógica já está correta conforme solicitado:
 
-**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 350
+- **"No Vencimento"**: usa `rentabilidadeDiaria` (coluna "% Rent. Acumulada") para compor mensal/anual
+- **Pagamento diferente**: usa `rentDiariaPct` (coluna "Rent. Acum (2)") para compor mensal/anual
 
-O `resgateLimpo` é uma saída de capital, não de juros. O juros periódico deve ser calculado independentemente do resgate de capital.
+## Plano
 
-```typescript
-// Antes:
-jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
+Nenhuma alteração de código é necessária. Apenas re-executar o build para resolver o erro transitório de rate limiting do npm.
 
-// Depois:
-jurosPago = apoioCupom - tempBaseEconomica;
-```
-
-Uma única alteração. Nenhuma outra coluna será modificada.
+Se houver algum valor específico na tabela que está incorreto, por favor indique o título, mês e o valor esperado vs. exibido para que eu possa investigar a causa raiz.
 
