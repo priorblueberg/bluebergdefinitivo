@@ -1,5 +1,5 @@
 /**
- * Shared utility to build DetailRow[] from engine rows + CDI records.
+ * Shared utility – builds DetailRow[] from engine rows + CDI records.
  * Used by AnaliseIndividualPage and CarteiraRendaFixaPage.
  */
 
