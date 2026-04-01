@@ -135,7 +135,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
     const valorCota2 = saldoCotas2 > 0 ? liquido2 / saldoCotas2 : prevValorCota;
 
     // QTD Cotas Resgate = Resgates / Valor da Cota (2)
-    const qtdCotasResgate = resgates > 0 && valorCota2 > 0 ? resgates / valorCota2 : 0;
+    const qtdCotasResgate = (resgates + jurosPago) > 0 && valorCota2 > 0 ? (resgates + jurosPago) / valorCota2 : 0;
 
     // Saldo de Cotas (1) = Saldo de Cotas (2) - QTD Cotas Resgate
     const saldoCotas1 = saldoCotas2 - qtdCotasResgate;
