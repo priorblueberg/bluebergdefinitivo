@@ -106,9 +106,12 @@ export function buildDetailRowsFromEngine(
     aplicacoesAno += row.aplicacoes;
     resgatesAno += totalOutflow;
 
-    if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
-      rentFatorMensal *= 1 + row.rentabilidadeDiaria;
-      rentFatorAnual *= 1 + row.rentabilidadeDiaria;
+    const dailyRent = useRentAcum2
+      ? (row.rentDiariaPct ?? 0)
+      : (row.rentabilidadeDiaria ?? 0);
+    if (dailyRent !== 0) {
+      rentFatorMensal *= 1 + dailyRent;
+      rentFatorAnual *= 1 + dailyRent;
     }
 
     const cdiRec = cdiMap.get(row.data);
