@@ -253,6 +253,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   const puInicialCustodia = puInicial > 0 ? puInicial : 1000;
   const effectiveDataLimite = dataLimite || vencimento || null;
   let prevBaseEconomica = 0;
+  let prevRentDiariaPct = 0;
+  let prevRentAcumulada2 = 0;
 
   for (let i = startIdx; i < sorted.length; i++) {
     const cal = sorted[i];
