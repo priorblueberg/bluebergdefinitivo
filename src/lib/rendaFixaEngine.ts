@@ -266,6 +266,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       prevLiquido = 0;
       prevSaldoCotas = 0;
       rentAcumRS = 0;
+      fatorAcum = 1;
       valorInvestidoAcum = 0;
       cupomAcumuladoAcum = 0;
       prevBaseEconomica = 0;
