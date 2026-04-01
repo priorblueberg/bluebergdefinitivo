@@ -1,37 +1,15 @@
 
 
-# Fix: Saldo de Cotas (1) não deve subtrair cotas de juros
+# Remover 4 colunas da tabela Calculadora
 
-## Problema
+## Alteração
 
-No dia 30/01/2024 (pagamento de juros), o `saldoCotas1` está 168,55 mas deveria ser 169,63.
+Remover as seguintes colunas do componente `src/components/CalculadoraTable.tsx`:
 
-A causa: `qtdCotasResgate` inclui as cotas correspondentes ao `jurosPago`, e depois `saldoCotas1 = saldoCotas2 - qtdCotasResgate` subtrai essas cotas indevidamente.
+1. **PU Juros Periódicos** — header e célula
+2. **QTD Aplicação (2)** — header e célula
+3. **QTD Resgate (2)** — header e célula
+4. **CDI Diário** — header e célula
 
-```text
-saldoCotas2 = 120,04 + 49,58 = 169,63  ✓
-qtdCotasResgate = (resgates + jurosPago) / valorCota2 = inclui ~1,08 cotas de juros
-saldoCotas1 = 169,63 - 1,08 = 168,55  ✗ (deveria ser 169,63)
-```
-
-## Correção — `src/lib/rendaFixaEngine.ts`
-
-**Linha 402-404**: `qtdCotasResgate` deve usar apenas o resgate de capital, não o juros:
-
-```typescript
-// ANTES:
-const totalOutflow = resgatesTotal + jurosPago;
-const qtdCotasResgate = totalOutflow > 0 && valorCota2 > 0 ? totalOutflow / valorCota2 : 0;
-
-// DEPOIS:
-const qtdCotasResgate = resgatesTotal > 0 && valorCota2 > 0 ? resgatesTotal / valorCota2 : 0;
-```
-
-Juros saem do patrimônio (afetam `liquido1`) mas **não** consomem cotas — são rendimento distribuído, não resgate de capital.
-
-## Impacto
-
-- Títulos "No Vencimento": zero impacto (`jurosPago = 0`, fórmula idêntica)
-- Dia final (resgate total): zero impacto (`saldoCotas1 = 0` por definição)
-- `liquido2` já é correto: `liquido1 + resgatesTotal + jurosPago` permanece inalterado
+Apenas remoção de `<TableHead>` e `<TableCell>` correspondentes. Nenhuma alteração no engine ou em outros componentes.
 
