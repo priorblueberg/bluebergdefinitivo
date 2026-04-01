@@ -1,67 +1,62 @@
 
 
-# Correções: Card Rentabilidade + Tabela Rentabilidade
+# Correção: Rentabilidade mensal 0,94% → 0,92% para títulos com juros periódicos
 
-## Problema 1: Card Rentabilidade — formatação diferente por tipo de pagamento
+## Diagnóstico
 
-O card usa `parseFloat((rawPct * 100).toFixed(2))` para ambos os tipos, mas:
-- **"No Vencimento"** (título 101): deve **arredondar** → `toFixed(2)` → 3,73% ✓
-- **Pagamento periódico** (título 100): deve **truncar** → 3,7391% → 3,73%
+A diferença de 0,02% ocorre porque as duas metodologias tratam o dia de aplicação de forma diferente:
 
-A regra deve ser aplicada ao valor numérico antes de chegar ao card, para que `fmtPctCard` apenas formate o que receber.
+- **Título 101 (No Vencimento)** usa `rentabilidadeDiaria` (baseada em cotas). No dia de uma aplicação, o retorno é **diluído** porque o dinheiro novo entra ao preço da cota corrente mas não rendeu no dia. Exemplo: no dia 05/01 (aplicação de R$ 50.000), o retorno diário é `mult × prevLiquido / (prevLiquido + 50.000)` ≈ 67% do retorno normal. Resultado: JAN = 0,92%.
 
-**Arquivo**: `src/pages/AnaliseIndividualPage.tsx` (~linha 307)
+- **Título 100 (Mensal)** usa `rentDiariaPct = ganhoDiario / prevLiq2`. Nesta fórmula, o denominador (`prevLiq2` = Líquido(2) do dia anterior) **não inclui a aplicação do dia**, então o retorno não é diluído — é sempre ≈ `mult` (retorno cheio). Resultado: JAN = 0,94%.
 
-```typescript
-// Atual (arredonda para ambos):
-rentValue = parseFloat((rawPct * 100).toFixed(2));
+Adicionalmente, no dia seguinte a um resgate, `prevLiq2` inclui o valor resgatado (é o patrimônio bruto antes do resgate), enquanto `prevLiquido` não. Isso causa `rentDiariaPct < mult` no dia seguinte ao resgate, diferente do sistema de cotas que retorna `mult`.
 
-// Corrigido:
-if (useRentAcum2) {
-  // Truncar: 3.7391 → 3.73
-  rentValue = Math.floor(rawPct * 10000) / 100;
-} else {
-  // Arredondar: 3.729... → 3.73
-  rentValue = parseFloat((rawPct * 100).toFixed(2));
-}
+## Solução
+
+Recalcular o retorno diário no `detailRowsBuilder` usando os componentes brutos em vez de `rentDiariaPct`:
+
+```
+dailyRent = ganhoDiario / (prevLiquido + aplicações_do_dia)
 ```
 
-## Problema 2: Tabela Rentabilidade — rentabilidade mensal inflada para títulos com juros
+Esta fórmula:
+- **Dias normais**: `prevLiq × mult / prevLiq = mult` ✓
+- **Dias de aplicação**: `prevLiq × mult / (prevLiq + A)` = retorno diluído (igual ao sistema de cotas) ✓
+- **Dias de resgate**: `prevLiq × mult / prevLiq = mult` ✓ (resgates não afetam o denominador)
+- **Dia após resgate**: `postResgate × mult / postResgate = mult` ✓ (corrige o bug do prevLiq2)
+- **Dia de pagamento de juros**: juros se cancela no `ganhoDiario` → `mult` ✓ (neutraliza cupom)
+- **Dia após pagamento de juros**: patrimônio reduzido mas o retorno ainda é `mult` ✓
+- **Dias não úteis**: `diaUtil` check mantém retorno = 0 ✓
 
-**Causa raiz**: Em dias não úteis, o engine repete o `rentDiariaPct` anterior (valor não-zero). O `detailRowsBuilder` compõe esse valor repetido, contando a rentabilidade diária múltiplas vezes (sábados, domingos, feriados).
+## Alteração
 
-Para `rentabilidadeDiaria` (cota-based, "No Vencimento") isso não acontece porque `valorCota1/prevValorCota - 1 = 0` em dias não úteis.
+**Arquivo**: `src/lib/detailRowsBuilder.ts`
 
-Resultado: título 100 mostra JAN=1,29% em vez de ~0,92%.
-
-**Correção**: Quando `useRentAcum2 = true`, só compor `rentDiariaPct` em dias úteis.
-
-**Arquivo**: `src/lib/detailRowsBuilder.ts` (~linha 119)
+Substituir o uso direto de `row.rentDiariaPct` por uma computação local:
 
 ```typescript
-// Atual:
-const dailyRent = useRentAcum2
-  ? (row.rentDiariaPct ?? 0)
-  : (row.rentabilidadeDiaria ?? 0);
-if (dailyRent !== 0) {
-  rentFatorMensal *= 1 + dailyRent;
-  rentFatorAnual *= 1 + dailyRent;
-}
-
-// Corrigido:
+// Antes:
 const dailyRent = useRentAcum2
   ? (row.diaUtil ? (row.rentDiariaPct ?? 0) : 0)
   : (row.rentabilidadeDiaria ?? 0);
-if (dailyRent !== 0) {
-  rentFatorMensal *= 1 + dailyRent;
-  rentFatorAnual *= 1 + dailyRent;
+
+// Depois:
+let dailyRent: number;
+if (useRentAcum2) {
+  if (row.diaUtil && prevRowLiquido > 0.01) {
+    dailyRent = row.ganhoDiario / (prevRowLiquido + row.aplicacoes);
+  } else {
+    dailyRent = 0;
+  }
+} else {
+  dailyRent = row.rentabilidadeDiaria ?? 0;
 }
 ```
 
-## Resumo
+Adicionar variável `prevRowLiquido` ao loop, inicializada em 0 e atualizada com `row.liquido` ao final de cada iteração (incluindo antes do `continue` no skip de linhas zeradas).
 
 | Arquivo | Alteração |
 |---|---|
-| `src/pages/AnaliseIndividualPage.tsx` | Card Rentabilidade: truncar para pagamento periódico, arredondar para "No Vencimento" |
-| `src/lib/detailRowsBuilder.ts` | Tabela: só compor `rentDiariaPct` em dias úteis para evitar contagem dupla |
+| `src/lib/detailRowsBuilder.ts` | Recalcular retorno diário com `ganhoDiario / (prevLiquido + aplicações)` em vez de usar `rentDiariaPct` |
 
