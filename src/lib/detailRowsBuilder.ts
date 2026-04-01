@@ -32,6 +32,9 @@ export function buildDetailRowsFromEngine(
 ): DetailRow[] {
   if (dailyRows.length === 0) return [];
 
+  // Determine which daily rent field to use
+  const useRentAcum2 = pagamento != null && pagamento !== "No Vencimento";
+
   const cdiMap = new Map<string, CdiRecord>();
   cdiRecords.forEach(r => cdiMap.set(r.data, r));
 
