@@ -112,6 +112,9 @@ export function buildDetailRowsFromEngine(
     resgatesMes += totalOutflow;
     aplicacoesAno += row.aplicacoes;
     resgatesAno += totalOutflow;
+    ganhoDiarioMes += row.ganhoDiario;
+    ganhoDiarioAno += row.ganhoDiario;
+    ganhoDiarioAcum += row.ganhoDiario;
 
     const dailyRent = useRentAcum2
       ? (row.rentDiariaPct ?? 0)
@@ -138,9 +141,9 @@ export function buildDetailRowsFromEngine(
     patrimonioMonthly.get(y)!.set(m, row.liquido);
 
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
+    ganhoMensalMonthly.get(y)!.set(m, parseFloat(ganhoDiarioMes.toFixed(2)));
 
-    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno - aplicacoesAno + resgatesAno);
+    ganhoAnualMap.set(y, parseFloat(ganhoDiarioAno.toFixed(2)));
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
