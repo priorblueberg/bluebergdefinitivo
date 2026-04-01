@@ -18,6 +18,7 @@ interface EngineRowLike {
   ganhoDiario: number;
   rentabilidadeDiaria: number | null;
   rentDiariaPct?: number;
+  rentAcumulada2?: number;
 }
 
 function calcFatorDiarioCdi(taxaAnual: number): number {
