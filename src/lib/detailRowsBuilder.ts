@@ -60,6 +60,9 @@ export function buildDetailRowsFromEngine(
   let resgatesMes = 0;
   let aplicacoesAno = 0;
   let resgatesAno = 0;
+  let ganhoDiarioMes = 0;
+  let ganhoDiarioAno = 0;
+  let ganhoDiarioAcum = 0;
 
   for (let idx = 0; idx < dailyRows.length; idx++) {
     const row = dailyRows[idx];
