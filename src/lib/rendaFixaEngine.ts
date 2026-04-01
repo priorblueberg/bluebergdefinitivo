@@ -249,12 +249,11 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   let prevPuJurosPeriodicos = puInicial > 0 ? puInicial : 1000;
   const puInicialCustodia = puInicial > 0 ? puInicial : 1000;
   const effectiveDataLimite = dataLimite || vencimento || null;
+  let prevBaseEconomica = 0;
 
   for (let i = startIdx; i < sorted.length; i++) {
     const cal = sorted[i];
-    // Stop after effective end date
     if (cal.data > effectiveEnd) break;
-    // Also stop after endDate (calendar range limit)
     if (cal.data > endDate) break;
 
     const isInitialDay = dayBefore ? cal.data === dayBefore : false;
@@ -267,6 +266,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       rentAcumRS = 0;
       valorInvestidoAcum = 0;
       cupomAcumuladoAcum = 0;
+      prevBaseEconomica = 0;
       continue;
     }
 
@@ -277,12 +277,12 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
     const diaUtil = cal.dia_util;
 
-    // CDI Diário: lookup CDI for this date
+    // CDI Diário
     const cdiAnual = cdiMap.get(cal.data) ?? 0;
     const prevCdiDiarioVal = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
     const cdiDiarioVal = diaUtil && cdiAnual > 0 ? parseFloat(calcCdiDiario(cdiAnual).toFixed(8)) : prevCdiDiarioVal;
 
-    // Pós Fixado CDI: multiplicador = CDI diário do dia anterior * taxa (%)
+    // Multiplicador
     let dailyMult: number;
     if (isPosFixadoCDI) {
       const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
@@ -295,7 +295,6 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const aplicacoes = mov.aplicacoes;
     const manualResgates = mov.resgates;
 
-    // P: Multiplicador
     const multiplicadorDia = dailyMult;
 
     // R: Apoio para o cupom automático
@@ -303,12 +302,10 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     if (isDataInicio) {
       apoioCupom = aplicacoes;
     } else {
-      // On business days: prevLiquido * (1 + mult) + apps
-      // On non-business days: prevLiquido (since mult=0, same formula works)
       apoioCupom = prevLiquido * (1 + dailyMult) + aplicacoes;
     }
 
-    // U: Valor Investido (running cumulative of apps - manual resgates)
+    // U: Valor Investido
     valorInvestidoAcum += aplicacoes - manualResgates;
     const valorInvestido = valorInvestidoAcum;
 
@@ -323,38 +320,55 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // Q: Is this a payment date?
     const isPagamento = datasPagamento.has(cal.data);
 
-    // T: Juros Pago
-    // "No Vencimento" titles should NOT compute juros on the final day
+    // W: Preço Unitário — compute BEFORE jurosPago
+    let precoUnitario: number;
+    if (isDataInicio) {
+      precoUnitario = puInicialCustodia;
+    } else if (!diaUtil) {
+      precoUnitario = prevPrecoUnitario;
+    } else if (isPagamento) {
+      // Reset to initial PU on payment days
+      precoUnitario = puInicialCustodia;
+    } else {
+      precoUnitario = prevPrecoUnitario * rawMultiplicador + prevPrecoUnitario;
+    }
+
+    // X: Quantidade Aplicação = Aplicações / Preço Unitário
+    const qtdAplicacaoPU = precoUnitario > 0 && aplicacoes > 0 ? aplicacoes / precoUnitario : 0;
+
+    // Aplicação Ex Cupom = qtdAplicacaoPU * puInicialCustodia
+    const aplicacaoExCupom = qtdAplicacaoPU * puInicialCustodia;
+
+    // Temp Base Econômica (before resgate ex cupom)
+    const tempBaseEconomica = prevBaseEconomica + aplicacaoExCupom;
+
+    // T: Juros Pago — now uses baseEconômica instead of valorInvestido
     let jurosPago: number;
     if (isFinalDay && pagamento !== "No Vencimento") {
-      jurosPago = apoioCupom - valorInvestido;
+      jurosPago = apoioCupom - tempBaseEconomica;
     } else if (isPagamento) {
-      jurosPago = apoioCupom - valorInvestido - resgateLimpo;
+      jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
     } else {
       jurosPago = 0;
     }
     if (jurosPago < 0) jurosPago = 0;
 
-    // K: Resgate total
+    // K: Resgate (capital only, excludes juros)
     let resgatesTotal: number;
     if (isFinalDay) {
-      // Auto resgate (vencimento ou resgate total antecipado): full patrimônio
-      resgatesTotal = prevLiquido * (1 + dailyMult);
+      // Full patrimônio minus juros (juros is separate outflow)
+      resgatesTotal = prevLiquido * (1 + dailyMult) - jurosPago;
     } else {
-      resgatesTotal = resgateLimpo + jurosPago;
+      resgatesTotal = resgateLimpo; // capital only
     }
 
-    // E: Líquido (1)
+    // E: Líquido (1) — subtract both resgates and jurosPago
     let liquido1: number;
     if (isDataInicio) {
       liquido1 = aplicacoes;
-    } else if (isVencimentoDay) {
-      // On vencimento: patrimônio after yield minus auto-resgate = 0
-      liquido1 = prevLiquido * (1 + dailyMult) + aplicacoes - resgatesTotal;
     } else {
-      liquido1 = prevLiquido * (1 + dailyMult) + aplicacoes - resgatesTotal;
+      liquido1 = prevLiquido * (1 + dailyMult) + aplicacoes - resgatesTotal - jurosPago;
     }
-    // Force to 0 if negligible
     if (Math.abs(liquido1) < 0.01) liquido1 = 0;
 
     // J: QTD Cotas Compra
@@ -363,19 +377,19 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // G: Saldo de Cotas (2)
     let saldoCotas2: number;
     if (isFinalDay) {
-      saldoCotas2 = prevSaldoCotas; // carry previous on final day
+      saldoCotas2 = prevSaldoCotas;
     } else if (liquido1 === 0 && aplicacoes === 0) {
       saldoCotas2 = 0;
     } else {
       saldoCotas2 = prevSaldoCotas + qtdCotasCompra;
     }
 
-    // H: Líquido (2)
+    // H: Líquido (2) = Líquido (1) + Resgates (capital)
     let liquido2: number;
     if (isFinalDay) {
       liquido2 = prevLiquido * (1 + dailyMult);
     } else {
-      liquido2 = liquido1 + resgatesTotal;
+      liquido2 = liquido1 + resgatesTotal + jurosPago;
     }
 
     const isZeroLiquido = Math.abs(liquido2) < 0.01;
@@ -385,8 +399,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       ? prevValorCota
       : (saldoCotas2 > 0 ? liquido2 / saldoCotas2 : prevValorCota);
 
-    // L: QTD Cotas Resgate
-    const qtdCotasResgate = resgatesTotal > 0 && valorCota2 > 0 ? resgatesTotal / valorCota2 : 0;
+    // L: QTD Cotas Resgate — uses resgates + jurosPago for total outflow
+    const totalOutflow = resgatesTotal + jurosPago;
+    const qtdCotasResgate = totalOutflow > 0 && valorCota2 > 0 ? totalOutflow / valorCota2 : 0;
 
     // D: Saldo de Cotas (1)
     let saldoCotas1: number;
@@ -399,20 +414,21 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // C: Valor da Cota (1)
     let valorCota1: number;
     if (!diaUtil && cal.data > dataInicio) {
-      // Non-business day: carry previous
       valorCota1 = prevValorCota;
     } else if (cal.data <= dataInicio) {
       valorCota1 = cotaInicial;
-    } else if (isZeroLiquido && aplicacoes === 0 && resgatesTotal === 0) {
+    } else if (isZeroLiquido && aplicacoes === 0 && resgatesTotal === 0 && jurosPago === 0) {
       valorCota1 = prevValorCota;
     } else if (isFinalDay) {
+      // Final day: Resgate / Saldo de Cotas (2)
       valorCota1 = saldoCotas2 > 0 ? resgatesTotal / saldoCotas2 : prevValorCota;
     } else {
-      valorCota1 = saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
+      // Normal: (Líquido(1) + Juros Pago) / Saldo Cotas(1)
+      valorCota1 = saldoCotas1 > 0 ? (liquido1 + jurosPago) / saldoCotas1 : prevValorCota;
     }
 
     // M: Rentabilidade diária (R$)
-    const ganhoDiario = isDataInicio ? 0 : (liquido1 - prevLiquido - aplicacoes + resgatesTotal);
+    const ganhoDiario = isDataInicio ? 0 : (liquido1 - prevLiquido - aplicacoes + resgatesTotal + jurosPago);
 
     // N: R$ Rentabilidade acumulada
     rentAcumRS += ganhoDiario;
@@ -420,7 +436,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // O: % Rentabilidade acumulada
     const rentabilidadeAcumuladaPct = cotaInicial > 0 ? (valorCota1 / cotaInicial) - 1 : 0;
 
-    // Legacy: daily return % (cota-based)
+    // Legacy: daily return %
     const rentDiaria = prevValorCota > 0 && cal.data > dataInicio
       ? valorCota1 / prevValorCota - 1
       : null;
@@ -428,29 +444,21 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // S: Cupom Acumulado
     cupomAcumuladoAcum += jurosPago;
 
-    // W: Preço Unitário
-    let precoUnitario: number;
-    if (isDataInicio) {
-      precoUnitario = puInicialCustodia;
-    } else if (!diaUtil) {
-      precoUnitario = prevPrecoUnitario;
-    } else {
-      precoUnitario = prevPrecoUnitario * rawMultiplicador + prevPrecoUnitario;
-    }
-
-    // X: Quantidade Aplicação = Aplicações / Preço Unitário
-    const qtdAplicacaoPU = precoUnitario > 0 && aplicacoes > 0 ? aplicacoes / precoUnitario : 0;
-
     // Y: Quantidade de Resgate
-    // No dia do resgate_total: (Resgate Limpo + R$ Rent. Acumulada) / Preço Unitário
-    // Caso contrário: Resgate Limpo / Preço Unitário
     let qtdResgatePU: number;
     if (isFinalDay) {
-      qtdResgatePU = precoUnitario > 0 && (resgateLimpo + rentAcumRS) > 0.01
-        ? (resgateLimpo + rentAcumRS) / precoUnitario : 0;
+      // Final: Resgate / Preço Unitário
+      qtdResgatePU = precoUnitario > 0 && resgatesTotal > 0.01
+        ? resgatesTotal / precoUnitario : 0;
     } else {
       qtdResgatePU = precoUnitario > 0 && resgateLimpo > 0.01 ? resgateLimpo / precoUnitario : 0;
     }
+
+    // Resgate Ex Cupom = qtdResgatePU * puInicialCustodia
+    const resgateExCupom = qtdResgatePU * puInicialCustodia;
+
+    // Base Econômica = tempBaseEconomica - resgateExCupom
+    const baseEconomica = tempBaseEconomica - resgateExCupom;
 
     // PU Juros Periódicos
     let puJurosPeriodicos: number;
@@ -464,17 +472,18 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       puJurosPeriodicos = prevPuJurosPeriodicos * dailyMult + prevPuJurosPeriodicos;
     }
 
-    // QTD Aplicação (2) = Aplicações / PU Juros Periódicos
+    // QTD Aplicação (2)
     const qtdAplicacao2 = puJurosPeriodicos > 0 && aplicacoes > 0 ? aplicacoes / puJurosPeriodicos : 0;
 
     // QTD Resgate (2)
     let qtdResgate2: number;
+    const totalOutflowForQtd2 = resgatesTotal + jurosPago;
     if (effectiveDataLimite && cal.data === effectiveDataLimite) {
-      qtdResgate2 = puJurosPeriodicos > 0 && resgatesTotal > 0.01 ? resgatesTotal / puJurosPeriodicos : 0;
+      qtdResgate2 = puJurosPeriodicos > 0 && totalOutflowForQtd2 > 0.01 ? totalOutflowForQtd2 / puJurosPeriodicos : 0;
     } else if (isPagamento && resgateLimpo > 0.01) {
       qtdResgate2 = puJurosPeriodicos > 0 ? resgateLimpo / puJurosPeriodicos : 0;
     } else {
-      qtdResgate2 = puJurosPeriodicos > 0 && resgatesTotal > 0.01 ? resgatesTotal / puJurosPeriodicos : 0;
+      qtdResgate2 = puJurosPeriodicos > 0 && totalOutflowForQtd2 > 0.01 ? totalOutflowForQtd2 / puJurosPeriodicos : 0;
     }
 
     rows.push({
@@ -507,6 +516,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       puJurosPeriodicos,
       qtdAplicacao2,
       qtdResgate2,
+      baseEconomica,
+      aplicacaoExCupom,
+      resgateExCupom,
       rentabilidadeDiaria: rentDiaria,
     });
 
@@ -515,6 +527,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     prevValorCota = valorCota1;
     prevPrecoUnitario = precoUnitario;
     prevPuJurosPeriodicos = puJurosPeriodicos;
+    prevBaseEconomica = baseEconomica;
   }
 
   return rows;
