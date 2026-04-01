@@ -15,7 +15,9 @@ interface EngineRowLike {
   jurosPago?: number;
   saldoCotas: number;
   ganhoAcumulado: number;
+  ganhoDiario: number;
   rentabilidadeDiaria: number | null;
+  rentDiariaPct?: number;
 }
 
 function calcFatorDiarioCdi(taxaAnual: number): number {
