@@ -153,8 +153,7 @@ export function buildDetailRowsFromEngine(
   let rentFatorAcum = 1;
   let cdiFatorAcumRows = 1;
 
-  const lastRow = dailyRows.length > 0 ? dailyRows[dailyRows.length - 1] : null;
-  const ganhoAcum = lastRow ? parseFloat(lastRow.ganhoAcumulado.toFixed(2)) : null;
+  const ganhoAcum = parseFloat(ganhoDiarioAcum.toFixed(2));
 
   for (const year of years) {
     const tMap = rentMonthly.get(year);
