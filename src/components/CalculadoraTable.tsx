@@ -77,8 +77,18 @@ export default function CalculadoraTable({ rows }: Props) {
               <TableCell className="text-xs text-right font-mono">
                 {Math.abs(r.ganhoDiario) > 0.001 ? fmtCurrency(r.ganhoDiario) : "—"}
               </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
+                {Math.abs(r.rentDiariaPct) > 0.0000001
+                  ? `${(r.rentDiariaPct * 100).toFixed(4)}%`
+                  : "—"}
+              </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {Math.abs(r.ganhoAcumulado) > 0.001 ? fmtCurrency(r.ganhoAcumulado) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
+                {Math.abs(r.rentAcumulada2) > 0.0000001
+                  ? `${(r.rentAcumulada2 * 100).toFixed(4)}%`
+                  : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {Math.abs(r.rentabilidadeAcumuladaPct) > 0.00001
