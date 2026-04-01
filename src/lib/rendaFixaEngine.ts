@@ -71,6 +71,8 @@ export interface DailyRow {
   resgateExCupom: number;     // Resgate Ex Cupom
   // Legacy (kept for consumers like AnaliseIndividualPage)
   rentabilidadeDiaria: number | null;
+  // Rent. Acum. (2): compounding daily cota returns, immune to PU resets
+  rentabilidadeAcumulada2: number;
 }
 
 export interface EngineInput {
