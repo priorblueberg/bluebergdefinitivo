@@ -295,7 +295,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               }
             }
 
-            // Rentabilidade: use engine's rentabilidadeAcumuladaPct
+            // Rentabilidade: conditional on pagamento
+            const useRentAcum2 = product.pagamento != null && product.pagamento !== "No Vencimento";
             let rentValue = rent;
             if (isPrefixado && engineRows.length > 0) {
               let targetRow: DailyRow | undefined;
@@ -303,7 +304,21 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
                 if (engineRows[i].data <= dataReferenciaISO) { targetRow = engineRows[i]; break; }
               }
               if (targetRow) {
-                rentValue = parseFloat((targetRow.rentabilidadeAcumuladaPct * 100).toFixed(2));
+                const rawPct = useRentAcum2 ? targetRow.rentAcumulada2 : targetRow.rentabilidadeAcumuladaPct;
+                // Truncate to 2 decimals (no rounding)
+                rentValue = Math.floor(rawPct * 10000) / 100;
+              }
+            }
+
+            // Ganho Financeiro: sum of ganhoDiario from engine
+            let ganhoValue = ganho;
+            if (isPrefixado && engineRows.length > 0) {
+              let targetRow: DailyRow | undefined;
+              for (let i = engineRows.length - 1; i >= 0; i--) {
+                if (engineRows[i].data <= dataReferenciaISO) { targetRow = engineRows[i]; break; }
+              }
+              if (targetRow) {
+                ganhoValue = parseFloat(targetRow.ganhoAcumulado.toFixed(2));
               }
             }
 
@@ -312,7 +327,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
 
             const cards = [
               { label: "Patrimônio", value: fmtBrlCard(patrimonioDisplayValue), color: "text-foreground" },
-              { label: "Ganho Financeiro", value: fmtBrlCard(ganho), color: "text-foreground" },
+              { label: "Ganho Financeiro", value: fmtBrlCard(ganhoValue), color: "text-foreground" },
               { label: "Rentabilidade", value: fmtPctCard(rentValue), color: "text-foreground" },
               { label: "CDI Acumulado", value: fmtPctCard(cdiValue), color: "text-foreground" },
             ];
