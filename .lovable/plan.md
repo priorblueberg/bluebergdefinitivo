@@ -1,42 +1,37 @@
 
 
-# Ajustes na Calculadora: ordem de colunas, casas decimais e congelamento de painéis
+# Fix: Juros Pago zerado quando há Resgate no mesmo dia de pagamento
 
-## 1. Inverter ordem das colunas
+## Problema
 
-Ordem atual (linhas 35-37 header, 85-97 body):
-- R$ Rent. Acumulada
-- **Rent. Acum (2)** (azul)
-- **% Rent. Acumulada**
+No dia 29/02/2024 (último dia útil antes do dia 30, data de corte mensal), a coluna "Pgto Juros" não mostra "Sim" apesar de ser um dia de pagamento periódico.
 
-Nova ordem:
-- R$ Rent. Acumulada
-- **% Rent. Acumulada**
-- **Rent. Acum (2)** (azul)
+A causa raiz está na linha 350 de `src/lib/rendaFixaEngine.ts`:
 
-Mesma inversão no body.
+```typescript
+jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
+```
 
-## 2. Duas casas decimais (sem arredondar) nas colunas novas
+No dia 29/02 há um Resgate de R$ 30.000 e o juros acumulado no período é ~R$ 1.700. A subtração do `resgateLimpo` (30.000) torna o resultado negativo (-28.300), que é clampeado para zero. Por isso "Pgto Juros" não mostra "Sim".
 
-- **Rent. Diária (%)**: trocar `.toFixed(4)` → `.toFixed(2)` (linha 82)
-- **Rent. Acum (2)**: trocar `.toFixed(4)` → `.toFixed(2)` (linha 90)
+Os outros dias funcionam porque:
+- 30/01: sem resgate (resgateLimpo = 0)
+- 28/03: sem movimentação (resgateLimpo = 0)
+- 30/04: usa a branch `isFinalDay`, que não subtrai resgateLimpo
 
-Nota: `toFixed(2)` trunca a exibição em 2 casas. A precisão interna permanece intacta.
+## Correção
 
-## 3. Congelar painéis (sticky header + coluna Data)
+**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 350
 
-**Arquivo:** `src/components/CalculadoraTable.tsx`
+O `resgateLimpo` é uma saída de capital, não de juros. O juros periódico deve ser calculado independentemente do resgate de capital.
 
-- A coluna "Data" ficará fixa à esquerda (`sticky left-0 z-20`) tanto no header quanto no body
-- O header já é `sticky top-0 z-10` — a célula "Data" no header terá `z-30` (interseção)
-- O container externo já tem `overflow-auto` e `max-h-[75vh]`, o que permite scroll horizontal e vertical
+```typescript
+// Antes:
+jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
 
-Técnica CSS:
-- Header cells: `sticky top-0`
-- Data column (header): `sticky left-0 top-0 z-30`
-- Data column (body): `sticky left-0 z-20 bg-background`
+// Depois:
+jurosPago = apoioCupom - tempBaseEconomica;
+```
 
-## Resumo de alterações
-
-Apenas o arquivo `src/components/CalculadoraTable.tsx` será modificado. Zero impacto no engine ou em outras colunas.
+Uma única alteração. Nenhuma outra coluna será modificada.
 

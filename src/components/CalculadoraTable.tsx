@@ -14,11 +14,11 @@ interface Props {
 
 export default function CalculadoraTable({ rows }: Props) {
   return (
-    <div className="rounded-md border border-border overflow-auto max-h-[75vh] relative">
+    <div className="rounded-md border border-border overflow-auto max-h-[75vh]">
       <Table>
         <TableHeader className="sticky top-0 z-10">
           <TableRow className="bg-muted">
-            <TableHead className="text-xs whitespace-nowrap bg-muted sticky left-0 z-30">Data</TableHead>
+            <TableHead className="text-xs whitespace-nowrap bg-muted">Data</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Dia Útil</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Valor da Cota (1)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Saldo de Cotas (1)</TableHead>
@@ -33,8 +33,8 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Rent. Diária (R$)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-blue-50 dark:bg-blue-950">Rent. Diária (%)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">R$ Rent. Acumulada</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-blue-50 dark:bg-blue-950">Rent. Acum (2)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
             
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Multiplicador</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Pgto Juros</TableHead>
@@ -52,11 +52,9 @@ export default function CalculadoraTable({ rows }: Props) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r, i) => {
-            const rowBg = i % 2 === 0 ? "bg-background" : "bg-muted/30";
-            return (
-            <TableRow key={r.data} className={rowBg}>
-              <TableCell className={`text-xs whitespace-nowrap sticky left-0 z-20 ${rowBg}`}>{formatDate(r.data)}</TableCell>
+          {rows.map((r, i) => (
+            <TableRow key={r.data} className={i % 2 === 0 ? "" : "bg-muted/30"}>
+              <TableCell className="text-xs whitespace-nowrap">{formatDate(r.data)}</TableCell>
               <TableCell className="text-xs text-center">{r.diaUtil ? "Sim" : "Não"}</TableCell>
               <TableCell className="text-xs text-right font-mono">{fmt(r.valorCota, 2)}</TableCell>
               <TableCell className="text-xs text-right font-mono">{fmt(r.saldoCotas, 2)}</TableCell>
@@ -81,20 +79,20 @@ export default function CalculadoraTable({ rows }: Props) {
               </TableCell>
               <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
                 {Math.abs(r.rentDiariaPct) > 0.0000001
-                  ? `${(r.rentDiariaPct * 100).toFixed(2)}%`
+                  ? `${(r.rentDiariaPct * 100).toFixed(4)}%`
                   : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {Math.abs(r.ganhoAcumulado) > 0.001 ? fmtCurrency(r.ganhoAcumulado) : "—"}
               </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
+                {Math.abs(r.rentAcumulada2) > 0.0000001
+                  ? `${(r.rentAcumulada2 * 100).toFixed(4)}%`
+                  : "—"}
+              </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {Math.abs(r.rentabilidadeAcumuladaPct) > 0.00001
                   ? `${(r.rentabilidadeAcumuladaPct * 100).toFixed(2)}%`
-                  : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
-                {Math.abs(r.rentAcumulada2) > 0.0000001
-                  ? `${(r.rentAcumulada2 * 100).toFixed(2)}%`
                   : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
@@ -137,8 +135,7 @@ export default function CalculadoraTable({ rows }: Props) {
                 {r.resgateExCupom > 0.01 ? fmtCurrency(r.resgateExCupom) : "—"}
               </TableCell>
             </TableRow>
-            );
-          })}
+          ))}
         </TableBody>
       </Table>
     </div>
