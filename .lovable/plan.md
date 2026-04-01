@@ -1,26 +1,37 @@
 
 
-# Fix: Valor da Cota (1) na Carteira RF não inclui Juros Pago
+# Fix: Juros Pago zerado quando há Resgate no mesmo dia de pagamento
 
 ## Problema
 
-No `carteiraRendaFixaEngine.ts` (linha 148), o cálculo do Valor da Cota (1) usa apenas `liquido1 / saldoCotas1`, sem somar `jurosPago`. A regra correta (já implementada no engine individual) é:
+No dia 29/02/2024 (último dia útil antes do dia 30, data de corte mensal), a coluna "Pgto Juros" não mostra "Sim" apesar de ser um dia de pagamento periódico.
 
-**Valor da Cota (1) = (Líquido (1) + Juros Pago) / Saldo de Cotas (1)**
+A causa raiz está na linha 350 de `src/lib/rendaFixaEngine.ts`:
 
-No dia 29/02, o juros pago não está sendo somado ao numerador, resultando em 1.011,41 em vez de 1.013,35.
+```typescript
+jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
+```
+
+No dia 29/02 há um Resgate de R$ 30.000 e o juros acumulado no período é ~R$ 1.700. A subtração do `resgateLimpo` (30.000) torna o resultado negativo (-28.300), que é clampeado para zero. Por isso "Pgto Juros" não mostra "Sim".
+
+Os outros dias funcionam porque:
+- 30/01: sem resgate (resgateLimpo = 0)
+- 28/03: sem movimentação (resgateLimpo = 0)
+- 30/04: usa a branch `isFinalDay`, que não subtrai resgateLimpo
 
 ## Correção
 
-**Arquivo:** `src/lib/carteiraRendaFixaEngine.ts`, linha 148
+**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 350
+
+O `resgateLimpo` é uma saída de capital, não de juros. O juros periódico deve ser calculado independentemente do resgate de capital.
 
 ```typescript
 // Antes:
-valorCota1 = saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
+jurosPago = apoioCupom - tempBaseEconomica - resgateLimpo;
 
 // Depois:
-valorCota1 = saldoCotas1 > 0 ? (liquido1 + jurosPago) / saldoCotas1 : prevValorCota;
+jurosPago = apoioCupom - tempBaseEconomica;
 ```
 
-Uma única linha alterada. Nenhuma outra coluna será modificada.
+Uma única alteração. Nenhuma outra coluna será modificada.
 
