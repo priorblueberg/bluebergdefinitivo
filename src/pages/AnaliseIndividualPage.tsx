@@ -150,7 +150,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
     const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, chartEndDate);
 
     if (isPrefixado && engineRows.length > 0) {
-      // Build titulo_acumulado from engine's rentabilidadeAcumuladaPct (column O)
+      const useRentAcum2 = product.pagamento != null && product.pagamento !== "No Vencimento";
+      // Build titulo_acumulado from the appropriate rent column
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
         if (row.data > chartEndDate) break;
@@ -162,10 +163,11 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           });
           continue;
         }
+        const rentValue = useRentAcum2 ? row.rentAcumulada2 : row.rentabilidadeAcumuladaPct;
         enginePoints.push({
           data: row.data,
           label: new Date(row.data + "T00:00:00").toLocaleDateString("pt-BR"),
-          titulo_acumulado: parseFloat((row.rentabilidadeAcumuladaPct * 100).toFixed(4)),
+          titulo_acumulado: parseFloat((rentValue * 100).toFixed(4)),
         });
       }
 
