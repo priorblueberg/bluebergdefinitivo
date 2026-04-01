@@ -71,6 +71,9 @@ export interface DailyRow {
   resgateExCupom: number;     // Resgate Ex Cupom
   // Legacy (kept for consumers like AnaliseIndividualPage)
   rentabilidadeDiaria: number | null;
+  // New: Rent. Diária (%) and Rent. Acum (2) — composição diária
+  rentDiariaPct: number;
+  rentAcumulada2: number;
 }
 
 export interface EngineInput {
