@@ -47,6 +47,9 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">PU Juros Periódicos</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Aplicação (2)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Resgate (2)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Base Econômica</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Aplicação Ex Cupom</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Resgate Ex Cupom</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -124,6 +127,15 @@ export default function CalculadoraTable({ rows }: Props) {
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {r.qtdResgate2 > 0.0000001 ? fmt(r.qtdResgate2, 7) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
+                {Math.abs(r.baseEconomica) > 0.01 ? fmtCurrency(r.baseEconomica) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
+                {r.aplicacaoExCupom > 0.01 ? fmtCurrency(r.aplicacaoExCupom) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
+                {r.resgateExCupom > 0.01 ? fmtCurrency(r.resgateExCupom) : "—"}
               </TableCell>
             </TableRow>
           ))}
