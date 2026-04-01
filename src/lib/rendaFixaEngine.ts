@@ -490,6 +490,29 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       qtdResgate2 = puJurosPeriodicos > 0 && totalOutflowForQtd2 > 0.01 ? totalOutflowForQtd2 / puJurosPeriodicos : 0;
     }
 
+    // Rent. Diária (%) and Rent. Acum (2)
+    let rentDiariaPct: number;
+    let rentAcumulada2: number;
+    if (cal.data <= dataInicio) {
+      rentDiariaPct = 0;
+      rentAcumulada2 = 0;
+    } else if (cal.data > effectiveEnd) {
+      rentDiariaPct = 0;
+      rentAcumulada2 = 0;
+    } else if (!diaUtil) {
+      rentDiariaPct = prevRentDiariaPct;
+      rentAcumulada2 = prevRentAcumulada2;
+    } else {
+      // Rent. Diária (%) = ganhoDiario / liquido2 do dia anterior
+      const prevLiq2 = i > 0 && rows.length > 0 ? rows[rows.length - 1].liquido2 : 0;
+      if (prevLiq2 > 0.01) {
+        rentDiariaPct = ganhoDiario / prevLiq2;
+      } else {
+        rentDiariaPct = prevRentDiariaPct;
+      }
+      rentAcumulada2 = (1 + prevRentAcumulada2) * (1 + rentDiariaPct) - 1;
+    }
+
     rows.push({
       data: cal.data,
       diaUtil,
@@ -524,6 +547,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       aplicacaoExCupom,
       resgateExCupom,
       rentabilidadeDiaria: rentDiaria,
+      rentDiariaPct,
+      rentAcumulada2,
     });
 
     prevLiquido = liquido1;
@@ -532,6 +557,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     prevPrecoUnitario = precoUnitario;
     prevPuJurosPeriodicos = puJurosPeriodicos;
     prevBaseEconomica = baseEconomica;
+    prevRentDiariaPct = rentDiariaPct;
+    prevRentAcumulada2 = rentAcumulada2;
   }
 
   return rows;
