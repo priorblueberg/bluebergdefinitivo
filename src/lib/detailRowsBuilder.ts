@@ -159,11 +159,11 @@ export function buildDetailRowsFromEngine(
   // Override monthly/annual rents using engine's rentAcumulada2 for useRentAcum2
   if (useRentAcum2) {
     const allMonths: { y: number; m: number; acum2: number }[] = [];
-    for (const [yr, mMap] of rentAcum2Monthly) {
-      for (const [mo, acum2] of mMap) {
+    rentAcum2Monthly.forEach((mMap, yr) => {
+      mMap.forEach((acum2, mo) => {
         allMonths.push({ y: yr, m: mo, acum2 });
-      }
-    }
+      });
+    });
     allMonths.sort((a, b) => a.y !== b.y ? a.y - b.y : a.m - b.m);
 
     let prevAcum2 = 0;
