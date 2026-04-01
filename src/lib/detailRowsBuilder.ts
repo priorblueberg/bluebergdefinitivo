@@ -103,6 +103,7 @@ export function buildDetailRowsFromEngine(
         cdiFatorAnual = 1;
         aplicacoesAno = 0;
         resgatesAno = 0;
+        ganhoDiarioAno = 0;
         currentYear = y;
       }
     }
