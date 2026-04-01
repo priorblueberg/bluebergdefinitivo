@@ -40,7 +40,7 @@ export interface DailyRow {
   // I-L: Movimentações
   aplicacoes: number;       // I
   qtdCotasCompra: number;   // J
-  resgates: number;         // K: Total resgate (manual + juros + auto vencimento)
+  resgates: number;         // K: Resgate (capital only, excludes juros)
   qtdCotasResgate: number;  // L
   // M-O: Rentabilidade
   ganhoDiario: number;      // M: Rentabilidade diária em R$
@@ -65,6 +65,10 @@ export interface DailyRow {
   puJurosPeriodicos: number;  // PU Juros Periódicos
   qtdAplicacao2: number;      // QTD Aplicação (2) = Aplicações / PU Juros Periódicos
   qtdResgate2: number;        // QTD Resgate (2)
+  // Green columns
+  baseEconomica: number;      // Base Econômica
+  aplicacaoExCupom: number;   // Aplicação Ex Cupom
+  resgateExCupom: number;     // Resgate Ex Cupom
   // Legacy (kept for consumers like AnaliseIndividualPage)
   rentabilidadeDiaria: number | null;
 }
