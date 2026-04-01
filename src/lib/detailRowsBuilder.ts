@@ -57,7 +57,9 @@ export function buildDetailRowsFromEngine(
 
   for (let idx = 0; idx < dailyRows.length; idx++) {
     const row = dailyRows[idx];
-    const isVencimentoDay = idx === dailyRows.length - 1 && row.liquido === 0 && row.resgates > 0;
+    const rowJurosPago = row.jurosPago ?? 0;
+    const totalOutflow = row.resgates + rowJurosPago;
+    const isVencimentoDay = idx === dailyRows.length - 1 && row.liquido === 0 && totalOutflow > 0;
     if (row.saldoCotas === 0 && row.liquido === 0 && !isVencimentoDay) continue;
 
     const dt = new Date(row.data + "T00:00:00");
