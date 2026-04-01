@@ -443,6 +443,11 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       ? valorCota1 / prevValorCota - 1
       : null;
 
+    // Rent. Acum. (2): compound daily cota returns
+    if (rentDiaria !== null) {
+      fatorAcum *= (1 + rentDiaria);
+    }
+
     // S: Cupom Acumulado
     cupomAcumuladoAcum += jurosPago;
 
