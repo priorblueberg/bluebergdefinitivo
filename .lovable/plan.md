@@ -1,33 +1,32 @@
 
 
-# Correção: Linha "Rentabilidade" na Tabela de Rentabilidade
+# Correções na Análise Individual
 
-## Análise
+## Problemas identificados
 
-O código em `src/lib/detailRowsBuilder.ts` já implementa a lógica condicional correta (linhas 36, 119-125):
+### 1. Card Rentabilidade — título "No Vencimento" mostra 3,72% em vez de 3,73%
 
+**Causa raiz**: O card usa `Math.floor(rawPct * 10000) / 100` (truncamento), mas a calculadora usa `(value * 100).toFixed(2)` (arredondamento). Como `rentabilidadeAcumuladaPct` é um ratio (ex: 0.03729...), o truncamento produz 3,72% enquanto o arredondamento produz 3,73%.
+
+**Correção**: Trocar `Math.floor` por `.toFixed(2)` no card, alinhando com a calculadora:
 ```typescript
-const useRentAcum2 = pagamento != null && pagamento !== "No Vencimento";
-// ...
-const dailyRent = useRentAcum2
-  ? (row.rentDiariaPct ?? 0)       // Rent. Acum (2) logic
-  : (row.rentabilidadeDiaria ?? 0); // % Rent. Acumulada logic
-rentFatorMensal *= 1 + dailyRent;
-rentFatorAnual *= 1 + dailyRent;
+// De:
+rentValue = Math.floor(rawPct * 10000) / 100;
+// Para:
+rentValue = parseFloat((rawPct * 100).toFixed(2));
 ```
 
-A composição mensal e anual já é feita corretamente via fatores multiplicativos.
+**Arquivo**: `src/pages/AnaliseIndividualPage.tsx`, linha 309.
 
-## Problema real
+### 2. Tabela de Rentabilidade — manter coerência com a lógica de Rent. Acum (2)
 
-O erro de build anterior (HTTP 429 — rate limiting do npm registry) impediu a compilação. Não é um erro de código. A lógica já está correta conforme solicitado:
+O código em `src/lib/detailRowsBuilder.ts` já compõe os retornos diários corretamente usando `rentDiariaPct` para títulos com pagamento diferente de "No Vencimento" e `rentabilidadeDiaria` para "No Vencimento". A composição mensal/anual via fatores multiplicativos (`rentFatorMensal *= 1 + dailyRent`) está alinhada com a lógica da coluna Rent. Acum (2).
 
-- **"No Vencimento"**: usa `rentabilidadeDiaria` (coluna "% Rent. Acumulada") para compor mensal/anual
-- **Pagamento diferente**: usa `rentDiariaPct` (coluna "Rent. Acum (2)") para compor mensal/anual
+Nenhuma alteração necessária neste arquivo — a lógica já está correta.
 
-## Plano
+## Resumo de alterações
 
-Nenhuma alteração de código é necessária. Apenas re-executar o build para resolver o erro transitório de rate limiting do npm.
-
-Se houver algum valor específico na tabela que está incorreto, por favor indique o título, mês e o valor esperado vs. exibido para que eu possa investigar a causa raiz.
+| Arquivo | Alteração |
+|---|---|
+| `src/pages/AnaliseIndividualPage.tsx` | Trocar truncamento por arredondamento no card de Rentabilidade (linha 309) |
 
