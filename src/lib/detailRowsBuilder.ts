@@ -120,13 +120,22 @@ export function buildDetailRowsFromEngine(
     ganhoDiarioAno += row.ganhoDiario;
     ganhoDiarioAcum += row.ganhoDiario;
 
-    const dailyRent = useRentAcum2
-      ? (row.diaUtil ? (row.rentDiariaPct ?? 0) : 0)
-      : (row.rentabilidadeDiaria ?? 0);
+    let dailyRent: number;
+    if (useRentAcum2) {
+      if (row.diaUtil && prevRowLiquido > 0.01) {
+        dailyRent = row.ganhoDiario / (prevRowLiquido + row.aplicacoes);
+      } else {
+        dailyRent = 0;
+      }
+    } else {
+      dailyRent = row.rentabilidadeDiaria ?? 0;
+    }
     if (dailyRent !== 0) {
       rentFatorMensal *= 1 + dailyRent;
       rentFatorAnual *= 1 + dailyRent;
     }
+
+    prevRowLiquido = row.liquido;
 
     const cdiRec = cdiMap.get(row.data);
     if (cdiRec && row.diaUtil) {
