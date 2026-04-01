@@ -399,9 +399,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       ? prevValorCota
       : (saldoCotas2 > 0 ? liquido2 / saldoCotas2 : prevValorCota);
 
-    // L: QTD Cotas Resgate — uses resgates + jurosPago for total outflow
-    const totalOutflow = resgatesTotal + jurosPago;
-    const qtdCotasResgate = totalOutflow > 0 && valorCota2 > 0 ? totalOutflow / valorCota2 : 0;
+    // L: QTD Cotas Resgate — only capital resgates consume cotas (juros don't)
+    const qtdCotasResgate = resgatesTotal > 0 && valorCota2 > 0 ? resgatesTotal / valorCota2 : 0;
 
     // D: Saldo de Cotas (1)
     let saldoCotas1: number;
