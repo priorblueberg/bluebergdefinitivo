@@ -33,7 +33,7 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Rent. Diária (R$)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">R$ Rent. Acumulada</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">CDI Diário</TableHead>
+            
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Multiplicador</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Pgto Juros</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Apoio Cupom</TableHead>
@@ -44,9 +44,6 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Preço Unitário</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Aplicação</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Resgate</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">PU Juros Periódicos</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Aplicação (2)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Resgate (2)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Base Econômica</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Aplicação Ex Cupom</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Resgate Ex Cupom</TableHead>
@@ -87,9 +84,6 @@ export default function CalculadoraTable({ rows }: Props) {
                   : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
-                {r.cdiDiario > 0 ? r.cdiDiario.toFixed(8) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
                 {r.multiplicador > 0 ? r.multiplicador.toFixed(8) : "—"}
               </TableCell>
               <TableCell className="text-xs text-center">
@@ -118,15 +112,6 @@ export default function CalculadoraTable({ rows }: Props) {
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {r.qtdResgatePU > 0.0000001 ? fmt(r.qtdResgatePU, 7) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {fmt(r.puJurosPeriodicos, 6)}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {r.qtdAplicacao2 > 0.0000001 ? fmt(r.qtdAplicacao2, 7) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {r.qtdResgate2 > 0.0000001 ? fmt(r.qtdResgate2, 7) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
                 {Math.abs(r.baseEconomica) > 0.01 ? fmtCurrency(r.baseEconomica) : "—"}
