@@ -1,15 +1,30 @@
 
 
-# Remover 4 colunas da tabela Calculadora
+# Fix: Líquido (2) incluindo jurosPago indevidamente
 
-## Alteração
+## Problema
 
-Remover as seguintes colunas do componente `src/components/CalculadoraTable.tsx`:
+Na linha 392 de `src/lib/rendaFixaEngine.ts`, o cálculo do `liquido2` soma `jurosPago`:
 
-1. **PU Juros Periódicos** — header e célula
-2. **QTD Aplicação (2)** — header e célula
-3. **QTD Resgate (2)** — header e célula
-4. **CDI Diário** — header e célula
+```typescript
+liquido2 = liquido1 + resgatesTotal + jurosPago;  // linha 392
+```
 
-Apenas remoção de `<TableHead>` e `<TableCell>` correspondentes. Nenhuma alteração no engine ou em outros componentes.
+A regra correta é: **Líquido (2) = Líquido (1) + Resgates**. Juros pago não entra nesta soma. No dia 30/01 não houve resgate, apenas pagamento de juros, então `liquido2` deveria ser igual a `liquido1` (R$ 170.026,68), mas está somando o jurosPago e mostrando R$ 171.111,31.
+
+## Correção
+
+**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 392
+
+Remover `+ jurosPago` da fórmula não-final:
+
+```typescript
+// Antes:
+liquido2 = liquido1 + resgatesTotal + jurosPago;
+
+// Depois:
+liquido2 = liquido1 + resgatesTotal;
+```
+
+Nenhuma outra coluna será alterada.
 
