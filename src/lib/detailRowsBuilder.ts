@@ -96,9 +96,9 @@ export function buildDetailRowsFromEngine(
     }
 
     aplicacoesMes += row.aplicacoes;
-    resgatesMes += row.resgates;
+    resgatesMes += totalOutflow;
     aplicacoesAno += row.aplicacoes;
-    resgatesAno += row.resgates;
+    resgatesAno += totalOutflow;
 
     if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
       rentFatorMensal *= 1 + row.rentabilidadeDiaria;

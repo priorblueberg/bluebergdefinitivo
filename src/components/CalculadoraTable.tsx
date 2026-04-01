@@ -128,6 +128,15 @@ export default function CalculadoraTable({ rows }: Props) {
               <TableCell className="text-xs text-right font-mono">
                 {r.qtdResgate2 > 0.0000001 ? fmt(r.qtdResgate2, 7) : "—"}
               </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
+                {Math.abs(r.baseEconomica) > 0.01 ? fmtCurrency(r.baseEconomica) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
+                {r.aplicacaoExCupom > 0.01 ? fmtCurrency(r.aplicacaoExCupom) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
+                {r.resgateExCupom > 0.01 ? fmtCurrency(r.resgateExCupom) : "—"}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
