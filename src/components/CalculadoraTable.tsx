@@ -44,9 +44,6 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Preço Unitário</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Aplicação</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Resgate</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">PU Juros Periódicos</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Aplicação (2)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Resgate (2)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Base Econômica</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Aplicação Ex Cupom</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-green-50 dark:bg-green-950">Resgate Ex Cupom</TableHead>
