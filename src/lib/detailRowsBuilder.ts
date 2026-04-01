@@ -84,6 +84,8 @@ export function buildDetailRowsFromEngine(
       resgatesMes = 0;
       aplicacoesAno = 0;
       resgatesAno = 0;
+      ganhoDiarioMes = 0;
+      ganhoDiarioAno = 0;
     } else if (m !== currentMonth) {
       patrimonioFimMesAnterior = (() => {
         const pMap = patrimonioMonthly.get(currentYear);
