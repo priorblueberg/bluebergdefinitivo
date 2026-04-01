@@ -245,6 +245,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   let prevSaldoCotas = 0;
   let prevValorCota = cotaInicial;
   let rentAcumRS = 0;
+  let fatorAcum = 1;
   let valorInvestidoAcum = 0;
   let cupomAcumuladoAcum = 0;
   let prevPrecoUnitario = puInicial > 0 ? puInicial : 1000;

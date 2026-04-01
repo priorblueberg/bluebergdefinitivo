@@ -123,6 +123,11 @@ export default function CalculadoraTable({ rows }: Props) {
               <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
                 {r.resgateExCupom > 0.01 ? fmtCurrency(r.resgateExCupom) : "—"}
               </TableCell>
+              <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
+                {Math.abs(r.rentabilidadeAcumulada2) > 0.00001
+                  ? `${(r.rentabilidadeAcumulada2 * 100).toFixed(2)}%`
+                  : "—"}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
