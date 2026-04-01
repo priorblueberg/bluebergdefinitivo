@@ -527,6 +527,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       aplicacaoExCupom,
       resgateExCupom,
       rentabilidadeDiaria: rentDiaria,
+      rentabilidadeAcumulada2: fatorAcum - 1,
     });
 
     prevLiquido = liquido1;
