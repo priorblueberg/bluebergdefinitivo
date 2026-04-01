@@ -1,30 +1,26 @@
 
 
-# Fix: Líquido (2) incluindo jurosPago indevidamente
+# Fix: Valor da Cota (1) na Carteira RF não inclui Juros Pago
 
 ## Problema
 
-Na linha 392 de `src/lib/rendaFixaEngine.ts`, o cálculo do `liquido2` soma `jurosPago`:
+No `carteiraRendaFixaEngine.ts` (linha 148), o cálculo do Valor da Cota (1) usa apenas `liquido1 / saldoCotas1`, sem somar `jurosPago`. A regra correta (já implementada no engine individual) é:
 
-```typescript
-liquido2 = liquido1 + resgatesTotal + jurosPago;  // linha 392
-```
+**Valor da Cota (1) = (Líquido (1) + Juros Pago) / Saldo de Cotas (1)**
 
-A regra correta é: **Líquido (2) = Líquido (1) + Resgates**. Juros pago não entra nesta soma. No dia 30/01 não houve resgate, apenas pagamento de juros, então `liquido2` deveria ser igual a `liquido1` (R$ 170.026,68), mas está somando o jurosPago e mostrando R$ 171.111,31.
+No dia 29/02, o juros pago não está sendo somado ao numerador, resultando em 1.011,41 em vez de 1.013,35.
 
 ## Correção
 
-**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 392
-
-Remover `+ jurosPago` da fórmula não-final:
+**Arquivo:** `src/lib/carteiraRendaFixaEngine.ts`, linha 148
 
 ```typescript
 // Antes:
-liquido2 = liquido1 + resgatesTotal + jurosPago;
+valorCota1 = saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
 
 // Depois:
-liquido2 = liquido1 + resgatesTotal;
+valorCota1 = saldoCotas1 > 0 ? (liquido1 + jurosPago) / saldoCotas1 : prevValorCota;
 ```
 
-Nenhuma outra coluna será alterada.
+Uma única linha alterada. Nenhuma outra coluna será modificada.
 
