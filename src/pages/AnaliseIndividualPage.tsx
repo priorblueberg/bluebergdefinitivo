@@ -305,8 +305,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               }
               if (targetRow) {
                 const rawPct = useRentAcum2 ? targetRow.rentAcumulada2 : targetRow.rentabilidadeAcumuladaPct;
-                // Truncate to 2 decimals (no rounding)
-                rentValue = Math.floor(rawPct * 10000) / 100;
+                rentValue = parseFloat((rawPct * 100).toFixed(2));
               }
             }
 
