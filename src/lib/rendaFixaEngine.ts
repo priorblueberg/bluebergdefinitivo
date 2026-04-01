@@ -576,5 +576,6 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     aplicacaoExCupom: 0,
     resgateExCupom: 0,
     rentabilidadeDiaria: null,
+    rentabilidadeAcumulada2: 0,
   };
 }
