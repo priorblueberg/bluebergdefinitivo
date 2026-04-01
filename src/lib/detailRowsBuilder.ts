@@ -15,7 +15,9 @@ interface EngineRowLike {
   jurosPago?: number;
   saldoCotas: number;
   ganhoAcumulado: number;
+  ganhoDiario: number;
   rentabilidadeDiaria: number | null;
+  rentDiariaPct?: number;
 }
 
 function calcFatorDiarioCdi(taxaAnual: number): number {
@@ -26,8 +28,12 @@ export function buildDetailRowsFromEngine(
   dailyRows: EngineRowLike[],
   cdiRecords: CdiRecord[],
   dataInicio: string,
+  pagamento?: string | null,
 ): DetailRow[] {
   if (dailyRows.length === 0) return [];
+
+  // Determine which daily rent field to use
+  const useRentAcum2 = pagamento != null && pagamento !== "No Vencimento";
 
   const cdiMap = new Map<string, CdiRecord>();
   cdiRecords.forEach(r => cdiMap.set(r.data, r));
@@ -54,6 +60,9 @@ export function buildDetailRowsFromEngine(
   let resgatesMes = 0;
   let aplicacoesAno = 0;
   let resgatesAno = 0;
+  let ganhoDiarioMes = 0;
+  let ganhoDiarioAno = 0;
+  let ganhoDiarioAcum = 0;
 
   for (let idx = 0; idx < dailyRows.length; idx++) {
     const row = dailyRows[idx];
@@ -75,6 +84,8 @@ export function buildDetailRowsFromEngine(
       resgatesMes = 0;
       aplicacoesAno = 0;
       resgatesAno = 0;
+      ganhoDiarioMes = 0;
+      ganhoDiarioAno = 0;
     } else if (m !== currentMonth) {
       patrimonioFimMesAnterior = (() => {
         const pMap = patrimonioMonthly.get(currentYear);
@@ -84,6 +95,7 @@ export function buildDetailRowsFromEngine(
       cdiFatorMensal = 1;
       aplicacoesMes = 0;
       resgatesMes = 0;
+      ganhoDiarioMes = 0;
       currentMonth = m;
       if (y !== currentYear) {
         patrimonioInicioAno = patrimonioFimMesAnterior;
@@ -91,6 +103,7 @@ export function buildDetailRowsFromEngine(
         cdiFatorAnual = 1;
         aplicacoesAno = 0;
         resgatesAno = 0;
+        ganhoDiarioAno = 0;
         currentYear = y;
       }
     }
@@ -99,10 +112,16 @@ export function buildDetailRowsFromEngine(
     resgatesMes += totalOutflow;
     aplicacoesAno += row.aplicacoes;
     resgatesAno += totalOutflow;
+    ganhoDiarioMes += row.ganhoDiario;
+    ganhoDiarioAno += row.ganhoDiario;
+    ganhoDiarioAcum += row.ganhoDiario;
 
-    if (row.rentabilidadeDiaria !== null && row.rentabilidadeDiaria !== 0) {
-      rentFatorMensal *= 1 + row.rentabilidadeDiaria;
-      rentFatorAnual *= 1 + row.rentabilidadeDiaria;
+    const dailyRent = useRentAcum2
+      ? (row.rentDiariaPct ?? 0)
+      : (row.rentabilidadeDiaria ?? 0);
+    if (dailyRent !== 0) {
+      rentFatorMensal *= 1 + dailyRent;
+      rentFatorAnual *= 1 + dailyRent;
     }
 
     const cdiRec = cdiMap.get(row.data);
@@ -122,9 +141,9 @@ export function buildDetailRowsFromEngine(
     patrimonioMonthly.get(y)!.set(m, row.liquido);
 
     if (!ganhoMensalMonthly.has(y)) ganhoMensalMonthly.set(y, new Map());
-    ganhoMensalMonthly.get(y)!.set(m, row.liquido - patrimonioFimMesAnterior - aplicacoesMes + resgatesMes);
+    ganhoMensalMonthly.get(y)!.set(m, parseFloat(ganhoDiarioMes.toFixed(2)));
 
-    ganhoAnualMap.set(y, row.liquido - patrimonioInicioAno - aplicacoesAno + resgatesAno);
+    ganhoAnualMap.set(y, parseFloat(ganhoDiarioAno.toFixed(2)));
     rentYearly.set(y, (rentFatorAnual - 1) * 100);
     cdiYearly.set(y, (cdiFatorAnual - 1) * 100);
   }
@@ -134,8 +153,7 @@ export function buildDetailRowsFromEngine(
   let rentFatorAcum = 1;
   let cdiFatorAcumRows = 1;
 
-  const lastRow = dailyRows.length > 0 ? dailyRows[dailyRows.length - 1] : null;
-  const ganhoAcum = lastRow ? parseFloat(lastRow.ganhoAcumulado.toFixed(2)) : null;
+  const ganhoAcum = parseFloat(ganhoDiarioAcum.toFixed(2));
 
   for (const year of years) {
     const tMap = rentMonthly.get(year);
