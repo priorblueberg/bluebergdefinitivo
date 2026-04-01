@@ -31,7 +31,9 @@ export default function CalculadoraTable({ rows }: Props) {
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Resgate</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Cotas (Resgate)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Rent. Diária (R$)</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-blue-50 dark:bg-blue-950">Rent. Diária (%)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">R$ Rent. Acumulada</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-blue-50 dark:bg-blue-950">Rent. Acum (2)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
             
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Multiplicador</TableHead>
