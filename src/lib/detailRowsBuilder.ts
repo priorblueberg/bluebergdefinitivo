@@ -51,6 +51,7 @@ export function buildDetailRowsFromEngine(
   const ganhoAnualMap = new Map<number, number>();
   const rentYearly = new Map<number, number>();
   const cdiYearly = new Map<number, number>();
+  const rentAcum2Monthly = new Map<number, Map<number, number>>();
 
   let rentFatorMensal = 1;
   let rentFatorAnual = 1;
