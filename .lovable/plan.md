@@ -1,32 +1,67 @@
 
 
-# Correções na Análise Individual
+# Correções: Card Rentabilidade + Tabela Rentabilidade
 
-## Problemas identificados
+## Problema 1: Card Rentabilidade — formatação diferente por tipo de pagamento
 
-### 1. Card Rentabilidade — título "No Vencimento" mostra 3,72% em vez de 3,73%
+O card usa `parseFloat((rawPct * 100).toFixed(2))` para ambos os tipos, mas:
+- **"No Vencimento"** (título 101): deve **arredondar** → `toFixed(2)` → 3,73% ✓
+- **Pagamento periódico** (título 100): deve **truncar** → 3,7391% → 3,73%
 
-**Causa raiz**: O card usa `Math.floor(rawPct * 10000) / 100` (truncamento), mas a calculadora usa `(value * 100).toFixed(2)` (arredondamento). Como `rentabilidadeAcumuladaPct` é um ratio (ex: 0.03729...), o truncamento produz 3,72% enquanto o arredondamento produz 3,73%.
+A regra deve ser aplicada ao valor numérico antes de chegar ao card, para que `fmtPctCard` apenas formate o que receber.
 
-**Correção**: Trocar `Math.floor` por `.toFixed(2)` no card, alinhando com a calculadora:
+**Arquivo**: `src/pages/AnaliseIndividualPage.tsx` (~linha 307)
+
 ```typescript
-// De:
-rentValue = Math.floor(rawPct * 10000) / 100;
-// Para:
+// Atual (arredonda para ambos):
 rentValue = parseFloat((rawPct * 100).toFixed(2));
+
+// Corrigido:
+if (useRentAcum2) {
+  // Truncar: 3.7391 → 3.73
+  rentValue = Math.floor(rawPct * 10000) / 100;
+} else {
+  // Arredondar: 3.729... → 3.73
+  rentValue = parseFloat((rawPct * 100).toFixed(2));
+}
 ```
 
-**Arquivo**: `src/pages/AnaliseIndividualPage.tsx`, linha 309.
+## Problema 2: Tabela Rentabilidade — rentabilidade mensal inflada para títulos com juros
 
-### 2. Tabela de Rentabilidade — manter coerência com a lógica de Rent. Acum (2)
+**Causa raiz**: Em dias não úteis, o engine repete o `rentDiariaPct` anterior (valor não-zero). O `detailRowsBuilder` compõe esse valor repetido, contando a rentabilidade diária múltiplas vezes (sábados, domingos, feriados).
 
-O código em `src/lib/detailRowsBuilder.ts` já compõe os retornos diários corretamente usando `rentDiariaPct` para títulos com pagamento diferente de "No Vencimento" e `rentabilidadeDiaria` para "No Vencimento". A composição mensal/anual via fatores multiplicativos (`rentFatorMensal *= 1 + dailyRent`) está alinhada com a lógica da coluna Rent. Acum (2).
+Para `rentabilidadeDiaria` (cota-based, "No Vencimento") isso não acontece porque `valorCota1/prevValorCota - 1 = 0` em dias não úteis.
 
-Nenhuma alteração necessária neste arquivo — a lógica já está correta.
+Resultado: título 100 mostra JAN=1,29% em vez de ~0,92%.
 
-## Resumo de alterações
+**Correção**: Quando `useRentAcum2 = true`, só compor `rentDiariaPct` em dias úteis.
+
+**Arquivo**: `src/lib/detailRowsBuilder.ts` (~linha 119)
+
+```typescript
+// Atual:
+const dailyRent = useRentAcum2
+  ? (row.rentDiariaPct ?? 0)
+  : (row.rentabilidadeDiaria ?? 0);
+if (dailyRent !== 0) {
+  rentFatorMensal *= 1 + dailyRent;
+  rentFatorAnual *= 1 + dailyRent;
+}
+
+// Corrigido:
+const dailyRent = useRentAcum2
+  ? (row.diaUtil ? (row.rentDiariaPct ?? 0) : 0)
+  : (row.rentabilidadeDiaria ?? 0);
+if (dailyRent !== 0) {
+  rentFatorMensal *= 1 + dailyRent;
+  rentFatorAnual *= 1 + dailyRent;
+}
+```
+
+## Resumo
 
 | Arquivo | Alteração |
 |---|---|
-| `src/pages/AnaliseIndividualPage.tsx` | Trocar truncamento por arredondamento no card de Rentabilidade (linha 309) |
+| `src/pages/AnaliseIndividualPage.tsx` | Card Rentabilidade: truncar para pagamento periódico, arredondar para "No Vencimento" |
+| `src/lib/detailRowsBuilder.ts` | Tabela: só compor `rentDiariaPct` em dias úteis para evitar contagem dupla |
 
