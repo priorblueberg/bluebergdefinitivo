@@ -389,7 +389,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     if (isFinalDay) {
       liquido2 = prevLiquido * (1 + dailyMult);
     } else {
-      liquido2 = liquido1 + resgatesTotal + jurosPago;
+      liquido2 = liquido1 + resgatesTotal;
     }
 
     const isZeroLiquido = Math.abs(liquido2) < 0.01;
