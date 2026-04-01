@@ -117,7 +117,7 @@ export function buildDetailRowsFromEngine(
     ganhoDiarioAcum += row.ganhoDiario;
 
     const dailyRent = useRentAcum2
-      ? (row.rentDiariaPct ?? 0)
+      ? (row.diaUtil ? (row.rentDiariaPct ?? 0) : 0)
       : (row.rentabilidadeDiaria ?? 0);
     if (dailyRent !== 0) {
       rentFatorMensal *= 1 + dailyRent;
