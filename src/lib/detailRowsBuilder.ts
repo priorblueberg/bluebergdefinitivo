@@ -95,6 +95,7 @@ export function buildDetailRowsFromEngine(
       cdiFatorMensal = 1;
       aplicacoesMes = 0;
       resgatesMes = 0;
+      ganhoDiarioMes = 0;
       currentMonth = m;
       if (y !== currentYear) {
         patrimonioInicioAno = patrimonioFimMesAnterior;
