@@ -12,6 +12,7 @@ interface EngineRowLike {
   liquido: number;
   aplicacoes: number;
   resgates: number;
+  jurosPago?: number;
   saldoCotas: number;
   ganhoAcumulado: number;
   rentabilidadeDiaria: number | null;
