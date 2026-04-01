@@ -551,6 +551,9 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     puJurosPeriodicos: cotaInicial,
     qtdAplicacao2: 0,
     qtdResgate2: 0,
+    baseEconomica: 0,
+    aplicacaoExCupom: 0,
+    resgateExCupom: 0,
     rentabilidadeDiaria: null,
   };
 }
