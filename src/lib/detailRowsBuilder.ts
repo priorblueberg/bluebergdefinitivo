@@ -28,6 +28,7 @@ export function buildDetailRowsFromEngine(
   dailyRows: EngineRowLike[],
   cdiRecords: CdiRecord[],
   dataInicio: string,
+  pagamento?: string | null,
 ): DetailRow[] {
   if (dailyRows.length === 0) return [];
 
