@@ -145,7 +145,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
     if (isFinalDay && saldoCotas2 > 0) {
       valorCota1 = liquido2 / saldoCotas2;
     } else {
-      valorCota1 = saldoCotas1 > 0 ? liquido1 / saldoCotas1 : prevValorCota;
+      valorCota1 = saldoCotas1 > 0 ? (liquido1 + jurosPago) / saldoCotas1 : prevValorCota;
     }
 
     // Rentabilidade acumulada
