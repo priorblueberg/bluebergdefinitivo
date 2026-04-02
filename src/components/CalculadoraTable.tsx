@@ -101,7 +101,11 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                 {r.multiplicador > 0 ? r.multiplicador.toFixed(8) : "—"}
               </TableCell>
               <TableCell className="text-xs text-center">
-                {r.jurosPago > 0.01 ? "Sim" : ""}
+                {r.jurosPago > 0.01
+                  ? "Sim"
+                  : (pagamento === "No Vencimento" && dataResgateTotal && r.data === dataResgateTotal)
+                    ? "Sim"
+                    : ""}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {r.apoioCupom > 0.01 ? fmtCurrency(r.apoioCupom) : "—"}
