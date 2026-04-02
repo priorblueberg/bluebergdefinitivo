@@ -61,9 +61,8 @@ export function exportCarteiraToExcel(rows: CarteiraRFRow[]) {
     Resgate: r.resgates,
     "QTD Cotas (Resgate)": r.qtdCotasResgate,
     "Rent. Diária (R$)": r.ganhoDiario,
-    "Rent. Diária (%)": r.rentDiariaPct * 100,
+    "Rent. Diária (%)": r.rentabilidadeDiaria != null ? r.rentabilidadeDiaria * 100 : 0,
     "R$ Rent. Acumulada": r.ganhoAcumulado,
-    "Rent. Acum (2)": r.rentAcumulada2 * 100,
     "% Rent. Acumulada": r.rentabilidadeAcumuladaPct * 100,
   }));
 
