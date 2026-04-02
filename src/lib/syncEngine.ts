@@ -207,6 +207,8 @@ async function syncResgateNoVencimento(
 
     if (!calendario || !movs) return;
 
+    const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
+
     const rows = calcularRendaFixaDiario({
       dataInicio: custodiaRecord.data_inicio,
       dataCalculo: vencimento!,
@@ -218,6 +220,8 @@ async function syncResgateNoVencimento(
       dataResgateTotal: custodiaRecord.resgate_total,
       pagamento: custodiaRecord.pagamento,
       vencimento: custodiaRecord.vencimento,
+      indexador: custodiaRecord.indexador,
+      cdiRecords,
     });
 
     if (rows.length === 0) return;
