@@ -7,6 +7,22 @@
 import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 
+/** Fetch CDI records if the product uses CDI indexador */
+async function fetchCdiIfNeeded(
+  indexador: string | null,
+  dataInicio: string,
+  dataFim: string
+): Promise<{ data: string; taxa_anual: number }[] | undefined> {
+  if (!indexador || !indexador.includes("CDI")) return undefined;
+  const { data } = await supabase
+    .from("historico_cdi")
+    .select("data, taxa_anual")
+    .gte("data", dataInicio)
+    .lte("data", dataFim)
+    .order("data");
+  return data?.map((r) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) || undefined;
+}
+
 // ── Resgate no Vencimento Auto Sync ──
 
 type SyncCustodiaBase = {
