@@ -747,7 +747,10 @@ export async function reprocessMovimentacoesForCodigo(
 
   if (!calendario) return;
 
-  // 5. For each movimentação, compute engine and update PU/Qty from calculator columns
+  // 5. Fetch CDI if needed
+  const cdiRecordsReprocess = await fetchCdiIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
+
+  // 6. For each movimentação, compute engine and update PU/Qty from calculator columns
   for (let i = 0; i < manualMovs.length; i++) {
     const mov = manualMovs[i];
 
