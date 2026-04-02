@@ -204,7 +204,6 @@ export default function CarteiraRendaFixaPage() {
         });
       });
 
-      const allProdRows = await Promise.all(productRowsPromises);
       setAllProductRows(allProdRows);
 
       const result = calcularCarteiraRendaFixa({

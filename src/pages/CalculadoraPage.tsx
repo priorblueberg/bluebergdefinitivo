@@ -171,16 +171,28 @@ export default function CalculadoraPage() {
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
       const cdiRecords = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
 
-      // For each RF product, fetch movs and run individual engine
-      const productRowsPromises = rfProducts.map(async (product) => {
-        const dataFim = product.resgate_total || product.vencimento || dataCalculo;
-        const { data: movData } = await supabase
-          .from("movimentacoes")
-          .select("data, tipo_movimentacao, valor")
-          .eq("codigo_custodia", product.codigo_custodia)
-          .eq("user_id", user!.id)
-          .order("data");
+      // Pre-compute CDI map once
+      const cdiMap = new Map<string, number>();
+      for (const c of cdiRecords) cdiMap.set(c.data, c.taxa_anual);
 
+      // Batch fetch all movimentações in a single query
+      const allCodigos = rfProducts.map(p => p.codigo_custodia);
+      const { data: allMovData } = await supabase
+        .from("movimentacoes")
+        .select("data, tipo_movimentacao, valor, codigo_custodia")
+        .in("codigo_custodia", allCodigos)
+        .eq("user_id", user!.id)
+        .order("data");
+
+      const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
+      for (const m of (allMovData || [])) {
+        const code = m.codigo_custodia as number;
+        if (!movByCodigo.has(code)) movByCodigo.set(code, []);
+        movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
+      }
+
+      const allProductRows = rfProducts.map((product) => {
+        const dataFim = product.resgate_total || product.vencimento || dataCalculo;
         return calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
           dataCalculo: dataFim > dataCalculo ? dataCalculo : dataFim,
@@ -188,17 +200,17 @@ export default function CalculadoraPage() {
           modalidade: product.modalidade || "",
           puInicial: product.preco_unitario || 1000,
           calendario,
-          movimentacoes: (movData || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
+          movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
           dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
           indexador: product.indexador,
           cdiRecords,
           dataLimite: product.data_limite,
+          precomputedCdiMap: cdiMap,
+          calendarioSorted: true,
         });
       });
-
-      const allProductRows = await Promise.all(productRowsPromises);
 
       const result = calcularCarteiraRendaFixa({
         productRows: allProductRows,
