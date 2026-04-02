@@ -14,7 +14,7 @@ interface Props {
   dataResgateTotal?: string | null;
 }
 
-export default function CalculadoraTable({ rows }: Props) {
+export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: Props) {
   return (
     <div className="rounded-md border border-border overflow-auto max-h-[75vh]">
       <Table>
