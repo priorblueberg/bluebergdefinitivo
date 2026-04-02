@@ -10,6 +10,8 @@ import {
 
 interface Props {
   rows: DailyRow[];
+  pagamento?: string | null;
+  dataResgateTotal?: string | null;
 }
 
 export default function CalculadoraTable({ rows }: Props) {
