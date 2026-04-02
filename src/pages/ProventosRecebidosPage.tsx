@@ -64,36 +64,34 @@ export default function ProventosRecebidosPage() {
         return;
       }
 
+      // Find date range for calendar
+      const minDate = withPayment.reduce((m, p) => p.data_inicio < m ? p.data_inicio : m, withPayment[0].data_inicio);
+      const maxDate = withPayment.reduce((m, p) => {
+        const end = p.data_calculo || dataReferenciaISO;
+        return end > m ? end : m;
+      }, dataReferenciaISO);
+
+      // Batch fetch calendar and all movimentações
+      const allCodigos = withPayment.map(p => p.codigo_custodia);
+      const [calRes, allMovRes] = await Promise.all([
+        supabase.from("calendario_dias_uteis").select("data, dia_util")
+          .gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
+        supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, codigo_custodia")
+          .in("codigo_custodia", allCodigos).eq("user_id", user.id).order("data"),
+      ]);
+
+      const calendario = (calRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util }));
+      const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
+      for (const m of (allMovRes.data || [])) {
+        const code = m.codigo_custodia as number;
+        if (!movByCodigo.has(code)) movByCodigo.set(code, []);
+        movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
+      }
+
       const allProventos: ProventoRow[] = [];
 
       for (const prod of withPayment) {
         const endDate = prod.data_calculo || dataReferenciaISO;
-
-        const [calRes, movsRes] = await Promise.all([
-          supabase
-            .from("calendario_dias_uteis")
-            .select("data, dia_util")
-            .gte("data", getDateMinus(prod.data_inicio, 5))
-            .lte("data", endDate)
-            .order("data"),
-          supabase
-            .from("movimentacoes")
-            .select("data, tipo_movimentacao, valor")
-            .eq("codigo_custodia", prod.codigo_custodia)
-            .eq("user_id", user.id)
-            .order("data"),
-        ]);
-
-        const calendario = (calRes.data || []).map((d: any) => ({
-          data: d.data,
-          dia_util: d.dia_util,
-        }));
-
-        const movimentacoes = (movsRes.data || []).map((m: any) => ({
-          data: m.data,
-          tipo_movimentacao: m.tipo_movimentacao,
-          valor: Number(m.valor),
-        }));
 
         const engineRows = calcularRendaFixaDiario({
           dataInicio: prod.data_inicio,
@@ -102,10 +100,11 @@ export default function ProventosRecebidosPage() {
           modalidade: prod.modalidade || "Prefixado",
           puInicial: prod.preco_unitario || 1000,
           calendario,
-          movimentacoes,
+          movimentacoes: movByCodigo.get(prod.codigo_custodia) || [],
           dataResgateTotal: prod.resgate_total,
           pagamento: prod.pagamento,
           vencimento: prod.vencimento,
+          calendarioSorted: true,
         });
 
         for (const row of engineRows) {

@@ -90,6 +90,10 @@ export interface EngineInput {
   indexador?: string | null;
   cdiRecords?: { data: string; taxa_anual: number }[];
   dataLimite?: string | null;
+  /** Pre-computed CDI map (data -> taxa_anual) to avoid rebuilding per product */
+  precomputedCdiMap?: Map<string, number>;
+  /** If true, skip sorting calendario (already sorted) */
+  calendarioSorted?: boolean;
 }
 
 // ── Pagamento de Juros Periódico ──
@@ -197,9 +201,8 @@ function buildMovMap(movs: EngineInput["movimentacoes"]): Map<string, { aplicaco
 }
 
 function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]): string | null {
-  const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    if (sorted[i].data < dataInicio) return sorted[i].data;
+  for (let i = calendario.length - 1; i >= 0; i--) {
+    if (calendario[i].data < dataInicio) return calendario[i].data;
   }
   return null;
 }
@@ -207,22 +210,27 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 // ── Main engine ──
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite, precomputedCdiMap, calendarioSorted } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
   const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
 
-  // Build CDI map: data -> taxa_anual
-  const cdiMap = new Map<string, number>();
-  if (cdiRecords) {
-    for (const c of cdiRecords) {
-      cdiMap.set(c.data, c.taxa_anual);
+  // Build CDI map: reuse pre-computed if available
+  let cdiMap: Map<string, number>;
+  if (precomputedCdiMap) {
+    cdiMap = precomputedCdiMap;
+  } else {
+    cdiMap = new Map<string, number>();
+    if (cdiRecords) {
+      for (const c of cdiRecords) {
+        cdiMap.set(c.data, c.taxa_anual);
+      }
     }
   }
   const movMap = buildMovMap(movimentacoes);
 
-  const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
+  const sorted = calendarioSorted ? calendario : [...calendario].sort((a, b) => a.data.localeCompare(b.data));
   const endDate = dataCalculo || sorted[sorted.length - 1]?.data || dataInicio;
 
   // Effective end: the furthest date we need to compute
