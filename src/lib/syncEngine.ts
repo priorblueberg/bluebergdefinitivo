@@ -576,32 +576,20 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
     status = "Encerrada";
   }
 
-  const { data: existing } = await supabase
-    .from("controle_de_carteiras")
-    .select("id")
-    .eq("categoria_id", categoriaId)
-    .eq("user_id", userId)
-    .neq("nome_carteira", "Investimentos")
-    .limit(1);
-
   const carteiraData = {
+    categoria_id: categoriaId,
+    nome_carteira: categoriaNome,
     data_inicio: dataInicio,
     data_limite: dataLimite,
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
     status,
+    user_id: userId,
   };
 
-  if (existing && existing.length > 0) {
-    await supabase.from("controle_de_carteiras").update(carteiraData).eq("id", existing[0].id);
-  } else {
-    await supabase.from("controle_de_carteiras").insert({
-      categoria_id: categoriaId,
-      nome_carteira: categoriaNome,
-      ...carteiraData,
-      user_id: userId,
-    });
-  }
+  await supabase.from("controle_de_carteiras").upsert(carteiraData, {
+    onConflict: "nome_carteira,user_id",
+  });
 
   await syncCarteiraGeral(userId, refDate);
 }
@@ -652,35 +640,24 @@ export async function syncCarteiraGeral(userId: string, dataReferencia?: string)
     status = "Encerrada";
   }
 
-  const { data: existing } = await supabase
-    .from("controle_de_carteiras")
-    .select("id")
-    .eq("nome_carteira", "Investimentos")
-    .eq("user_id", userId)
-    .limit(1);
-
   const { data: firstCat } = await supabase.from("categorias").select("id").limit(1);
   const catId = firstCat?.[0]?.id;
   if (!catId) return;
 
   const carteiraData = {
+    categoria_id: catId,
+    nome_carteira: "Investimentos",
     data_inicio: dataInicio,
     data_limite: dataLimite,
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
     status,
+    user_id: userId,
   };
 
-  if (existing && existing.length > 0) {
-    await supabase.from("controle_de_carteiras").update(carteiraData).eq("id", existing[0].id);
-  } else {
-    await supabase.from("controle_de_carteiras").insert({
-      categoria_id: catId,
-      nome_carteira: "Investimentos",
-      ...carteiraData,
-      user_id: userId,
-    });
-  }
+  await supabase.from("controle_de_carteiras").upsert(carteiraData, {
+    onConflict: "nome_carteira,user_id",
+  });
 }
 
 /**
