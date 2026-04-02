@@ -60,9 +60,10 @@ function getDateMinus(dateStr: string, days: number): string {
 
 export default function CarteiraRendaFixaPage() {
   const { user } = useAuth();
-  const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
+  const { appliedVersion, dataReferenciaISO } = useDataReferencia();
   const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
   const [carteiraRows, setCarteiraRows] = useState<CarteiraRFRow[]>([]);
+  const [allProductRows, setAllProductRows] = useState<DailyRow[][]>([]);
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -71,7 +72,6 @@ export default function CarteiraRendaFixaPage() {
     (async () => {
       setLoading(true);
 
-      // 1. Fetch carteira info
       const { data: cartData } = await supabase
         .from("controle_de_carteiras")
         .select("nome_carteira, status, data_inicio, data_calculo, data_limite, resgate_total")
@@ -89,6 +89,7 @@ export default function CarteiraRendaFixaPage() {
           resgate_total: cartData.resgate_total,
         } : null);
         setCarteiraRows([]);
+        setAllProductRows([]);
         setCdiRecords([]);
         setLoading(false);
         return;
@@ -107,7 +108,6 @@ export default function CarteiraRendaFixaPage() {
       const dataInicio = cartData.data_inicio;
       const dataCalculo = cartData.data_calculo;
 
-      // 2. Fetch RF products
       const { data: custodiaData } = await supabase
         .from("custodia")
         .select("id, codigo_custodia, nome, data_inicio, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, categorias(nome)")
@@ -133,12 +133,12 @@ export default function CarteiraRendaFixaPage() {
 
       if (rfProducts.length === 0) {
         setCarteiraRows([]);
+        setAllProductRows([]);
         setCdiRecords([]);
         setLoading(false);
         return;
       }
 
-      // 3. Fetch calendar, CDI, dias_uteis
       const [calRes, cdiRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
           .gte("data", getDateMinus(dataInicio, 5)).lte("data", dataCalculo).order("data"),
@@ -149,7 +149,6 @@ export default function CarteiraRendaFixaPage() {
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
       const cdiRaw = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
 
-      // Build CdiRecord[] with dia_util for detail table
       const calMap = new Map<string, boolean>();
       calendario.forEach(c => calMap.set(c.data, c.dia_util));
       const mergedCdi: CdiRecord[] = cdiRaw.map(r => ({
@@ -158,7 +157,6 @@ export default function CarteiraRendaFixaPage() {
       }));
       setCdiRecords(mergedCdi);
 
-      // 4. For each RF product, fetch movs and run engine
       const productRowsPromises = rfProducts.map(async (product) => {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
         const { data: movData } = await supabase
@@ -185,15 +183,14 @@ export default function CarteiraRendaFixaPage() {
         });
       });
 
-      const allProductRows = await Promise.all(productRowsPromises);
+      const allProdRows = await Promise.all(productRowsPromises);
+      setAllProductRows(allProdRows);
 
-      // 5. Aggregate
       const result = calcularCarteiraRendaFixa({
-        productRows: allProductRows,
+        productRows: allProdRows,
         calendario,
         dataInicio,
         dataCalculo,
-        resgateTotal: cartData.resgate_total,
       });
 
       setCarteiraRows(result);
@@ -208,11 +205,11 @@ export default function CarteiraRendaFixaPage() {
     const cdiSeries = buildCdiSeries(cdiRecords, carteiraInfo.data_inicio, carteiraInfo.data_calculo ?? undefined);
 
     const enginePoints = carteiraRows
-      .filter(r => r.saldoCotas > 0 || r.liquido > 0 || r.resgates > 0)
+      .filter(r => r.liquido > 0 || r.liquido2 > 0)
       .map(r => ({
         data: r.data,
         label: new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR"),
-        titulo_acumulado: parseFloat((r.rentabilidadeAcumuladaPct * 100).toFixed(4)),
+        titulo_acumulado: parseFloat((r.rentAcumuladaPct * 100).toFixed(4)),
       }));
 
     const map = new Map<string, any>();
@@ -228,11 +225,60 @@ export default function CarteiraRendaFixaPage() {
     return Array.from(map.values()).sort((a: any, b: any) => a.data.localeCompare(b.data));
   }, [carteiraRows, cdiRecords, carteiraInfo]);
 
-  // Detail rows for table
+  // Detail rows: use the merged individual product rows for the detail table
   const detailRows = useMemo(() => {
-    if (carteiraRows.length === 0 || !carteiraInfo?.data_inicio) return [];
-    return buildDetailRowsFromEngine(carteiraRows, cdiRecords, carteiraInfo.data_inicio);
-  }, [carteiraRows, cdiRecords, carteiraInfo]);
+    if (allProductRows.length === 0 || !carteiraInfo?.data_inicio || !carteiraInfo?.data_calculo) return [];
+
+    // Merge all product rows by date into an EngineRowLike-compatible structure
+    const dateMap = new Map<string, {
+      data: string; diaUtil: boolean; liquido: number; aplicacoes: number;
+      resgates: number; jurosPago: number; saldoCotas: number;
+      ganhoAcumulado: number; ganhoDiario: number; rentabilidadeDiaria: number | null;
+    }>();
+
+    for (const prodRows of allProductRows) {
+      for (const row of prodRows) {
+        if (row.data < carteiraInfo.data_inicio! || row.data > carteiraInfo.data_calculo!) continue;
+        const existing = dateMap.get(row.data);
+        if (existing) {
+          existing.liquido += row.liquido;
+          existing.aplicacoes += row.aplicacoes;
+          existing.resgates += row.resgates;
+          existing.jurosPago += row.jurosPago;
+          existing.saldoCotas += row.saldoCotas;
+          existing.ganhoDiario += row.ganhoDiario;
+        } else {
+          dateMap.set(row.data, {
+            data: row.data,
+            diaUtil: row.diaUtil,
+            liquido: row.liquido,
+            aplicacoes: row.aplicacoes,
+            resgates: row.resgates,
+            jurosPago: row.jurosPago,
+            saldoCotas: row.saldoCotas,
+            ganhoAcumulado: 0,
+            ganhoDiario: row.ganhoDiario,
+            rentabilidadeDiaria: null,
+          });
+        }
+      }
+    }
+
+    // Sort and compute ganhoAcumulado + rentabilidadeDiaria from carteiraRows
+    const merged = Array.from(dateMap.values()).sort((a, b) => a.data.localeCompare(b.data));
+    const carteiraMap = new Map<string, CarteiraRFRow>();
+    carteiraRows.forEach(r => carteiraMap.set(r.data, r));
+
+    let ganhoAcum = 0;
+    for (const row of merged) {
+      ganhoAcum += row.ganhoDiario;
+      row.ganhoAcumulado = ganhoAcum;
+      const cr = carteiraMap.get(row.data);
+      row.rentabilidadeDiaria = cr ? cr.rentDiariaPct : null;
+    }
+
+    return buildDetailRowsFromEngine(merged, cdiRecords, carteiraInfo.data_inicio!);
+  }, [allProductRows, carteiraRows, cdiRecords, carteiraInfo]);
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
@@ -271,36 +317,22 @@ export default function CarteiraRendaFixaPage() {
       ) : (
         <>
           {/* Summary Cards */}
-          {detailRows.length > 0 && (() => {
-            const topRow = detailRows[0];
-            let lastPatrimonio: number | null = null;
-            for (let m = 11; m >= 0; m--) {
-              if (topRow.patrimonioMonths[m] !== null) { lastPatrimonio = topRow.patrimonioMonths[m]; break; }
-            }
+          {(() => {
+            let patrimonioValue: number | null = null;
+            let rentValue: number | null = null;
+            let ganhoValue: number | null = null;
 
-            // Use engine row for precise patrimônio
-            let patrimonioValue = lastPatrimonio;
-            if (carteiraRows.length > 0) {
-              for (let i = carteiraRows.length - 1; i >= 0; i--) {
-                if (carteiraRows[i].data <= dataReferenciaISO) {
-                  patrimonioValue = carteiraRows[i].liquido;
-                  break;
-                }
+            for (let i = carteiraRows.length - 1; i >= 0; i--) {
+              if (carteiraRows[i].data <= dataReferenciaISO) {
+                patrimonioValue = carteiraRows[i].liquido;
+                rentValue = parseFloat((carteiraRows[i].rentAcumuladaPct * 100).toFixed(2));
+                ganhoValue = carteiraRows[i].rentAcumuladaRS;
+                break;
               }
             }
 
-            let rentValue = topRow.rentAcumulado;
-            if (carteiraRows.length > 0) {
-              for (let i = carteiraRows.length - 1; i >= 0; i--) {
-                if (carteiraRows[i].data <= dataReferenciaISO) {
-                  rentValue = parseFloat((carteiraRows[i].rentabilidadeAcumuladaPct * 100).toFixed(2));
-                  break;
-                }
-              }
-            }
-
-            const ganho = topRow.ganhoAcumulado;
-            const cdiAcum = topRow.cdiAcumulado;
+            // CDI from detail rows
+            const cdiAcum = detailRows.length > 0 ? detailRows[0].cdiAcumulado : null;
 
             const fmtBrl = (v: number | null) =>
               v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
@@ -309,7 +341,7 @@ export default function CarteiraRendaFixaPage() {
 
             const cards = [
               { label: "Patrimônio", value: fmtBrl(patrimonioValue) },
-              { label: "Ganho Financeiro", value: fmtBrl(ganho) },
+              { label: "Ganho Financeiro", value: fmtBrl(ganhoValue) },
               { label: "Rentabilidade", value: fmtPct(rentValue) },
               { label: "CDI Acumulado", value: fmtPct(cdiAcum) },
             ];

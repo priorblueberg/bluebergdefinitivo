@@ -50,20 +50,12 @@ export function exportCarteiraToExcel(rows: CarteiraRFRow[]) {
   const data = rows.map((r) => ({
     Data: formatDate(r.data),
     "Dia Útil": r.diaUtil ? "Sim" : "Não",
-    "Valor Cota (1)": r.valorCota,
-    "Saldo Cotas (1)": r.saldoCotas,
     "Líquido (1)": r.liquido,
-    "Valor Cota (2)": r.valorCota2,
-    "Saldo Cotas (2)": r.saldoCotas2,
     "Líquido (2)": r.liquido2,
-    Aplicações: r.aplicacoes,
-    "QTD Cotas (Compra)": r.qtdCotasCompra,
-    Resgate: r.resgates,
-    "QTD Cotas (Resgate)": r.qtdCotasResgate,
-    "Rent. Diária (R$)": r.ganhoDiario,
-    "Rent. Diária (%)": r.rentabilidadeDiaria != null ? r.rentabilidadeDiaria * 100 : 0,
-    "R$ Rent. Acumulada": r.ganhoAcumulado,
-    "% Rent. Acumulada": r.rentabilidadeAcumuladaPct * 100,
+    "Rent. Diária (R$)": r.rentDiariaRS,
+    "Rent. Diária (%)": r.rentDiariaPct * 100,
+    "R$ Rent. Acumulada": r.rentAcumuladaRS,
+    "% Rent. Acumulada": r.rentAcumuladaPct * 100,
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);

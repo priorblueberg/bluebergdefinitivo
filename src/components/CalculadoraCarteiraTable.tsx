@@ -14,21 +14,13 @@ export default function CalculadoraCarteiraTable({ rows }: Props) {
         <TableHeader className="sticky top-0 z-10">
           <TableRow className="bg-muted">
             <TableHead className="text-xs whitespace-nowrap bg-muted">Data</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Dia Útil</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Valor da Cota (1)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Saldo de Cotas (1)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Líquido (1)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Valor da Cota (2)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Saldo de Cotas (2)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Líquido (2)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Aplicações</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Cotas (Compra)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Resgate</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">QTD Cotas (Resgate)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Rent. Diária (R$)</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">R$ Rent. Acumulada</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
-            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Juros Pago</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Dias Úteis</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Líquido (1) Patrimônio</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Líquido (2) Antes do resgate</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">R$ Rentabilidade diária</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rentabilidade Diária</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">R$ Rentabilidade acumulada</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rentabilidade acumulada</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -36,37 +28,23 @@ export default function CalculadoraCarteiraTable({ rows }: Props) {
             <TableRow key={r.data} className={i % 2 === 0 ? "" : "bg-muted/30"}>
               <TableCell className="text-xs whitespace-nowrap">{formatDate(r.data)}</TableCell>
               <TableCell className="text-xs text-center">{r.diaUtil ? "Sim" : "Não"}</TableCell>
-              <TableCell className="text-xs text-right font-mono">{fmt(r.valorCota, 2)}</TableCell>
-              <TableCell className="text-xs text-right font-mono">{fmt(r.saldoCotas, 2)}</TableCell>
               <TableCell className="text-xs text-right font-mono">{fmtCurrency(r.liquido)}</TableCell>
-              <TableCell className="text-xs text-right font-mono">{fmt(r.valorCota2, 2)}</TableCell>
-              <TableCell className="text-xs text-right font-mono">{fmt(r.saldoCotas2, 2)}</TableCell>
               <TableCell className="text-xs text-right font-mono">{fmtCurrency(r.liquido2)}</TableCell>
               <TableCell className="text-xs text-right font-mono">
-                {r.aplicacoes > 0 ? fmtCurrency(r.aplicacoes) : "—"}
+                {Math.abs(r.rentDiariaRS) > 0.001 ? fmtCurrency(r.rentDiariaRS) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
-                {r.qtdCotasCompra > 0 ? fmt(r.qtdCotasCompra, 6) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {r.resgates > 0.01 ? fmtCurrency(r.resgates) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {r.qtdCotasResgate > 0.001 ? fmt(r.qtdCotasResgate, 6) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {Math.abs(r.ganhoDiario) > 0.001 ? fmtCurrency(r.ganhoDiario) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {Math.abs(r.ganhoAcumulado) > 0.001 ? fmtCurrency(r.ganhoAcumulado) : "—"}
-              </TableCell>
-              <TableCell className="text-xs text-right font-mono">
-                {Math.abs(r.rentabilidadeAcumuladaPct) > 0.00001
-                  ? `${(r.rentabilidadeAcumuladaPct * 100).toFixed(2)}%`
+                {Math.abs(r.rentDiariaPct) > 0.0000001
+                  ? `${(r.rentDiariaPct * 100).toFixed(8)}%`
                   : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
-                {r.jurosPago > 0.01 ? fmtCurrency(r.jurosPago) : "—"}
+                {Math.abs(r.rentAcumuladaRS) > 0.001 ? fmtCurrency(r.rentAcumuladaRS) : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono">
+                {Math.abs(r.rentAcumuladaPct) > 0.00001
+                  ? `${(r.rentAcumuladaPct * 100).toFixed(2)}%`
+                  : "—"}
               </TableCell>
             </TableRow>
           ))}
@@ -79,13 +57,6 @@ export default function CalculadoraCarteiraTable({ rows }: Props) {
 function formatDate(d: string): string {
   const [y, m, day] = d.split("-");
   return `${day}/${m}/${y}`;
-}
-
-function fmt(v: number, decimals: number): string {
-  return v.toLocaleString("pt-BR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
 }
 
 function fmtCurrency(v: number): string {

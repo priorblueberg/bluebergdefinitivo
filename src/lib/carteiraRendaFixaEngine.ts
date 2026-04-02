@@ -1,17 +1,14 @@
 /**
- * Engine de Cálculo da Carteira de Renda Fixa
- *
- * Agrega os resultados individuais (DailyRow[]) de todos os produtos
- * de Renda Fixa em uma visão consolidada usando o sistema de Cota Virtual.
+ * Engine de Cálculo da Carteira de Renda Fixa (Simplificado)
  *
  * Colunas:
  * - Data, Dia Útil
- * - Valor da Cota (1), Saldo de Cotas (1), Líquido (1)
- * - Valor da Cota (2), Saldo de Cotas (2), Líquido (2)
- * - Aplicações, QTD Cotas Compra
- * - Resgates, QTD Cotas Resgate
- * - R$ Rent. Diária, R$ Rent. Acumulada, % Rent. Acumulada
- * - Juros Pago
+ * - Líquido (1): soma de todos os títulos
+ * - Líquido (2): soma de todos os títulos
+ * - Rent. Diária (R$): soma da Rent. Diária (R$) de todos os títulos
+ * - Rent. Diária (%): Rent. Diária (R$) / Líquido (2)
+ * - Rent. Acumulada (R$): acumulado da Rent. Diária (R$)
+ * - Rent. Acumulada (%): composição (1+acum_anterior)*(1+diaria)-1
  */
 
 import { DailyRow } from "./rendaFixaEngine";
@@ -19,168 +16,89 @@ import { DailyRow } from "./rendaFixaEngine";
 export interface CarteiraRFRow {
   data: string;
   diaUtil: boolean;
-  valorCota: number;
-  saldoCotas: number;
   liquido: number;
-  valorCota2: number;
-  saldoCotas2: number;
   liquido2: number;
-  aplicacoes: number;
-  qtdCotasCompra: number;
-  resgates: number;
-  qtdCotasResgate: number;
-  ganhoDiario: number;
-  ganhoAcumulado: number;
-  rentabilidadeAcumuladaPct: number;
-  jurosPago: number;
-  // For compatibility with buildDetailRowsFromEngine
-  rentabilidadeDiaria: number | null;
+  rentDiariaRS: number;
+  rentDiariaPct: number;
+  rentAcumuladaRS: number;
+  rentAcumuladaPct: number;
 }
 
 export interface CarteiraRFInput {
-  /** All individual product DailyRow arrays */
   productRows: DailyRow[][];
-  /** Calendar for the portfolio period */
   calendario: { data: string; dia_util: boolean }[];
-  /** Portfolio start date from controle_de_carteiras */
   dataInicio: string;
-  /** Portfolio end date from controle_de_carteiras */
   dataCalculo: string;
-  /** Resgate total date from controle_de_carteiras (final day) */
-  resgateTotal?: string | null;
 }
 
-/**
- * Aggregate individual product rows into a portfolio-level daily series.
- */
 export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow[] {
-  const { productRows, calendario, dataInicio, dataCalculo, resgateTotal } = input;
-  const PU_INICIAL = 1000;
+  const { productRows, calendario, dataInicio, dataCalculo } = input;
 
   // Build per-date aggregation maps from all products
   const dateAgg = new Map<string, {
     liquido: number;
-    aplicacoes: number;
-    resgates: number;
-    ganhoDiario: number;
-    jurosPago: number;
+    liquido2: number;
+    rentDiariaRS: number;
   }>();
 
   for (const rows of productRows) {
     for (const row of rows) {
       if (row.data < dataInicio || row.data > dataCalculo) continue;
-      const existing = dateAgg.get(row.data) || {
-        liquido: 0, aplicacoes: 0, resgates: 0, ganhoDiario: 0, jurosPago: 0,
-      };
+      const existing = dateAgg.get(row.data) || { liquido: 0, liquido2: 0, rentDiariaRS: 0 };
       existing.liquido += row.liquido;
-      existing.aplicacoes += row.aplicacoes;
-      existing.resgates += row.resgates;
-      existing.ganhoDiario += row.ganhoDiario;
-      existing.jurosPago += row.jurosPago;
+      existing.liquido2 += row.liquido2;
+      existing.rentDiariaRS += row.ganhoDiario;
       dateAgg.set(row.data, existing);
     }
   }
 
-  // Sort calendar and iterate
   const sorted = [...calendario]
     .filter(c => c.data >= dataInicio && c.data <= dataCalculo)
     .sort((a, b) => a.data.localeCompare(b.data));
 
   const result: CarteiraRFRow[] = [];
-  let prevValorCota = PU_INICIAL;
-  let prevSaldoCotas = 0;
-  let rentAcumRS = 0;
+  let rentAcumuladaRS = 0;
+  let rentAcumuladaPct = 0;
 
   for (const cal of sorted) {
     const agg = dateAgg.get(cal.data);
+
     if (!agg) {
-      // No product data for this date — carry forward
+      // No product data — carry forward
       result.push({
         data: cal.data,
         diaUtil: cal.dia_util,
-        valorCota: prevValorCota,
-        saldoCotas: prevSaldoCotas,
-        liquido: prevSaldoCotas * prevValorCota,
-        valorCota2: prevValorCota,
-        saldoCotas2: prevSaldoCotas,
-        liquido2: prevSaldoCotas * prevValorCota,
-        aplicacoes: 0,
-        qtdCotasCompra: 0,
-        resgates: 0,
-        qtdCotasResgate: 0,
-        ganhoDiario: 0,
-        ganhoAcumulado: rentAcumRS,
-        rentabilidadeAcumuladaPct: PU_INICIAL > 0 ? (prevValorCota / PU_INICIAL) - 1 : 0,
-        jurosPago: 0,
-        rentabilidadeDiaria: null,
+        liquido: 0,
+        liquido2: 0,
+        rentDiariaRS: 0,
+        rentDiariaPct: 0,
+        rentAcumuladaRS,
+        rentAcumuladaPct,
       });
       continue;
     }
 
-    const { liquido: liquido1, aplicacoes, resgates, ganhoDiario, jurosPago } = agg;
+    const { liquido, liquido2, rentDiariaRS } = agg;
 
-    // Detect final day (resgate_total)
-    const isFinalDay = !!resgateTotal && cal.data === resgateTotal;
+    // Rent. Diária (%) = Rent. Diária (R$) / Líquido (2)
+    const rentDiariaPct = liquido2 > 0.01 ? rentDiariaRS / liquido2 : 0;
 
-    // Líquido (2) = Líquido (1) + Resgates
-    const liquido2 = liquido1 + resgates;
+    // Rent. Acumulada (R$) = soma acumulada
+    rentAcumuladaRS += rentDiariaRS;
 
-    // QTD Cotas Compra = Aplicações / Valor da Cota anterior
-    const qtdCotasCompra = prevValorCota > 0 ? aplicacoes / prevValorCota : 0;
-
-    // Saldo de Cotas (2) = previous saldo + cotas compradas
-    const saldoCotas2 = prevSaldoCotas + qtdCotasCompra;
-
-    // Valor da Cota (2) = Líquido (2) / Saldo de Cotas (2)
-    const valorCota2 = saldoCotas2 > 0 ? liquido2 / saldoCotas2 : prevValorCota;
-
-    // QTD Cotas Resgate = Resgates / Valor da Cota (2)
-    const qtdCotasResgate = (resgates + jurosPago) > 0 && valorCota2 > 0 ? (resgates + jurosPago) / valorCota2 : 0;
-
-    // Saldo de Cotas (1) = Saldo de Cotas (2) - QTD Cotas Resgate
-    const saldoCotas1 = saldoCotas2 - qtdCotasResgate;
-
-    // Valor da Cota (1): on final day use liquido2 (since liquido1 is 0)
-    let valorCota1: number;
-    if (isFinalDay && saldoCotas2 > 0) {
-      valorCota1 = liquido2 / saldoCotas2;
-    } else {
-      valorCota1 = saldoCotas1 > 0 ? (liquido1 + jurosPago) / saldoCotas1 : prevValorCota;
-    }
-
-    // Rentabilidade acumulada
-    rentAcumRS += ganhoDiario;
-
-    // % Rent. Acumulada
-    const rentPct = PU_INICIAL > 0 ? (valorCota1 / PU_INICIAL) - 1 : 0;
-
-    // Daily return (cota-based) for detail table compatibility
-    const rentDiaria = prevValorCota > 0 && cal.data > dataInicio
-      ? valorCota1 / prevValorCota - 1
-      : null;
+    // Rent. Acumulada (%) = (1 + acum_anterior) * (1 + diária) - 1
+    rentAcumuladaPct = (1 + rentAcumuladaPct) * (1 + rentDiariaPct) - 1;
 
     result.push({
       data: cal.data,
       diaUtil: cal.dia_util,
-      valorCota: valorCota1,
-      saldoCotas: saldoCotas1,
-      liquido: liquido1,
-      valorCota2,
-      saldoCotas2,
+      liquido,
       liquido2,
-      aplicacoes,
-      qtdCotasCompra,
-      resgates,
-      qtdCotasResgate,
-      ganhoDiario,
-      ganhoAcumulado: rentAcumRS,
-      rentabilidadeAcumuladaPct: rentPct,
-      jurosPago,
-      rentabilidadeDiaria: rentDiaria,
+      rentDiariaRS,
+      rentDiariaPct,
+      rentAcumuladaRS,
+      rentAcumuladaPct,
     });
-
-    prevValorCota = valorCota1;
-    prevSaldoCotas = saldoCotas1;
   }
 
   return result;
