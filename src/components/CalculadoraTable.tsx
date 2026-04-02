@@ -63,7 +63,7 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
               <TableCell className="text-xs text-right font-mono">{fmtCurrency(r.liquido)}</TableCell>
               <TableCell className="text-xs text-right font-mono">{fmt(r.valorCota2, 2)}</TableCell>
               <TableCell className="text-xs text-right font-mono">{fmt(r.saldoCotas2, 2)}</TableCell>
-              <TableCell className="text-xs text-right font-mono">{fmtCurrency(r.liquido2)}</TableCell>
+              <TableCell className="text-xs text-right font-mono">{r.liquido2.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 8, maximumFractionDigits: 8 })}</TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {r.aplicacoes > 0 ? fmtCurrency(r.aplicacoes) : "—"}
               </TableCell>
