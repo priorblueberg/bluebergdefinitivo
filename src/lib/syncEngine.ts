@@ -773,6 +773,8 @@ export async function reprocessMovimentacoesForCodigo(
       dataResgateTotal: null,
       pagamento: baseInfo.pagamento,
       vencimento: baseInfo.vencimento,
+      indexador: aplicacaoInicial.indexador,
+      cdiRecords: cdiRecordsReprocess,
     });
 
     const rowDia = rows.find((r) => r.data === mov.data);
