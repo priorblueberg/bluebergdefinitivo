@@ -126,7 +126,13 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                 {Math.abs(r.valorInvestido) > 0.01 ? fmtCurrency(r.valorInvestido) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
-                {Math.abs(r.resgateLimpo) > 0.01 ? fmtCurrency(r.resgateLimpo) : "—"}
+                {(() => {
+                  if (pagamento === "No Vencimento" && dataResgateTotal && r.data === dataResgateTotal) {
+                    const val = r.precoUnitario * r.resgateExCupom;
+                    return Math.abs(val) > 0.01 ? fmtCurrency(val) : "—";
+                  }
+                  return Math.abs(r.resgateLimpo) > 0.01 ? fmtCurrency(r.resgateLimpo) : "—";
+                })()}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {fmt(r.precoUnitario, 6)}
