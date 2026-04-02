@@ -81,7 +81,7 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
               </TableCell>
               <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
                 {Math.abs(r.rentDiariaPct) > 0.0000001
-                  ? `${(r.rentDiariaPct * 100).toFixed(4)}%`
+                  ? `${(r.rentDiariaPct * 100).toFixed(8)}%`
                   : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">

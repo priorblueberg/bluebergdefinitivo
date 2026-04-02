@@ -7,8 +7,11 @@ import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFix
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import CalculadoraTable from "@/components/CalculadoraTable";
 import CalculadoraCarteiraTable from "@/components/CalculadoraCarteiraTable";
+import { exportIndividualToExcel, exportCarteiraToExcel } from "@/lib/exportCalculadora";
 
 const CARTEIRA_RF_ID = "__carteira_rf__";
 
@@ -257,6 +260,24 @@ export default function CalculadoraPage() {
       )}
 
       {loading && <p className="text-sm text-muted-foreground">Calculando...</p>}
+
+      {!loading && selectedId && ((rows.length > 0 && !isCarteira) || (carteiraRows.length > 0 && isCarteira)) && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (isCarteira) {
+              exportCarteiraToExcel(carteiraRows);
+            } else {
+              const nome = selectedProduct?.nome || selectedProduct?.produto_nome || "Ativo";
+              exportIndividualToExcel(rows, nome);
+            }
+          }}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Exportar Excel
+        </Button>
+      )}
 
       {!loading && !isCarteira && rows.length > 0 && (
         <CalculadoraTable
