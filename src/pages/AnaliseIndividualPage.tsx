@@ -79,6 +79,9 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
     (async () => {
       setLoading(true);
       const endDate = dataReferenciaISO;
+      // Calendar must extend to product end date for correct payment date generation
+      const calendarEndDate = [product.resgate_total, product.vencimento, endDate]
+        .filter(Boolean).sort().reverse()[0] || endDate;
 
       // Fetch CDI, dias_uteis, and movimentacoes in parallel
       const [cdiRes, diasRes, movsRes] = await Promise.all([
@@ -92,7 +95,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           .from("calendario_dias_uteis")
           .select("data, dia_util")
           .gte("data", getDateMinus(product.data_inicio, 5))
-          .lte("data", endDate)
+          .lte("data", calendarEndDate)
           .order("data"),
         supabase
           .from("movimentacoes")

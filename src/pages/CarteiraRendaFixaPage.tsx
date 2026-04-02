@@ -139,9 +139,15 @@ export default function CarteiraRendaFixaPage() {
         return;
       }
 
+      // Calendar must extend to max product end date for correct payment date generation
+      const maxEndDate = rfProducts.reduce((max, p) => {
+        const end = p.resgate_total || p.vencimento || dataCalculo;
+        return end > max ? end : max;
+      }, dataCalculo);
+
       const [calRes, cdiRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
-          .gte("data", getDateMinus(dataInicio, 5)).lte("data", dataCalculo).order("data"),
+          .gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual")
           .gte("data", dataInicio).lte("data", dataCalculo).order("data"),
       ]);

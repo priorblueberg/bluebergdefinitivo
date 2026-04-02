@@ -155,10 +155,15 @@ export default function CalculadoraPage() {
       const rfProducts = products.filter(p => p.categoria_nome === "Renda Fixa");
       if (rfProducts.length === 0) { setCarteiraRows([]); setLoading(false); return; }
 
-      // Fetch calendar + CDI for portfolio period
+      // Calendar must extend to max product end date for correct payment date generation
+      const maxEndDate = rfProducts.reduce((max, p) => {
+        const end = p.resgate_total || p.vencimento || dataCalculo;
+        return end > max ? end : max;
+      }, dataCalculo);
+
       const [calRes, cdiRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
-          .gte("data", getDateMinus(dataInicio, 5)).lte("data", dataCalculo).order("data"),
+          .gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual")
           .gte("data", getDateMinus(dataInicio, 5)).lte("data", dataCalculo).order("data"),
       ]);
