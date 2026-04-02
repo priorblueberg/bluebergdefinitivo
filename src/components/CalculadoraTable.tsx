@@ -123,7 +123,7 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                 })()}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
-                {Math.abs(r.valorInvestido) > 0.01 ? fmtCurrency(r.valorInvestido) : "—"}
+                {dataResgateTotal && r.data === dataResgateTotal ? fmtCurrency(0) : (Math.abs(r.valorInvestido) > 0.01 ? fmtCurrency(r.valorInvestido) : "—")}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {(() => {
