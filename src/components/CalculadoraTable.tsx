@@ -114,9 +114,13 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                 {r.cupomAcumulado > 0.01 ? fmtCurrency(r.cupomAcumulado) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
-                {(() => {
+              {(() => {
                   if (pagamento === "No Vencimento" && dataResgateTotal && r.data === dataResgateTotal) {
-                    const jurosCalc = r.apoioCupom - r.valorInvestido - r.resgateLimpo;
+                    const prevPU = i > 0 ? rows[i - 1].precoUnitario : r.precoUnitario;
+                    const denominator = prevPU * r.multiplicador + prevPU;
+                    const correctedResgateExCupom = denominator > 0 ? r.resgates / denominator : 0;
+                    const correctedResgateLimpo = r.precoUnitario * correctedResgateExCupom;
+                    const jurosCalc = r.apoioCupom - r.valorInvestido - correctedResgateLimpo;
                     return Math.abs(jurosCalc) > 0.01 ? fmtCurrency(jurosCalc) : "—";
                   }
                   return r.jurosPago > 0.01 ? fmtCurrency(r.jurosPago) : "—";
