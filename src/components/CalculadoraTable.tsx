@@ -150,7 +150,15 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                 {r.aplicacaoExCupom > 0.01 ? fmtCurrency(r.aplicacaoExCupom) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
-                {r.resgateExCupom > 0.01 ? fmtCurrency(r.resgateExCupom) : "—"}
+                {(() => {
+                  if (pagamento === "No Vencimento" && dataResgateTotal && r.data === dataResgateTotal) {
+                    const prevPU = i > 0 ? rows[i - 1].precoUnitario : r.precoUnitario;
+                    const denominator = prevPU * r.multiplicador + prevPU;
+                    const val = denominator > 0 ? r.resgates / denominator : 0;
+                    return Math.abs(val) > 0.0000001 ? fmt(val, 7) : "—";
+                  }
+                  return r.resgateExCupom > 0.01 ? fmtCurrency(r.resgateExCupom) : "—";
+                })()}
               </TableCell>
             </TableRow>
           ))}
