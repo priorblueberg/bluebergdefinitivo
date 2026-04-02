@@ -120,7 +120,7 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                     const denominator = prevPU * r.multiplicador + prevPU;
                     const correctedResgateExCupom = denominator > 0 ? r.resgates / denominator : 0;
                     const correctedResgateLimpo = r.precoUnitario * correctedResgateExCupom;
-                    const jurosCalc = r.apoioCupom - r.valorInvestido - correctedResgateLimpo;
+                    const jurosCalc = r.apoioCupom - 0 - correctedResgateLimpo;
                     return Math.abs(jurosCalc) > 0.01 ? fmtCurrency(jurosCalc) : "—";
                   }
                   return r.jurosPago > 0.01 ? fmtCurrency(r.jurosPago) : "—";
