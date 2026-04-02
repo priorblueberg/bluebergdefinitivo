@@ -77,7 +77,9 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                 {r.qtdCotasResgate > 0.001 ? fmt(r.qtdCotasResgate, 6) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
-                {Math.abs(r.ganhoDiario) > 0.0000001 ? fmt8Currency(r.ganhoDiario) : "—"}
+                {Math.abs(r.ganhoDiario) > 0.0000001
+                  ? r.ganhoDiario.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 8, maximumFractionDigits: 8 })
+                  : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono bg-blue-50/50 dark:bg-blue-950/30">
                 {Math.abs(r.rentDiariaPct) > 0.0000001
