@@ -7,8 +7,11 @@ import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFix
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import CalculadoraTable from "@/components/CalculadoraTable";
 import CalculadoraCarteiraTable from "@/components/CalculadoraCarteiraTable";
+import { exportIndividualToExcel, exportCarteiraToExcel } from "@/lib/exportCalculadora";
 
 const CARTEIRA_RF_ID = "__carteira_rf__";
 
