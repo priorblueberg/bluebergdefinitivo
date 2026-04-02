@@ -504,9 +504,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       rentAcumulada2 = prevRentAcumulada2;
     } else {
       // Rent. Diária (%) = ganhoDiario / liquido2 do dia anterior
-      const denominator = prevLiquido + aplicacoes;
-      if (denominator > 0.01) {
-        rentDiariaPct = ganhoDiario / denominator;
+      const prevLiq2 = i > 0 && rows.length > 0 ? rows[rows.length - 1].liquido2 : 0;
+      if (prevLiq2 > 0.01) {
+        rentDiariaPct = ganhoDiario / prevLiq2;
       } else {
         rentDiariaPct = prevRentDiariaPct;
       }
