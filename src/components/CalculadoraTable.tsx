@@ -148,7 +148,9 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                 {r.qtdResgatePU > 0.0000001 ? fmt(r.qtdResgatePU, 7) : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
-                {Math.abs(r.baseEconomica) > 0.01 ? fmtCurrency(r.baseEconomica) : "—"}
+                {pagamento === "No Vencimento" && dataResgateTotal && r.data === dataResgateTotal
+                  ? fmtCurrency(0)
+                  : (Math.abs(r.baseEconomica) > 0.01 ? fmtCurrency(r.baseEconomica) : "—")}
               </TableCell>
               <TableCell className="text-xs text-right font-mono bg-green-50/50 dark:bg-green-950/30">
                 {r.aplicacaoExCupom > 0.01 ? fmtCurrency(r.aplicacaoExCupom) : "—"}
