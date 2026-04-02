@@ -258,7 +258,13 @@ export default function CalculadoraPage() {
 
       {loading && <p className="text-sm text-muted-foreground">Calculando...</p>}
 
-      {!loading && !isCarteira && rows.length > 0 && <CalculadoraTable rows={rows} />}
+      {!loading && !isCarteira && rows.length > 0 && (
+        <CalculadoraTable
+          rows={rows}
+          pagamento={selectedProduct?.pagamento}
+          dataResgateTotal={selectedProduct?.resgate_total}
+        />
+      )}
 
       {!loading && isCarteira && carteiraRows.length > 0 && <CalculadoraCarteiraTable rows={carteiraRows} />}
 

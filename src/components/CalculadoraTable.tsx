@@ -10,9 +10,11 @@ import {
 
 interface Props {
   rows: DailyRow[];
+  pagamento?: string | null;
+  dataResgateTotal?: string | null;
 }
 
-export default function CalculadoraTable({ rows }: Props) {
+export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: Props) {
   return (
     <div className="rounded-md border border-border overflow-auto max-h-[75vh]">
       <Table>
@@ -99,7 +101,11 @@ export default function CalculadoraTable({ rows }: Props) {
                 {r.multiplicador > 0 ? r.multiplicador.toFixed(8) : "—"}
               </TableCell>
               <TableCell className="text-xs text-center">
-                {r.jurosPago > 0.01 ? "Sim" : ""}
+                {r.jurosPago > 0.01
+                  ? "Sim"
+                  : (pagamento === "No Vencimento" && dataResgateTotal && r.data === dataResgateTotal)
+                    ? "Sim"
+                    : ""}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {r.apoioCupom > 0.01 ? fmtCurrency(r.apoioCupom) : "—"}
