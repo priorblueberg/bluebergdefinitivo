@@ -351,7 +351,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       // Reset to initial PU on payment days (including "No Vencimento" final day)
       precoUnitario = puInicialCustodia;
     } else {
-      precoUnitario = prevPrecoUnitario * rawMultiplicador + prevPrecoUnitario;
+      const puMult = (isMistaCDI || isPosFixadoCDI) ? dailyMult : rawMultiplicador;
+      precoUnitario = prevPrecoUnitario * puMult + prevPrecoUnitario;
     }
 
     // X: Quantidade Aplicação = Aplicações / Preço Unitário
