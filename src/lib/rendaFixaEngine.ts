@@ -210,22 +210,27 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 // ── Main engine ──
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite, precomputedCdiMap, calendarioSorted } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
   const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
 
-  // Build CDI map: data -> taxa_anual
-  const cdiMap = new Map<string, number>();
-  if (cdiRecords) {
-    for (const c of cdiRecords) {
-      cdiMap.set(c.data, c.taxa_anual);
+  // Build CDI map: reuse pre-computed if available
+  let cdiMap: Map<string, number>;
+  if (precomputedCdiMap) {
+    cdiMap = precomputedCdiMap;
+  } else {
+    cdiMap = new Map<string, number>();
+    if (cdiRecords) {
+      for (const c of cdiRecords) {
+        cdiMap.set(c.data, c.taxa_anual);
+      }
     }
   }
   const movMap = buildMovMap(movimentacoes);
 
-  const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
+  const sorted = calendarioSorted ? calendario : [...calendario].sort((a, b) => a.data.localeCompare(b.data));
   const endDate = dataCalculo || sorted[sorted.length - 1]?.data || dataInicio;
 
   // Effective end: the furthest date we need to compute
