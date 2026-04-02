@@ -7,6 +7,22 @@
 import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 
+/** Fetch CDI records if the product uses CDI indexador */
+async function fetchCdiIfNeeded(
+  indexador: string | null,
+  dataInicio: string,
+  dataFim: string
+): Promise<{ data: string; taxa_anual: number }[] | undefined> {
+  if (!indexador || !indexador.includes("CDI")) return undefined;
+  const { data } = await supabase
+    .from("historico_cdi")
+    .select("data, taxa_anual")
+    .gte("data", dataInicio)
+    .lte("data", dataFim)
+    .order("data");
+  return data?.map((r) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) || undefined;
+}
+
 // ── Resgate no Vencimento Auto Sync ──
 
 type SyncCustodiaBase = {
@@ -73,6 +89,8 @@ async function syncManualResgatesTotais(
 
     if (!calendario || !movs) return;
 
+    const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
+
     for (const manualResgate of manualResgates) {
       const calendarioAteData = calendario.filter((dia) => dia.data <= manualResgate.data);
       const movsAteData = movs
@@ -96,6 +114,8 @@ async function syncManualResgatesTotais(
         dataResgateTotal: null,
         pagamento: custodiaRecord.pagamento,
         vencimento: custodiaRecord.vencimento,
+        indexador: custodiaRecord.indexador,
+        cdiRecords,
       });
 
       const rowDia = rows[rows.length - 1];
@@ -187,6 +207,8 @@ async function syncResgateNoVencimento(
 
     if (!calendario || !movs) return;
 
+    const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
+
     const rows = calcularRendaFixaDiario({
       dataInicio: custodiaRecord.data_inicio,
       dataCalculo: vencimento!,
@@ -198,6 +220,8 @@ async function syncResgateNoVencimento(
       dataResgateTotal: custodiaRecord.resgate_total,
       pagamento: custodiaRecord.pagamento,
       vencimento: custodiaRecord.vencimento,
+      indexador: custodiaRecord.indexador,
+      cdiRecords,
     });
 
     if (rows.length === 0) return;
@@ -723,7 +747,10 @@ export async function reprocessMovimentacoesForCodigo(
 
   if (!calendario) return;
 
-  // 5. For each movimentação, compute engine and update PU/Qty from calculator columns
+  // 5. Fetch CDI if needed
+  const cdiRecordsReprocess = await fetchCdiIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
+
+  // 6. For each movimentação, compute engine and update PU/Qty from calculator columns
   for (let i = 0; i < manualMovs.length; i++) {
     const mov = manualMovs[i];
 
@@ -749,6 +776,8 @@ export async function reprocessMovimentacoesForCodigo(
       dataResgateTotal: null,
       pagamento: baseInfo.pagamento,
       vencimento: baseInfo.vencimento,
+      indexador: aplicacaoInicial.indexador,
+      cdiRecords: cdiRecordsReprocess,
     });
 
     const rowDia = rows.find((r) => r.data === mov.data);
