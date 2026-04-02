@@ -136,6 +136,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           vencimento: product.vencimento,
           indexador: product.indexador,
           cdiRecords: (cdiRes.data || []).map((r: any) => ({ data: r.data, taxa_anual: r.taxa_anual })),
+          calendarioSorted: true,
         });
         setEngineRows(rows);
       }
