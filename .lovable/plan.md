@@ -1,74 +1,37 @@
 
 
-## Diagnóstico de Performance
+## Problema
 
-### Problema identificado
+O título 104 (CRI Banco Master **Pós Fixado CDI+ 9%**) aparece com dados zerados porque o motor de sincronização (`syncEngine.ts`) chama `calcularRendaFixaDiario` **sem passar o `indexador` nem os registros de CDI (`cdiRecords`)**. Sem esses dados, o multiplicador diário é sempre 0, e o produto não acumula nenhum rendimento. O "Resgate no Vencimento" automático é registrado com valor igual à aplicação inicial (R$ 60.000), sem juros.
 
-Os cálculos são feitos inteiramente no **client-side** (browser). Para cada produto de Renda Fixa, o sistema:
+Isso afeta 3 chamadas ao engine dentro do `syncEngine.ts`:
+1. `syncResgateNoVencimento` (linha ~190)
+2. `syncManualResgatesTotais` (linha ~88)
+3. `reprocessMovimentacoesForCodigo` (linha ~741)
 
-1. **Faz uma query individual ao banco** para buscar movimentações (N+1 queries — se há 10 produtos, são 10 chamadas separadas)
-2. **Copia e ordena o calendário inteiro** (`[...calendario].sort()`) dentro de cada chamada a `calcularRendaFixaDiario` — mesmo que o array já venha ordenado do banco
-3. **Reconstrói estruturas auxiliares** (Sets de dias úteis, Maps de CDI) em cada execução do engine, repetindo trabalho idêntico para cada produto
-4. **Passa o calendário completo** (até maxEndDate) para cada produto, mesmo que muitos produtos tenham datas de início/fim muito mais restritas
+## Plano de Correção
 
-### Plano de Otimização (sem alterar regras de cálculo)
+### Arquivo: `src/lib/syncEngine.ts`
 
-#### 1. Buscar todas as movimentações em uma única query
-**Arquivo**: `src/pages/CarteiraRendaFixaPage.tsx`, `src/pages/CalculadoraPage.tsx`
+Em cada uma das 3 funções que chamam `calcularRendaFixaDiario`:
 
-Em vez de fazer N queries (uma por `codigo_custodia`), buscar todas as movimentações de uma vez com um filtro `in` nos códigos de custódia, e depois agrupar no client por `codigo_custodia`.
+1. **Verificar se o produto é Pós Fixado ou Mista com indexador CDI/CDI+**
+2. Se sim, **buscar os registros de `historico_cdi`** no intervalo de datas relevante
+3. **Passar `indexador` e `cdiRecords`** como parâmetros ao engine
 
-```typescript
-// ANTES: N queries
-const productRowsPromises = rfProducts.map(async (product) => {
-  const { data: movData } = await supabase
-    .from("movimentacoes")
-    .select("data, tipo_movimentacao, valor")
-    .eq("codigo_custodia", product.codigo_custodia)
-    ...
-});
+Detalhes por função:
 
-// DEPOIS: 1 query
-const allCodigos = rfProducts.map(p => p.codigo_custodia);
-const { data: allMovData } = await supabase
-  .from("movimentacoes")
-  .select("data, tipo_movimentacao, valor, codigo_custodia")
-  .in("codigo_custodia", allCodigos)
-  .eq("user_id", user.id)
-  .order("data");
-const movByCodigo = new Map<number, any[]>();
-// agrupar por codigo_custodia
-```
+**`syncResgateNoVencimento`** (linha ~170):
+- Adicionar query ao `historico_cdi` quando `indexador` contém "CDI"
+- Passar `indexador: custodiaRecord.indexador` e `cdiRecords` ao engine
 
-#### 2. Evitar re-sort do calendário no engine
-**Arquivo**: `src/lib/rendaFixaEngine.ts`
+**`syncManualResgatesTotais`** (linha ~58):
+- Mesmo ajuste: buscar CDI se necessário e passar ao engine
 
-O calendário já vem ordenado da query (`order("data")`). Remover a cópia+sort redundante:
+**`reprocessMovimentacoesForCodigo`** (linha ~710):
+- Buscar `indexador` da movimentação (já disponível via `aplicacaoInicial.indexador`)
+- Passar CDI records e indexador ao engine
 
-```typescript
-// ANTES
-const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
-
-// DEPOIS
-const sorted = calendario; // já ordenado
-```
-
-#### 3. Pré-computar estruturas compartilhadas (calendário, CDI)
-**Arquivo**: `src/pages/CarteiraRendaFixaPage.tsx`, `src/pages/CalculadoraPage.tsx`
-
-Criar os Maps de CDI e Sets de dias úteis **uma vez** antes do loop de produtos, e passá-los como parâmetros opcionais ao engine (sem alterar a interface obrigatória — apenas adicionar campos opcionais ao `EngineInput`).
-
-**Arquivo**: `src/lib/rendaFixaEngine.ts`
-
-Aceitar `cdiMap?: Map<string, number>` e `calendarSorted?: boolean` como campos opcionais no `EngineInput`. Se já fornecidos, pular a construção interna.
-
-#### 4. Aplicar as mesmas otimizações nas outras páginas
-**Arquivos**: `src/pages/AnaliseIndividualPage.tsx`, `src/pages/ProventosRecebidosPage.tsx`
-
-Mesma lógica — buscar movimentações em batch e evitar re-sort do calendário.
-
-### Impacto esperado
-- **Redução de queries**: de N+3 para 4 (carteira + custódia + calendário + CDI + 1 movimentações)
-- **Redução de CPU no browser**: eliminar N cópias+sorts de arrays grandes de calendário
-- **Sem alteração nas regras de cálculo**: apenas otimização de I/O e estruturas de dados
+### Nenhuma alteração de regra de cálculo
+Apenas corrigir dados de entrada que estavam faltando nas chamadas do sync engine.
 
