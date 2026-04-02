@@ -264,12 +264,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           {/* Summary cards at data_calculo */}
           {detailRows.length > 0 && (() => {
             const topRow = detailRows[0];
-            let lastPatrimonio: number | null = null;
-            for (let m = 11; m >= 0; m--) {
-              if (topRow.patrimonioMonths[m] !== null) { lastPatrimonio = topRow.patrimonioMonths[m]; break; }
-            }
             const ganho = topRow.ganhoAcumulado;
-            const rent = topRow.rentAcumulado;
             const cdiAcum = topRow.cdiAcumulado;
 
             const fmtBrlCard = (v: number | null) =>
@@ -277,21 +272,14 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
             const fmtPctCard = (v: number | null) =>
               v != null ? `${v.toFixed(2)}%` : "—";
 
-            // Check if position is closed (selector date >= resgate_total)
-
-            // Patrimônio: use engine row at data_calculo (always liquido)
-            // Search backwards for the last row with data <= dataReferenciaISO
-            let patrimonioDisplayValue: number | null = lastPatrimonio; // fallback
+            // Patrimônio: always use liquido(1) from engine at data_calculo
+            let patrimonioDisplayValue: number | null = null;
             if (isPrefixado && engineRows.length > 0) {
-              let patRow: DailyRow | undefined;
               for (let i = engineRows.length - 1; i >= 0; i--) {
                 if (engineRows[i].data <= dataReferenciaISO) {
-                  patRow = engineRows[i];
+                  patrimonioDisplayValue = engineRows[i].liquido;
                   break;
                 }
-              }
-              if (patRow) {
-                patrimonioDisplayValue = patRow.liquido;
               }
             }
 
