@@ -1,62 +1,52 @@
 
 
-# Correção: Rentabilidade mensal 0,94% → 0,92% para títulos com juros periódicos
+# Correção: Rent. Diária (%) e Rent. Acum (2) na Engine
 
-## Diagnóstico
+## Problema
 
-A diferença de 0,02% ocorre porque as duas metodologias tratam o dia de aplicação de forma diferente:
+A engine calcula `rentDiariaPct` com a fórmula errada:
 
-- **Título 101 (No Vencimento)** usa `rentabilidadeDiaria` (baseada em cotas). No dia de uma aplicação, o retorno é **diluído** porque o dinheiro novo entra ao preço da cota corrente mas não rendeu no dia. Exemplo: no dia 05/01 (aplicação de R$ 50.000), o retorno diário é `mult × prevLiquido / (prevLiquido + 50.000)` ≈ 67% do retorno normal. Resultado: JAN = 0,92%.
+```
+rentDiariaPct = ganhoDiario / prevLiq2   (engine atual, linha 509)
+```
 
-- **Título 100 (Mensal)** usa `rentDiariaPct = ganhoDiario / prevLiq2`. Nesta fórmula, o denominador (`prevLiq2` = Líquido(2) do dia anterior) **não inclui a aplicação do dia**, então o retorno não é diluído — é sempre ≈ `mult` (retorno cheio). Resultado: JAN = 0,94%.
+A planilha usa:
 
-Adicionalmente, no dia seguinte a um resgate, `prevLiq2` inclui o valor resgatado (é o patrimônio bruto antes do resgate), enquanto `prevLiquido` não. Isso causa `rentDiariaPct < mult` no dia seguinte ao resgate, diferente do sistema de cotas que retorna `mult`.
+```
+rentDiariaPct = ganhoDiario / (prevLiquido + aplicacoes)   (correto)
+```
+
+**Impacto**: Em dias de aplicação, a fórmula errada não dilui o retorno (ex: Jan 5, engine mostra 0.04% mas planilha mostra 0.03%). Isso causa divergência na Rent. Acum (2) — a engine acumula mais do que deveria.
+
+**Exemplo concreto** (Jan 5, aplicação de R$ 50.000):
+- Engine: `45.02 / 100,089.98 = 0.045%` (usa prevLiq2 do dia anterior, sem diluição)
+- Planilha: `45.02 / (100,089.98 + 50,000) = 0.030%` (dilui pela aplicação do dia)
 
 ## Solução
 
-Recalcular o retorno diário no `detailRowsBuilder` usando os componentes brutos em vez de `rentDiariaPct`:
-
-```
-dailyRent = ganhoDiario / (prevLiquido + aplicações_do_dia)
-```
-
-Esta fórmula:
-- **Dias normais**: `prevLiq × mult / prevLiq = mult` ✓
-- **Dias de aplicação**: `prevLiq × mult / (prevLiq + A)` = retorno diluído (igual ao sistema de cotas) ✓
-- **Dias de resgate**: `prevLiq × mult / prevLiq = mult` ✓ (resgates não afetam o denominador)
-- **Dia após resgate**: `postResgate × mult / postResgate = mult` ✓ (corrige o bug do prevLiq2)
-- **Dia de pagamento de juros**: juros se cancela no `ganhoDiario` → `mult` ✓ (neutraliza cupom)
-- **Dia após pagamento de juros**: patrimônio reduzido mas o retorno ainda é `mult` ✓
-- **Dias não úteis**: `diaUtil` check mantém retorno = 0 ✓
+Alterar a fórmula de `rentDiariaPct` na engine para usar `ganhoDiario / (prevLiquido + aplicacoes)`, alinhando com a planilha e com a correção já aplicada no `detailRowsBuilder`.
 
 ## Alteração
 
-**Arquivo**: `src/lib/detailRowsBuilder.ts`
-
-Substituir o uso direto de `row.rentDiariaPct` por uma computação local:
+**Arquivo**: `src/lib/rendaFixaEngine.ts` (linhas 493-514)
 
 ```typescript
-// Antes:
-const dailyRent = useRentAcum2
-  ? (row.diaUtil ? (row.rentDiariaPct ?? 0) : 0)
-  : (row.rentabilidadeDiaria ?? 0);
+// Antes (linhas 506-509):
+const prevLiq2 = i > 0 && rows.length > 0 ? rows[rows.length - 1].liquido2 : 0;
+if (prevLiq2 > 0.01) {
+  rentDiariaPct = ganhoDiario / prevLiq2;
+}
 
 // Depois:
-let dailyRent: number;
-if (useRentAcum2) {
-  if (row.diaUtil && prevRowLiquido > 0.01) {
-    dailyRent = row.ganhoDiario / (prevRowLiquido + row.aplicacoes);
-  } else {
-    dailyRent = 0;
-  }
-} else {
-  dailyRent = row.rentabilidadeDiaria ?? 0;
+const denominator = prevLiquido + aplicacoes;
+if (denominator > 0.01) {
+  rentDiariaPct = ganhoDiario / denominator;
 }
 ```
 
-Adicionar variável `prevRowLiquido` ao loop, inicializada em 0 e atualizada com `row.liquido` ao final de cada iteração (incluindo antes do `continue` no skip de linhas zeradas).
+A variável `prevLiquido` já existe no loop e é atualizada corretamente a cada iteração. Não é necessária nenhuma alteração no `detailRowsBuilder` (que já usa a mesma fórmula localmente) nem na interface `DailyRow`.
 
 | Arquivo | Alteração |
 |---|---|
-| `src/lib/detailRowsBuilder.ts` | Recalcular retorno diário com `ganhoDiario / (prevLiquido + aplicações)` em vez de usar `rentDiariaPct` |
+| `src/lib/rendaFixaEngine.ts` | Corrigir fórmula de `rentDiariaPct`: usar `ganhoDiario / (prevLiquido + aplicacoes)` em vez de `ganhoDiario / prevLiq2` |
 
