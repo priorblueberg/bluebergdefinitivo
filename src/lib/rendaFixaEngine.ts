@@ -327,12 +327,13 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
     // W: Preço Unitário — compute BEFORE jurosPago
     let precoUnitario: number;
+    const isNoVencimentoFinal = pagamento === "No Vencimento" && isFinalDay;
     if (isDataInicio) {
       precoUnitario = puInicialCustodia;
     } else if (!diaUtil) {
       precoUnitario = prevPrecoUnitario;
-    } else if (isPagamento) {
-      // Reset to initial PU on payment days
+    } else if (isPagamento || isNoVencimentoFinal) {
+      // Reset to initial PU on payment days (including "No Vencimento" final day)
       precoUnitario = puInicialCustodia;
     } else {
       precoUnitario = prevPrecoUnitario * rawMultiplicador + prevPrecoUnitario;
