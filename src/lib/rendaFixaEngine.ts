@@ -201,9 +201,8 @@ function buildMovMap(movs: EngineInput["movimentacoes"]): Map<string, { aplicaco
 }
 
 function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]): string | null {
-  const sorted = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    if (sorted[i].data < dataInicio) return sorted[i].data;
+  for (let i = calendario.length - 1; i >= 0; i--) {
+    if (calendario[i].data < dataInicio) return calendario[i].data;
   }
   return null;
 }
