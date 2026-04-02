@@ -657,9 +657,7 @@ export async function syncCarteiraGeral(userId: string, dataReferencia?: string)
 
   await supabase.from("controle_de_carteiras").upsert(carteiraData, {
     onConflict: "nome_carteira,user_id",
-      user_id: userId,
-    });
-  }
+  });
 }
 
 /**
