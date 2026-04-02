@@ -283,19 +283,14 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               }
             }
 
-            // Rentabilidade: conditional on pagamento
-            const useRentAcum2 = product.pagamento != null && product.pagamento !== "No Vencimento";
-            let rentValue = rent;
+            // Rentabilidade: always use rentAcumulada2, rounded to 2 decimals
+            let rentValue = topRow.rentAcumulado;
             if (isPrefixado && engineRows.length > 0) {
-              let targetRow: DailyRow | undefined;
               for (let i = engineRows.length - 1; i >= 0; i--) {
-                if (engineRows[i].data <= dataReferenciaISO) { targetRow = engineRows[i]; break; }
-              }
-              if (targetRow) {
-                const rawPct = useRentAcum2 ? targetRow.rentAcumulada2 : targetRow.rentabilidadeAcumuladaPct;
-                rentValue = useRentAcum2
-                  ? Math.floor(rawPct * 10000) / 100
-                  : parseFloat((rawPct * 100).toFixed(2));
+                if (engineRows[i].data <= dataReferenciaISO) {
+                  rentValue = parseFloat((engineRows[i].rentAcumulada2 * 100).toFixed(2));
+                  break;
+                }
               }
             }
 
