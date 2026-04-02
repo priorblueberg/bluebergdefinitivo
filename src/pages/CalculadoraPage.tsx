@@ -261,6 +261,24 @@ export default function CalculadoraPage() {
 
       {loading && <p className="text-sm text-muted-foreground">Calculando...</p>}
 
+      {!loading && selectedId && ((rows.length > 0 && !isCarteira) || (carteiraRows.length > 0 && isCarteira)) && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (isCarteira) {
+              exportCarteiraToExcel(carteiraRows);
+            } else {
+              const nome = selectedProduct?.nome || selectedProduct?.produto_nome || "Ativo";
+              exportIndividualToExcel(rows, nome);
+            }
+          }}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Exportar Excel
+        </Button>
+      )}
+
       {!loading && !isCarteira && rows.length > 0 && (
         <CalculadoraTable
           rows={rows}
