@@ -128,7 +128,11 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
               <TableCell className="text-xs text-right font-mono">
                 {(() => {
                   if (pagamento === "No Vencimento" && dataResgateTotal && r.data === dataResgateTotal) {
-                    const val = r.precoUnitario * r.resgateExCupom;
+                    // Use corrected Resgate Ex Cupom: Resgate / (PU_ant * Mult + PU_ant)
+                    const prevPU = i > 0 ? rows[i - 1].precoUnitario : r.precoUnitario;
+                    const denominator = prevPU * r.multiplicador + prevPU;
+                    const correctedResgateExCupom = denominator > 0 ? r.resgates / denominator : 0;
+                    const val = r.precoUnitario * correctedResgateExCupom;
                     return Math.abs(val) > 0.01 ? fmtCurrency(val) : "—";
                   }
                   return Math.abs(r.resgateLimpo) > 0.01 ? fmtCurrency(r.resgateLimpo) : "—";
