@@ -215,6 +215,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
   const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
+  const isMistaCDI = modalidade === "Mista" && indexador === "CDI";
+  // Pre-compute fixed spread for Mista: (1+taxa)^(1/252)
+  const mistaSpreadFactor = isMistaCDI ? Math.pow(1 + taxa / 100, 1 / 252) : 1;
 
   // Build CDI map: reuse pre-computed if available
   let cdiMap: Map<string, number>;
@@ -297,7 +300,11 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
     // Multiplicador
     let dailyMult: number;
-    if (isPosFixadoCDI) {
+    if (isMistaCDI) {
+      // Mista: (1 + CDI Diário anterior) * (1 + Taxa)^(1/252) - 1
+      const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
+      dailyMult = diaUtil ? (1 + prevCdiDiario) * mistaSpreadFactor - 1 : 0;
+    } else if (isPosFixadoCDI) {
       const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
       dailyMult = diaUtil ? prevCdiDiario * (taxa / 100) : 0;
     } else {
@@ -344,7 +351,8 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       // Reset to initial PU on payment days (including "No Vencimento" final day)
       precoUnitario = puInicialCustodia;
     } else {
-      precoUnitario = prevPrecoUnitario * rawMultiplicador + prevPrecoUnitario;
+      const puMult = (isMistaCDI || isPosFixadoCDI) ? dailyMult : rawMultiplicador;
+      precoUnitario = prevPrecoUnitario * puMult + prevPrecoUnitario;
     }
 
     // X: Quantidade Aplicação = Aplicações / Preço Unitário
