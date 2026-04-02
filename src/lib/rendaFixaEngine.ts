@@ -90,6 +90,10 @@ export interface EngineInput {
   indexador?: string | null;
   cdiRecords?: { data: string; taxa_anual: number }[];
   dataLimite?: string | null;
+  /** Pre-computed CDI map (data -> taxa_anual) to avoid rebuilding per product */
+  precomputedCdiMap?: Map<string, number>;
+  /** If true, skip sorting calendario (already sorted) */
+  calendarioSorted?: boolean;
 }
 
 // ── Pagamento de Juros Periódico ──
