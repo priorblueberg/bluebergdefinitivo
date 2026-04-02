@@ -215,6 +215,9 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
   const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
+  const isMistaCDI = modalidade === "Mista" && indexador === "CDI";
+  // Pre-compute fixed spread for Mista: (1+taxa)^(1/252)
+  const mistaSpreadFactor = isMistaCDI ? Math.pow(1 + taxa / 100, 1 / 252) : 1;
 
   // Build CDI map: reuse pre-computed if available
   let cdiMap: Map<string, number>;
