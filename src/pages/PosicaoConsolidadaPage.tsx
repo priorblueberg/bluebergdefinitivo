@@ -359,7 +359,7 @@ export default function PosicaoConsolidadaPage() {
                 <TableCell>Total</TableCell>
                 <TableCell>{fmtBrl(totalValor)}</TableCell>
                 <TableCell className="text-emerald-600">{fmtBrl(totalGanho)}</TableCell>
-                <TableCell className={totalRentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{totalRentabilidade.toFixed(2)}%</TableCell>
+                <TableCell className={carteiraRentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{carteiraRentabilidade.toFixed(2)}%</TableCell>
                 <TableCell />
                 <TableCell className="text-right">100,00%</TableCell>
                 <TableCell />
