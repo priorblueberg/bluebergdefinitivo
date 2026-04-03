@@ -1,37 +1,26 @@
 
 
-## Problema
+## Mapeamento "Pós Fixado + CDI+" → "Mista + CDI"
 
-O título 104 (CRI Banco Master **Pós Fixado CDI+ 9%**) aparece com dados zerados porque o motor de sincronização (`syncEngine.ts`) chama `calcularRendaFixaDiario` **sem passar o `indexador` nem os registros de CDI (`cdiRecords`)**. Sem esses dados, o multiplicador diário é sempre 0, e o produto não acumula nenhum rendimento. O "Resgate no Vencimento" automático é registrado com valor igual à aplicação inicial (R$ 60.000), sem juros.
+### O que será feito
+Quando o usuário cadastrar um título com **Modalidade = "Pós Fixado"** e **Indexador = "CDI+"**, o sistema deve gravar automaticamente **Modalidade = "Mista"** e **Indexador = "CDI"** tanto na movimentação quanto na custódia. Isso garante que o engine use o multiplicador correto `(1 + CDI anterior) * (1 + Taxa)^(1/252) - 1`.
 
-Isso afeta 3 chamadas ao engine dentro do `syncEngine.ts`:
-1. `syncResgateNoVencimento` (linha ~190)
-2. `syncManualResgatesTotais` (linha ~88)
-3. `reprocessMovimentacoesForCodigo` (linha ~741)
+### Pontos de alteração
 
-## Plano de Correção
+#### 1. `src/pages/CadastrarTransacaoPage.tsx` — Inserção de Aplicação (linha ~519)
+Antes de gravar na tabela `movimentacoes`, aplicar a transformação:
+- Se `modalidade === "Pós Fixado"` e `indexador === "CDI+"` → gravar `modalidade: "Mista"` e `indexador: "CDI"`
+- Isso afeta: insert de nova aplicação (linha ~519), update de edição (linha ~466)
 
-### Arquivo: `src/lib/syncEngine.ts`
+#### 2. `src/pages/CadastrarTransacaoPage.tsx` — Nome do ativo (`buildNomeAtivo`)
+O nome do ativo (linha ~451) é gerado **antes** da transformação. Manter o nome original com "CDI+" para exibição ao usuário, mas gravar modalidade/indexador transformados.
 
-Em cada uma das 3 funções que chamam `calcularRendaFixaDiario`:
+#### 3. `src/components/BoletaCustodiaDialog.tsx` — Inserção de Resgate/Aplicação via boleta
+As boletas copiam `modalidade` e `indexador` do registro de custódia existente, que já estará como "Mista"/"CDI". Nenhuma alteração necessária aqui.
 
-1. **Verificar se o produto é Pós Fixado ou Mista com indexador CDI/CDI+**
-2. Se sim, **buscar os registros de `historico_cdi`** no intervalo de datas relevante
-3. **Passar `indexador` e `cdiRecords`** como parâmetros ao engine
+#### 4. `src/lib/syncEngine.ts` — Sincronização de custódia (linha ~441)
+A custódia já copia `modalidade` e `indexador` da `aplicacaoInicial`. Como a movimentação já terá os valores transformados, a custódia será gravada corretamente. Nenhuma alteração necessária.
 
-Detalhes por função:
-
-**`syncResgateNoVencimento`** (linha ~170):
-- Adicionar query ao `historico_cdi` quando `indexador` contém "CDI"
-- Passar `indexador: custodiaRecord.indexador` e `cdiRecords` ao engine
-
-**`syncManualResgatesTotais`** (linha ~58):
-- Mesmo ajuste: buscar CDI se necessário e passar ao engine
-
-**`reprocessMovimentacoesForCodigo`** (linha ~710):
-- Buscar `indexador` da movimentação (já disponível via `aplicacaoInicial.indexador`)
-- Passar CDI records e indexador ao engine
-
-### Nenhuma alteração de regra de cálculo
-Apenas corrigir dados de entrada que estavam faltando nas chamadas do sync engine.
+### Resumo técnico
+Uma única transformação no ponto de entrada (cadastro de transação) propaga corretamente para todo o sistema. A alteração é um bloco de ~4 linhas adicionado antes dos inserts/updates em `CadastrarTransacaoPage.tsx`.
 
