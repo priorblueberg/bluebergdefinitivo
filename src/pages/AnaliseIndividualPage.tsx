@@ -72,7 +72,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   const isPrefixado = product.categoria_nome === "Renda Fixa" && (
     product.modalidade === "Prefixado" ||
     product.modalidade === "Pos Fixado" ||
-    product.modalidade === "Pós Fixado"
+    product.modalidade === "Pós Fixado" ||
+    product.modalidade === "Mista"
   );
 
   useEffect(() => {
@@ -154,7 +155,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
     const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, chartEndDate);
 
     if (isPrefixado && engineRows.length > 0) {
-      const useRentAcum2 = product.pagamento != null && product.pagamento !== "No Vencimento";
+      const useRentAcum2 = true; // Always use rentAcumulada2 for all assets
       // Build titulo_acumulado from the appropriate rent column
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
