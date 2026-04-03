@@ -48,6 +48,7 @@ function AppLayoutInner() {
         {isCarteira && <SubTabs />}
         <main className="relative flex-1 overflow-y-auto p-6">
           <RecalculatingOverlay />
+          <WelcomeModal />
           <Outlet />
         </main>
       </div>
