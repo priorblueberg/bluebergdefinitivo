@@ -38,51 +38,27 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
   const dateAgg = new Map<string, {
     liquido: number;
     liquido2: number;
+    aplicacoes: number;
     rentDiariaRS: number;
   }>();
 
   for (const rows of productRows) {
     for (const row of rows) {
       if (row.data < dataInicio || row.data > dataCalculo) continue;
-      const existing = dateAgg.get(row.data) || { liquido: 0, liquido2: 0, rentDiariaRS: 0 };
+      const existing = dateAgg.get(row.data) || { liquido: 0, liquido2: 0, aplicacoes: 0, rentDiariaRS: 0 };
       existing.liquido += row.liquido;
       existing.liquido2 += row.liquido2;
+      existing.aplicacoes += row.aplicacoes;
       existing.rentDiariaRS += row.ganhoDiario;
       dateAgg.set(row.data, existing);
     }
   }
+...
+    const { liquido, liquido2, aplicacoes, rentDiariaRS } = agg;
 
-  const sorted = [...calendario]
-    .filter(c => c.data >= dataInicio && c.data <= dataCalculo)
-    .sort((a, b) => a.data.localeCompare(b.data));
-
-  const result: CarteiraRFRow[] = [];
-  let rentAcumuladaRS = 0;
-  let rentAcumuladaPct = 0;
-  let prevLiquido = 0;
-
-  for (const cal of sorted) {
-    const agg = dateAgg.get(cal.data);
-
-    if (!agg) {
-      // No product data — carry forward
-      result.push({
-        data: cal.data,
-        diaUtil: cal.dia_util,
-        liquido: 0,
-        liquido2: 0,
-        rentDiariaRS: 0,
-        rentDiariaPct: 0,
-        rentAcumuladaRS,
-        rentAcumuladaPct,
-      });
-      continue;
-    }
-
-    const { liquido, liquido2, rentDiariaRS } = agg;
-
-    // Rent. Diária (%) = Rent. Diária (R$) / Líquido (1) do dia anterior
-    const rentDiariaPct = prevLiquido > 0.01 ? rentDiariaRS / prevLiquido : 0;
+    // Rent. Diária (%) = Rent. Diária (R$) / (Líquido (1) do dia anterior + aplicações do dia)
+    const baseRentabilidade = prevLiquido + aplicacoes;
+    const rentDiariaPct = baseRentabilidade > 0.01 ? rentDiariaRS / baseRentabilidade : 0;
 
     // Rent. Acumulada (R$) = soma acumulada
     rentAcumuladaRS += rentDiariaRS;
