@@ -85,7 +85,7 @@ const App = () => (
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
-              <Route path="/carteira" element={<CarteiraVisaoGeral />} />
+              <Route path="/carteira" element={<Navigate to="/carteira/renda-fixa" replace />} />
               <Route path="/carteira/renda-fixa" element={<CarteiraRendaFixa />} />
               <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
               <Route path="/carteira/fundos" element={<CarteiraFundos />} />
