@@ -6,7 +6,7 @@
  * - Líquido (1): soma de todos os títulos
  * - Líquido (2): soma de todos os títulos
  * - Rent. Diária (R$): soma da Rent. Diária (R$) de todos os títulos
- * - Rent. Diária (%): Rent. Diária (R$) / Líquido (2)
+ * - Rent. Diária (%): Rent. Diária (R$) / base consolidada do dia
  * - Rent. Acumulada (R$): acumulado da Rent. Diária (R$)
  * - Rent. Acumulada (%): composição (1+acum_anterior)*(1+diaria)-1
  */
@@ -53,17 +53,41 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       dateAgg.set(row.data, existing);
     }
   }
-...
+
+  const sorted = [...calendario]
+    .filter(c => c.data >= dataInicio && c.data <= dataCalculo)
+    .sort((a, b) => a.data.localeCompare(b.data));
+
+  const result: CarteiraRFRow[] = [];
+  let rentAcumuladaRS = 0;
+  let rentAcumuladaPct = 0;
+  let prevLiquido = 0;
+
+  for (const cal of sorted) {
+    const agg = dateAgg.get(cal.data);
+
+    if (!agg) {
+      // No product data — carry forward
+      result.push({
+        data: cal.data,
+        diaUtil: cal.dia_util,
+        liquido: 0,
+        liquido2: 0,
+        rentDiariaRS: 0,
+        rentDiariaPct: 0,
+        rentAcumuladaRS,
+        rentAcumuladaPct,
+      });
+      continue;
+    }
+
     const { liquido, liquido2, aplicacoes, rentDiariaRS } = agg;
 
-    // Rent. Diária (%) = Rent. Diária (R$) / (Líquido (1) do dia anterior + aplicações do dia)
+    // Segue a mesma base usada na composição diária consolidada da tabela de detalhe
     const baseRentabilidade = prevLiquido + aplicacoes;
     const rentDiariaPct = baseRentabilidade > 0.01 ? rentDiariaRS / baseRentabilidade : 0;
 
-    // Rent. Acumulada (R$) = soma acumulada
     rentAcumuladaRS += rentDiariaRS;
-
-    // Rent. Acumulada (%) = (1 + acum_anterior) * (1 + diária) - 1
     rentAcumuladaPct = (1 + rentAcumuladaPct) * (1 + rentDiariaPct) - 1;
 
     result.push({
@@ -77,7 +101,6 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       rentAcumuladaPct,
     });
 
-    // Update prevLiquido for next iteration
     prevLiquido = liquido;
   }
 
