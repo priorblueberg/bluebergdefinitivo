@@ -155,7 +155,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
     const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, chartEndDate);
 
     if (isPrefixado && engineRows.length > 0) {
-      const useRentAcum2 = true; // Always use rentAcumulada2 for all assets
+      const useRentAcum2 = product.pagamento != null && product.pagamento !== "No Vencimento";
       // Build titulo_acumulado from the appropriate rent column
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
@@ -288,12 +288,14 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
               }
             }
 
-            // Rentabilidade: always use rentAcumulada2, rounded to 2 decimals
+            // Rentabilidade: use rentabilidadeAcumuladaPct for "No Vencimento", rentAcumulada2 for periodic
+            const useRentAcum2ForCard = product.pagamento != null && product.pagamento !== "No Vencimento";
             let rentValue = topRow.rentAcumulado;
             if (isPrefixado && engineRows.length > 0) {
               for (let i = engineRows.length - 1; i >= 0; i--) {
                 if (engineRows[i].data <= dataReferenciaISO) {
-                  rentValue = parseFloat((engineRows[i].rentAcumulada2 * 100).toFixed(2));
+                  const rawRent = useRentAcum2ForCard ? engineRows[i].rentAcumulada2 : engineRows[i].rentabilidadeAcumuladaPct;
+                  rentValue = parseFloat((rawRent * 100).toFixed(2));
                   break;
                 }
               }
