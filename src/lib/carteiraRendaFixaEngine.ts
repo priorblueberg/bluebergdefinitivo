@@ -6,7 +6,7 @@
  * - Líquido (1): soma de todos os títulos
  * - Líquido (2): soma de todos os títulos
  * - Rent. Diária (R$): soma da Rent. Diária (R$) de todos os títulos
- * - Rent. Diária (%): Rent. Diária (R$) / Líquido (2)
+ * - Rent. Diária (%): Rent. Diária (R$) / base consolidada do dia
  * - Rent. Acumulada (R$): acumulado da Rent. Diária (R$)
  * - Rent. Acumulada (%): composição (1+acum_anterior)*(1+diaria)-1
  */
@@ -38,15 +38,17 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
   const dateAgg = new Map<string, {
     liquido: number;
     liquido2: number;
+    aplicacoes: number;
     rentDiariaRS: number;
   }>();
 
   for (const rows of productRows) {
     for (const row of rows) {
       if (row.data < dataInicio || row.data > dataCalculo) continue;
-      const existing = dateAgg.get(row.data) || { liquido: 0, liquido2: 0, rentDiariaRS: 0 };
+      const existing = dateAgg.get(row.data) || { liquido: 0, liquido2: 0, aplicacoes: 0, rentDiariaRS: 0 };
       existing.liquido += row.liquido;
       existing.liquido2 += row.liquido2;
+      existing.aplicacoes += row.aplicacoes;
       existing.rentDiariaRS += row.ganhoDiario;
       dateAgg.set(row.data, existing);
     }
@@ -79,15 +81,13 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       continue;
     }
 
-    const { liquido, liquido2, rentDiariaRS } = agg;
+    const { liquido, liquido2, aplicacoes, rentDiariaRS } = agg;
 
-    // Rent. Diária (%) = Rent. Diária (R$) / Líquido (1) do dia anterior
-    const rentDiariaPct = prevLiquido > 0.01 ? rentDiariaRS / prevLiquido : 0;
+    // Segue a mesma base usada na composição diária consolidada da tabela de detalhe
+    const baseRentabilidade = prevLiquido + aplicacoes;
+    const rentDiariaPct = baseRentabilidade > 0.01 ? rentDiariaRS / baseRentabilidade : 0;
 
-    // Rent. Acumulada (R$) = soma acumulada
     rentAcumuladaRS += rentDiariaRS;
-
-    // Rent. Acumulada (%) = (1 + acum_anterior) * (1 + diária) - 1
     rentAcumuladaPct = (1 + rentAcumuladaPct) * (1 + rentDiariaPct) - 1;
 
     result.push({
@@ -101,7 +101,6 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       rentAcumuladaPct,
     });
 
-    // Update prevLiquido for next iteration
     prevLiquido = liquido;
   }
 
