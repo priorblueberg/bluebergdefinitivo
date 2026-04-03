@@ -236,7 +236,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
           <ArrowLeft size={16} />
-          Voltar para lista de produtos
+          {backLabel}
         </button>
         <div className="flex items-start gap-4 flex-wrap">
           <div>
