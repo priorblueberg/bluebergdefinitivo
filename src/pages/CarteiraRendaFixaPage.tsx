@@ -463,24 +463,15 @@ export default function CarteiraRendaFixaPage() {
           {statusBadge}
         </div>
         {carteiraInfo && (
-          carteiraInfo.status === "Ativa" ? (
-            <p className="text-sm text-muted-foreground mt-1">
-              Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
-            </p>
-          ) : carteiraInfo.status === "Não Iniciada" ? (
+          carteiraInfo.status === "Não Iniciada" ? (
             <p className="text-sm text-muted-foreground mt-1">
               Data selecionada anterior ao início dos seus investimentos em Renda Fixa
             </p>
-          ) : carteiraInfo.status === "Encerrada" ? (
-            <>
-              <p className="text-sm text-muted-foreground mt-1">
-                Carteira Encerrada em {fmtDate(carteiraInfo.data_calculo)}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
-              </p>
-            </>
-          ) : null
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1">
+              Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
+            </p>
+          )
         )}
       </div>
 
@@ -658,7 +649,6 @@ export default function CarteiraRendaFixaPage() {
           {productList.length > 0 && (
             <div className="space-y-1">
               <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
-              <p className="text-xs text-muted-foreground mb-3">Clique no título para visualizar o Dashboard</p>
               <div className="rounded-lg border bg-card">
                 <Table>
                   <TableHeader>

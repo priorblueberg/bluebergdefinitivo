@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { useAuth } from "@/hooks/useAuth";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 interface ProventoRow {
   data: string;
@@ -156,52 +159,49 @@ export default function ProventosRecebidosPage() {
         <p className="text-xs text-muted-foreground">Pagamentos de juros periódicos dos seus títulos</p>
       </div>
 
-      <div className="rounded-md border border-border overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-primary text-primary-foreground">
+      <div className="rounded-lg border bg-card overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {COLUMNS.map((col) => (
-                <th
+                <TableHead
                   key={col.key}
-                  className="px-3 py-2 text-left font-medium whitespace-nowrap cursor-pointer select-none hover:bg-primary/80 transition-colors"
+                  className="cursor-pointer select-none whitespace-nowrap"
                   onClick={() => handleSort(col.key)}
                 >
                   <span className="inline-flex items-center gap-1">
                     {col.label}
                     <ArrowUpDown size={12} className={sortField === col.key ? "opacity-100" : "opacity-40"} />
                   </span>
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <tr>
-                <td colSpan={COLUMNS.length} className="px-4 py-8 text-center text-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={COLUMNS.length} className="text-center py-8 text-muted-foreground">
                   Carregando...
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : sortedRows.length === 0 ? (
-              <tr>
-                <td colSpan={COLUMNS.length} className="px-4 py-8 text-center text-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={COLUMNS.length} className="text-center py-8 text-muted-foreground">
                   Nenhum provento encontrado.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               sortedRows.map((r, i) => (
-                <tr
-                  key={`${r.data}-${r.nome}-${i}`}
-                  className={`border-t border-border ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}
-                >
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
-                  <td className="px-3 py-2 text-foreground">{r.nome}</td>
-                  <td className="px-3 py-2 text-foreground">{r.tipo}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtBrl(r.valor)}</td>
-                </tr>
+                <TableRow key={`${r.data}-${r.nome}-${i}`}>
+                  <TableCell className="whitespace-nowrap">{fmtDate(r.data)}</TableCell>
+                  <TableCell>{r.nome}</TableCell>
+                  <TableCell>{r.tipo}</TableCell>
+                  <TableCell className="whitespace-nowrap">{fmtBrl(r.valor)}</TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

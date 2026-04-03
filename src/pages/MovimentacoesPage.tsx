@@ -7,6 +7,9 @@ import { toast } from "sonner";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -249,54 +252,54 @@ export default function MovimentacoesPage() {
         </div>
       </div>
 
-      <div className="rounded-md border border-border overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-primary text-primary-foreground">
+      <div className="rounded-lg border bg-card overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {COLUMNS.map((col) => (
-                <th
+                <TableHead
                   key={col.key}
-                  className="px-3 py-2 font-medium whitespace-nowrap cursor-pointer select-none hover:bg-primary/80 transition-colors text-left"
+                  className="cursor-pointer select-none whitespace-nowrap"
                   onClick={() => handleSort(col.key)}
                 >
                   <span className="inline-flex items-center gap-1">
                     {col.label}
                     <ArrowUpDown size={12} className={sortField === col.key ? "opacity-100" : "opacity-40"} />
                   </span>
-                </th>
+                </TableHead>
               ))}
-              <th className="px-3 py-2 text-center font-medium whitespace-nowrap">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
+              <TableHead className="text-center whitespace-nowrap">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+              <TableRow><TableCell colSpan={colSpan} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
             ) : sortedRows.length === 0 ? (
-              <tr><td colSpan={colSpan} className="px-4 py-8 text-center text-muted-foreground">Nenhuma movimentação encontrada.</td></tr>
+              <TableRow><TableCell colSpan={colSpan} className="text-center py-8 text-muted-foreground">Nenhuma movimentação encontrada.</TableCell></TableRow>
             ) : (
-              sortedRows.map((r, i) => (
-                <tr key={r.id} className={`border-t border-border ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{fmtDate(r.data)}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.nome_ativo ?? "—"}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">{r.tipo_movimentacao}</td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
+              sortedRows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="whitespace-nowrap">{fmtDate(r.data)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{r.nome_ativo ?? "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap">{r.tipo_movimentacao}</TableCell>
+                  <TableCell className="whitespace-nowrap">
                     {isPagamentoJuros(r.tipo_movimentacao)
                       ? "—"
                       : r.quantidade != null
                         ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 7, maximumFractionDigits: 7 })
                         : "—"}
-                  </td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
                     {isPagamentoJuros(r.tipo_movimentacao)
                       ? "—"
                       : r.preco_unitario != null
                         ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
                         : "—"}
-                  </td>
-                  <td className="px-3 py-2 text-foreground whitespace-nowrap">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
                     {r.valor != null ? r.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-center">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-center">
                     {r.origem === "automatico" ? (
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Auto</Badge>
                     ) : (
@@ -317,12 +320,12 @@ export default function MovimentacoesPage() {
                         </button>
                       </>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
