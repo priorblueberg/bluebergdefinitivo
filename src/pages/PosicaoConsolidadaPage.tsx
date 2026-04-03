@@ -61,6 +61,7 @@ export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>([]);
+  const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
 
