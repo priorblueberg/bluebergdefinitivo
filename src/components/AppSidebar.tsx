@@ -13,24 +13,26 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface MenuItem {
   title: string;
   url: string;
   icon: React.ElementType;
+  adminOnly?: boolean;
 }
 
 const menuItems: MenuItem[] = [
   { title: "Carteira de Investimentos", url: "/carteira", icon: LayoutGrid },
   { title: "Posição Consolidada", url: "/posicao-consolidada", icon: ClipboardList },
   { title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight },
-  { title: "Custódia", url: "/custodia", icon: Vault },
-  { title: "Controle de Carteiras", url: "/controle-carteiras", icon: Briefcase },
+  { title: "Custódia", url: "/custodia", icon: Vault, adminOnly: true },
+  { title: "Controle de Carteiras", url: "/controle-carteiras", icon: Briefcase, adminOnly: true },
   { title: "Proventos Recebidos", url: "/proventos", icon: DollarSign },
   
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
-  { title: "Admin", url: "/admin", icon: Shield },
-  { title: "Calculadora", url: "/calculadora", icon: Calculator },
+  { title: "Configurações", url: "/configuracoes", icon: Settings, adminOnly: true },
+  { title: "Admin", url: "/admin", icon: Shield, adminOnly: true },
+  { title: "Calculadora", url: "/calculadora", icon: Calculator, adminOnly: true },
 ];
 
 export function AppSidebar({
