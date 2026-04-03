@@ -222,6 +222,43 @@ export default function CarteiraRendaFixaPage() {
 
       setAllProductRows(allProdRows);
 
+      // Build product list for Posição Consolidada section
+      const pList = rfProducts.map((product, idx) => {
+        const rows = allProdRows[idx];
+        const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
+        const isEncerrado = product.resgate_total ? product.resgate_total <= dataReferenciaISO : product.vencimento ? product.vencimento <= dataReferenciaISO : false;
+        const usePeriodic = product.pagamento && product.pagamento !== "No Vencimento";
+        const rentPct = lastRow ? ((usePeriodic ? lastRow.rentAcumulada2 : lastRow.rentabilidadeAcumuladaPct) * 100) : 0;
+        return {
+          nome: product.nome || product.produto_nome,
+          valorAtualizado: isEncerrado ? 0 : (lastRow?.liquido ?? 0),
+          ganhoFinanceiro: lastRow?.ganhoAcumulado ?? 0,
+          rentabilidade: rentPct,
+          custodiante: product.instituicao_nome,
+          ativo: !isEncerrado,
+          analysisProduct: {
+            id: product.id,
+            nome: product.nome,
+            codigo_custodia: product.codigo_custodia,
+            data_inicio: product.data_inicio,
+            data_calculo: product.data_calculo,
+            data_limite: product.data_limite,
+            valor_investido: product.valor_investido,
+            taxa: product.taxa,
+            indexador: product.indexador,
+            vencimento: product.vencimento,
+            modalidade: product.modalidade,
+            categoria_nome: product.categoria_nome,
+            produto_nome: product.produto_nome,
+            instituicao_nome: product.instituicao_nome,
+            resgate_total: product.resgate_total,
+            preco_unitario: product.preco_unitario,
+            pagamento: product.pagamento,
+          } as AnalysisCustodiaProduct,
+        };
+      });
+      setProductList(pList);
+
       const result = calcularCarteiraRendaFixa({
         productRows: allProdRows,
         calendario,
