@@ -43,9 +43,11 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const location = useLocation();
+  const isAdmin = useIsAdmin();
   const isActive = (url: string) =>
     url === "/carteira" ? location.pathname.startsWith("/carteira") : location.pathname === url;
 
+  const visibleItems = menuItems.filter(item => !item.adminOnly || isAdmin);
   return (
     <aside
       className="fixed left-0 top-0 bottom-0 z-30 flex flex-col bg-[hsl(213,60%,20%)]"
