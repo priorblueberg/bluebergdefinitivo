@@ -903,15 +903,19 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
   // 4. Fetch all remaining (manual) movimentacoes ordered chronologically
   const { data: manualMovs } = await supabase
     .from("movimentacoes")
-    .select("id, categoria_id")
+    .select("id, categoria_id, codigo_custodia")
     .eq("user_id", userId)
     .order("data", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (!manualMovs || manualMovs.length === 0) return;
 
-  // 5. Replay each movimentacao through the sync engine
+  // 5. Group by codigo_custodia and replay only ONCE per codigo
+  //    (syncCustodiaFromMovimentacao already fetches ALL movs for the codigo internally)
+  const processedCodigos = new Set<number>();
   for (const mov of manualMovs) {
+    if (mov.codigo_custodia != null && processedCodigos.has(mov.codigo_custodia)) continue;
+    if (mov.codigo_custodia != null) processedCodigos.add(mov.codigo_custodia);
     await syncCustodiaFromMovimentacao(mov.id, dataReferencia);
   }
 
