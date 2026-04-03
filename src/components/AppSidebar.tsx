@@ -9,6 +9,7 @@ import {
   Shield,
   Briefcase,
   Calculator,
+  ClipboardList,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
@@ -21,6 +22,7 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { title: "Carteira de Investimentos", url: "/carteira", icon: LayoutGrid },
+  { title: "Posição Consolidada", url: "/posicao-consolidada", icon: ClipboardList },
   { title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight },
   { title: "Custódia", url: "/custodia", icon: Vault },
   { title: "Controle de Carteiras", url: "/controle-carteiras", icon: Briefcase },

@@ -23,6 +23,7 @@ import {
 import CarteiraRendaFixa from "@/pages/CarteiraRendaFixaPage";
 import AnaliseIndividualPage from "@/pages/AnaliseIndividualPage";
 import CalculadoraPage from "@/pages/CalculadoraPage";
+import PosicaoConsolidadaPage from "@/pages/PosicaoConsolidadaPage";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="/carteira/fundos" element={<CarteiraFundos />} />
               <Route path="/carteira/tesouro-direto" element={<CarteiraTesouroDireto />} />
               <Route path="/carteira/analise-individual" element={<AnaliseIndividualPage />} />
+              <Route path="/posicao-consolidada" element={<PosicaoConsolidadaPage />} />
               <Route path="/movimentacoes" element={<Movimentacoes />} />
               <Route path="/custodia" element={<Custodia />} />
               <Route path="/controle-carteiras" element={<ControleCarteiras />} />
