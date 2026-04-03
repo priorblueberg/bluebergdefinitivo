@@ -919,44 +919,49 @@ export async function fullSyncAfterDelete(
  *  then replays every manual movimentacao in chronological order.
  */
 export async function recalculateAllForDataReferencia(userId: string, dataReferencia: string) {
-  // 1. Delete all custodia for the user
-  await supabase.from("custodia").delete().eq("user_id", userId);
+  const recalcKey = `recalculate-all:${userId}`;
 
-  // 2. Delete all controle_de_carteiras for the user
-  await supabase.from("controle_de_carteiras").delete().eq("user_id", userId);
+  return withSyncLock(recalcKey, async () => {
+    // 1. Delete all custodia for the user
+    await supabase.from("custodia").delete().eq("user_id", userId);
 
-  // 3. Delete all automatic movimentacoes
-  await supabase
-    .from("movimentacoes")
-    .delete()
-    .eq("user_id", userId)
-    .eq("origem", "automatico");
+    // 2. Delete all controle_de_carteiras for the user
+    await supabase.from("controle_de_carteiras").delete().eq("user_id", userId);
 
-  // 4. Fetch all remaining (manual) movimentacoes ordered chronologically
-  const { data: manualMovs } = await supabase
-    .from("movimentacoes")
-    .select("id, categoria_id, codigo_custodia")
-    .eq("user_id", userId)
-    .order("data", { ascending: true })
-    .order("created_at", { ascending: true });
+    // 3. Delete all automatic movimentacoes
+    await supabase
+      .from("movimentacoes")
+      .delete()
+      .eq("user_id", userId)
+      .eq("origem", "automatico");
 
-  if (!manualMovs || manualMovs.length === 0) return;
+    // 4. Fetch all remaining (manual) movimentacoes ordered chronologically
+    const { data: manualMovs } = await supabase
+      .from("movimentacoes")
+      .select("id, categoria_id, codigo_custodia")
+      .eq("user_id", userId)
+      .eq("origem", "manual")
+      .order("data", { ascending: true })
+      .order("created_at", { ascending: true });
 
-  // 5. Group by codigo_custodia and replay only ONCE per codigo
-  //    (syncCustodiaFromMovimentacao already fetches ALL movs for the codigo internally)
-  const processedCodigos = new Set<number>();
-  for (const mov of manualMovs) {
-    if (mov.codigo_custodia != null && processedCodigos.has(mov.codigo_custodia)) continue;
-    if (mov.codigo_custodia != null) processedCodigos.add(mov.codigo_custodia);
-    await syncCustodiaFromMovimentacao(mov.id, dataReferencia);
-  }
+    if (!manualMovs || manualMovs.length === 0) return;
 
-  // 6. Collect distinct categoria_ids and sync controle_de_carteiras
-  const categoriaIds = [...new Set(manualMovs.map((m) => m.categoria_id))];
-  for (const catId of categoriaIds) {
-    await syncControleCarteiras(catId, userId, dataReferencia);
-  }
+    // 5. Group by codigo_custodia and replay only ONCE per codigo
+    //    (syncCustodiaFromMovimentacao already fetches ALL movs for the codigo internally)
+    const processedCodigos = new Set<number>();
+    for (const mov of manualMovs) {
+      if (mov.codigo_custodia != null && processedCodigos.has(mov.codigo_custodia)) continue;
+      if (mov.codigo_custodia != null) processedCodigos.add(mov.codigo_custodia);
+      await syncCustodiaFromMovimentacao(mov.id, dataReferencia);
+    }
 
-  // 7. Sync carteira geral ("Investimentos")
-  await syncCarteiraGeral(userId, dataReferencia);
+    // 6. Collect distinct categoria_ids and sync controle_de_carteiras
+    const categoriaIds = [...new Set(manualMovs.map((m) => m.categoria_id))];
+    for (const catId of categoriaIds) {
+      await syncControleCarteiras(catId, userId, dataReferencia);
+    }
+
+    // 7. Sync carteira geral ("Investimentos")
+    await syncCarteiraGeral(userId, dataReferencia);
+  });
 }
