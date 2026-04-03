@@ -456,6 +456,14 @@ export default function CadastrarTransacaoPage() {
       const taxaNum = parseFloat(taxa.replace(",", "."));
       const quantidade = puNum > 0 ? valorNum / puNum : null;
 
+      // Mapeamento: "Pós Fixado" + "CDI+" → "Mista" + "CDI"
+      let modalidadeToSave = modalidade;
+      let indexadorToSave = isPosFixado ? indexador : null;
+      if (modalidade === "Pós Fixado" && indexador === "CDI+") {
+        modalidadeToSave = "Mista";
+        indexadorToSave = "CDI";
+      }
+
       const fmtBR = (v: number) =>
         v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const valorExtrato = quantidade != null
@@ -469,12 +477,12 @@ export default function CadastrarTransacaoPage() {
           preco_unitario: puNum,
           instituicao_id: instituicaoId,
           emissor_id: emissorId,
-          modalidade,
+          modalidade: modalidadeToSave,
           taxa: taxaNum,
           pagamento,
           vencimento,
           nome_ativo: nomeAtivo,
-          indexador: isPosFixado ? indexador : null,
+          indexador: indexadorToSave,
           quantidade,
           valor_extrato: valorExtrato,
         }).eq("id", editId);
@@ -525,13 +533,13 @@ export default function CadastrarTransacaoPage() {
           preco_unitario: puNum,
           instituicao_id: instituicaoId,
           emissor_id: emissorId,
-          modalidade,
+          modalidade: modalidadeToSave,
           taxa: taxaNum,
           pagamento,
           vencimento,
           nome_ativo: nomeAtivo,
           codigo_custodia: nomeAtivo ? codigoCustodia : null,
-          indexador: isPosFixado ? indexador : null,
+          indexador: indexadorToSave,
           quantidade,
           valor_extrato: valorExtrato,
           user_id: user?.id,
