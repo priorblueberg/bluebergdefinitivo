@@ -146,6 +146,7 @@ export default function PosicaoConsolidadaPage() {
       }
 
       const posicaoRows: PosicaoRow[] = [];
+      const allProductRows: DailyRow[][] = [];
 
       for (const product of rfProducts) {
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
@@ -169,6 +170,8 @@ export default function PosicaoConsolidadaPage() {
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
         });
+
+        allProductRows.push(engineRows);
 
         const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
         if (lastRow) {
@@ -196,6 +199,20 @@ export default function PosicaoConsolidadaPage() {
           ativo: true,
           product,
         });
+      }
+
+      // Compute TWR for total rentabilidade using carteira engine
+      if (allProductRows.length > 0) {
+        const carteiraRows = calcularCarteiraRendaFixa({
+          productRows: allProductRows,
+          calendario,
+          dataInicio: minDate,
+          dataCalculo: dataReferenciaISO,
+        });
+        const lastCarteira = carteiraRows.length > 0 ? carteiraRows[carteiraRows.length - 1] : null;
+        setCarteiraRentabilidade(lastCarteira ? lastCarteira.rentAcumuladaPct * 100 : 0);
+      } else {
+        setCarteiraRentabilidade(0);
       }
 
       setRows(posicaoRows);
