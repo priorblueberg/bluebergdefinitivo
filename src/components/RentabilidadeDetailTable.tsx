@@ -9,10 +9,10 @@ const MONTH_HEADERS = [
 
 export interface DetailRow {
   year: number;
-  patrimonioMonths: (number | null)[]; // 12 entries, R$ values
-  ganhoFinanceiroMonths: (number | null)[]; // 12 entries, R$ gain within the month
-  rentabilidadeMonths: (number | null)[]; // 12 entries, % values
-  cdiMonths: (number | null)[]; // 12 entries, % values
+  patrimonioMonths: (number | null)[];
+  ganhoFinanceiroMonths: (number | null)[];
+  rentabilidadeMonths: (number | null)[];
+  cdiMonths: (number | null)[];
   rentNoAno: number | null;
   rentAcumulado: number | null;
   cdiNoAno: number | null;
@@ -31,18 +31,17 @@ function fmtBrl(v: number | null): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function pctSobreCdi(rent: number | null, cdi: number | null): string {
-  if (rent === null || cdi === null || cdi === 0) return "—";
-  return ((rent / cdi) * 100).toFixed(0) + "%";
-}
-
 interface Props {
   rows: DetailRow[];
   tituloLabel: string;
 }
 
-const highlightCellClass = "text-xs text-center font-semibold whitespace-nowrap bg-muted/50";
-const highlightHeadClass = "text-xs font-semibold text-center whitespace-nowrap bg-muted/50";
+const monthCellClass = "text-xs text-center whitespace-nowrap w-[80px] min-w-[80px]";
+const monthHeadClass = "text-xs font-semibold text-center whitespace-nowrap w-[80px] min-w-[80px]";
+const highlightCellClass = "text-xs text-center font-semibold whitespace-nowrap bg-muted/50 w-[100px] min-w-[100px]";
+const highlightHeadClass = "text-xs font-semibold text-center whitespace-nowrap bg-muted/50 w-[100px] min-w-[100px]";
+const labelCellClass = "text-xs font-medium whitespace-nowrap w-[130px] min-w-[130px]";
+const labelHeadClass = "text-xs font-semibold whitespace-nowrap w-[130px] min-w-[130px]";
 
 export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
   if (rows.length === 0) return null;
@@ -58,68 +57,68 @@ export default function RentabilidadeDetailTable({ rows, tituloLabel }: Props) {
             Rentabilidade mensal e acumulada
           </p>
           <div className="mt-4 overflow-x-auto">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs font-semibold whitespace-nowrap">{row.year}</TableHead>
+                  <TableHead className={labelHeadClass}>{row.year}</TableHead>
                   {MONTH_HEADERS.map((m) => (
-                    <TableHead key={m} className="text-xs font-semibold text-center whitespace-nowrap">
+                    <TableHead key={m} className={monthHeadClass}>
                       {m}
                     </TableHead>
                   ))}
-                   <TableHead className={highlightHeadClass}>No Ano</TableHead>
-                 </TableRow>
+                  <TableHead className={highlightHeadClass}>No Ano</TableHead>
+                </TableRow>
               </TableHeader>
               <TableBody>
                 {/* Patrimônio row */}
                 <TableRow>
-                  <TableCell className="text-xs font-medium whitespace-nowrap">Patrimônio</TableCell>
+                  <TableCell className={labelCellClass}>Patrimônio</TableCell>
                   {row.patrimonioMonths.map((v, i) => (
-                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
+                    <TableCell key={i} className={monthCellClass}>
                       {fmtBrl(v)}
                     </TableCell>
                   ))}
-                   <TableCell className={highlightCellClass}>—</TableCell>
-                 </TableRow>
+                  <TableCell className={highlightCellClass}>—</TableCell>
+                </TableRow>
 
                 {/* Ganho Financeiro row */}
                 <TableRow>
-                  <TableCell className="text-xs font-medium whitespace-nowrap">Ganho Financeiro</TableCell>
+                  <TableCell className={labelCellClass}>Ganho Financeiro</TableCell>
                   {row.ganhoFinanceiroMonths.map((v, i) => (
-                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
+                    <TableCell key={i} className={monthCellClass}>
                       {fmtBrl(v)}
                     </TableCell>
                   ))}
-                   <TableCell className={highlightCellClass}>
-                     {fmtBrl(row.ganhoNoAno)}
-                   </TableCell>
+                  <TableCell className={highlightCellClass}>
+                    {fmtBrl(row.ganhoNoAno)}
+                  </TableCell>
                 </TableRow>
 
                 {/* Rentabilidade row */}
                 <TableRow>
-                  <TableCell className="text-xs font-medium whitespace-nowrap">Rentabilidade</TableCell>
+                  <TableCell className={labelCellClass}>Rentabilidade</TableCell>
                   {row.rentabilidadeMonths.map((v, i) => (
-                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
+                    <TableCell key={i} className={monthCellClass}>
                       {fmtPct(v)}
                     </TableCell>
                   ))}
-                   <TableCell className={highlightCellClass}>
-                     {fmtPct(row.rentNoAno)}
-                   </TableCell>
+                  <TableCell className={highlightCellClass}>
+                    {fmtPct(row.rentNoAno)}
+                  </TableCell>
                 </TableRow>
 
                 {/* CDI row */}
                 <TableRow>
-                  <TableCell className="text-xs font-medium whitespace-nowrap">CDI</TableCell>
+                  <TableCell className={labelCellClass}>CDI</TableCell>
                   {row.cdiMonths.map((v, i) => (
-                    <TableCell key={i} className="text-xs text-center whitespace-nowrap">
+                    <TableCell key={i} className={monthCellClass}>
                       {fmtPct(v)}
                     </TableCell>
                   ))}
-                   <TableCell className={highlightCellClass}>
-                     {fmtPct(row.cdiNoAno)}
-                   </TableCell>
-                 </TableRow>
+                  <TableCell className={highlightCellClass}>
+                    {fmtPct(row.cdiNoAno)}
+                  </TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </div>

@@ -8,12 +8,15 @@ import { buildCdiSeries, CdiRecord } from "@/lib/cdiCalculations";
 import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 import RentabilidadeDetailTable from "@/components/RentabilidadeDetailTable";
 import { ProductDetail, type CustodiaProduct as AnalysisCustodiaProduct } from "@/pages/AnaliseIndividualPage";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { CircleCheck, CircleX } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell,
 } from "recharts";
 
 interface CarteiraInfo {
@@ -43,7 +46,22 @@ interface CustodiaProduct {
   produto_nome: string;
   instituicao_nome: string;
   valor_investido: number;
+  estrategia: string | null;
+  emissor_nome: string;
 }
+
+const PIE_COLORS = [
+  "hsl(210, 100%, 45%)",
+  "hsl(150, 60%, 40%)",
+  "hsl(30, 90%, 50%)",
+  "hsl(270, 60%, 50%)",
+  "hsl(0, 70%, 50%)",
+  "hsl(180, 60%, 40%)",
+  "hsl(330, 70%, 50%)",
+  "hsl(60, 70%, 45%)",
+  "hsl(120, 50%, 35%)",
+  "hsl(240, 50%, 55%)",
+];
 
 const CustomTooltipChart = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
@@ -55,6 +73,18 @@ const CustomTooltipChart = ({ active, payload, label }: any) => {
             {entry.name}: {entry.value?.toFixed(2)}%
           </p>
         ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+const PieTooltip = ({ active, payload }: any) => {
+  if (active && payload?.length) {
+    return (
+      <div className="rounded-md border border-border bg-card px-3 py-2 text-xs shadow-sm">
+        <p className="text-foreground font-medium">{payload[0].name}</p>
+        <p className="font-semibold text-foreground">{payload[0].value.toFixed(1)}%</p>
       </div>
     );
   }
@@ -74,9 +104,11 @@ export default function CarteiraRendaFixaPage() {
   const [carteiraRows, setCarteiraRows] = useState<CarteiraRFRow[]>([]);
   const [allProductRows, setAllProductRows] = useState<DailyRow[][]>([]);
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
+  const [ibovespaData, setIbovespaData] = useState<{ data: string; pontos: number }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; analysisProduct: AnalysisCustodiaProduct }[]>([]);
+  const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; estrategia: string | null; emissor_nome: string; analysisProduct: AnalysisCustodiaProduct }[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
+  const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
 
   useEffect(() => {
     if (!user) return;
@@ -102,6 +134,7 @@ export default function CarteiraRendaFixaPage() {
         setCarteiraRows([]);
         setAllProductRows([]);
         setCdiRecords([]);
+        setIbovespaData([]);
         setLoading(false);
         return;
       }
@@ -121,7 +154,7 @@ export default function CarteiraRendaFixaPage() {
 
       const { data: custodiaData } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, categorias(nome), produtos(nome), instituicoes(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
         .eq("user_id", user.id);
 
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
@@ -144,32 +177,38 @@ export default function CarteiraRendaFixaPage() {
           instituicao_nome: r.instituicoes?.nome || "—",
           data_calculo: r.data_calculo,
           valor_investido: Number(r.valor_investido),
+          estrategia: r.estrategia || null,
+          emissor_nome: r.emissores?.nome || "—",
         }));
 
       if (rfProducts.length === 0) {
         setCarteiraRows([]);
         setAllProductRows([]);
         setCdiRecords([]);
+        setIbovespaData([]);
         setProductList([]);
         setLoading(false);
         return;
       }
 
-      // Calendar must extend to max product end date for correct payment date generation
       const maxEndDate = rfProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataCalculo;
         return end > max ? end : max;
       }, dataCalculo);
 
-      const [calRes, cdiRes] = await Promise.all([
+      const [calRes, cdiRes, ibovRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
           .gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual")
+          .gte("data", dataInicio).lte("data", dataCalculo).order("data"),
+        supabase.from("historico_ibovespa").select("data, pontos")
           .gte("data", dataInicio).lte("data", dataCalculo).order("data"),
       ]);
 
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
       const cdiRaw = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
+      const ibovRaw = (ibovRes.data || []).map((r: any) => ({ data: r.data, pontos: Number(r.pontos) }));
+      setIbovespaData(ibovRaw);
 
       const calMap = new Map<string, boolean>();
       calendario.forEach(c => calMap.set(c.data, c.dia_util));
@@ -179,11 +218,9 @@ export default function CarteiraRendaFixaPage() {
       }));
       setCdiRecords(mergedCdi);
 
-      // Pre-compute CDI map once for all products
       const cdiMap = new Map<string, number>();
       for (const c of cdiRaw) cdiMap.set(c.data, c.taxa_anual);
 
-      // Batch fetch all movimentações in a single query
       const allCodigos = rfProducts.map(p => p.codigo_custodia);
       const { data: allMovData } = await supabase
         .from("movimentacoes")
@@ -222,7 +259,6 @@ export default function CarteiraRendaFixaPage() {
 
       setAllProductRows(allProdRows);
 
-      // Build product list for Posição Consolidada section
       const pList = rfProducts.map((product, idx) => {
         const rows = allProdRows[idx];
         const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
@@ -236,6 +272,8 @@ export default function CarteiraRendaFixaPage() {
           rentabilidade: rentPct,
           custodiante: product.instituicao_nome,
           ativo: !isEncerrado,
+          estrategia: product.estrategia,
+          emissor_nome: product.emissor_nome,
           analysisProduct: {
             id: product.id,
             nome: product.nome,
@@ -271,7 +309,7 @@ export default function CarteiraRendaFixaPage() {
     })();
   }, [user, appliedVersion]);
 
-  // Chart: Rentabilidade vs CDI
+  // Chart: Rentabilidade vs CDI vs Ibovespa
   const chartData = useMemo(() => {
     if (!carteiraInfo?.data_inicio || carteiraRows.length === 0) return [];
 
@@ -285,6 +323,15 @@ export default function CarteiraRendaFixaPage() {
         titulo_acumulado: parseFloat((r.rentAcumuladaPct * 100).toFixed(4)),
       }));
 
+    // Build Ibovespa accumulated series
+    const ibovMap = new Map<string, number>();
+    if (ibovespaData.length > 0) {
+      const basePoints = ibovespaData[0].pontos;
+      for (const item of ibovespaData) {
+        ibovMap.set(item.data, parseFloat(((item.pontos / basePoints - 1) * 100).toFixed(4)));
+      }
+    }
+
     const map = new Map<string, any>();
     for (const p of cdiSeries) {
       map.set(p.data, { data: p.data, label: p.label, cdi_acumulado: p.cdi_acumulado });
@@ -295,14 +342,17 @@ export default function CarteiraRendaFixaPage() {
       existing.label = existing.label || p.label;
       map.set(p.data, existing);
     }
+    for (const [data, value] of ibovMap) {
+      const existing = map.get(data) || { data, label: new Date(data + "T00:00:00").toLocaleDateString("pt-BR") };
+      existing.ibovespa_acumulado = value;
+      map.set(data, existing);
+    }
     return Array.from(map.values()).sort((a: any, b: any) => a.data.localeCompare(b.data));
-  }, [carteiraRows, cdiRecords, carteiraInfo]);
+  }, [carteiraRows, cdiRecords, carteiraInfo, ibovespaData]);
 
-  // Detail rows: use the merged individual product rows for the detail table
   const detailRows = useMemo(() => {
     if (allProductRows.length === 0 || !carteiraInfo?.data_inicio || !carteiraInfo?.data_calculo) return [];
 
-    // Merge all product rows by date into an EngineRowLike-compatible structure
     const dateMap = new Map<string, {
       data: string; diaUtil: boolean; liquido: number; aplicacoes: number;
       resgates: number; jurosPago: number; saldoCotas: number;
@@ -337,7 +387,6 @@ export default function CarteiraRendaFixaPage() {
       }
     }
 
-    // Sort and compute ganhoAcumulado + rentabilidadeDiaria from carteiraRows
     const merged = Array.from(dateMap.values()).sort((a, b) => a.data.localeCompare(b.data));
     const carteiraMap = new Map<string, CarteiraRFRow>();
     carteiraRows.forEach(r => carteiraMap.set(r.data, r));
@@ -353,6 +402,31 @@ export default function CarteiraRendaFixaPage() {
     return buildDetailRowsFromEngine(merged, cdiRecords, carteiraInfo.data_inicio!);
   }, [allProductRows, carteiraRows, cdiRecords, carteiraInfo]);
 
+  // Allocation charts data
+  const allocationData = useMemo(() => {
+    const activeProducts = productList.filter(p => p.ativo && p.valorAtualizado > 0);
+    const total = activeProducts.reduce((sum, p) => sum + p.valorAtualizado, 0);
+    if (total === 0) return { estrategia: [], custodiante: [], emissor: [] };
+
+    const groupBy = (key: (p: typeof activeProducts[0]) => string) => {
+      const map = new Map<string, number>();
+      for (const p of activeProducts) {
+        const k = key(p) || "Não definido";
+        map.set(k, (map.get(k) || 0) + p.valorAtualizado);
+      }
+      return Array.from(map.entries()).map(([name, value]) => ({
+        name,
+        value: parseFloat(((value / total) * 100).toFixed(1)),
+      }));
+    };
+
+    return {
+      estrategia: groupBy(p => p.estrategia || "Não definida"),
+      custodiante: groupBy(p => p.custodiante),
+      emissor: groupBy(p => p.emissor_nome),
+    };
+  }, [productList]);
+
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
@@ -361,7 +435,16 @@ export default function CarteiraRendaFixaPage() {
   const fmtBrl = (v: number | null) =>
     v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
 
-  // If a product is selected, show its individual analysis
+  const statusBadge = carteiraInfo ? (
+    carteiraInfo.status === "Ativa" ? (
+      <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">Ativa</Badge>
+    ) : carteiraInfo.status === "Encerrada" ? (
+      <Badge variant="destructive">Encerrada</Badge>
+    ) : (
+      <Badge variant="secondary">Não Iniciada</Badge>
+    )
+  ) : null;
+
   if (selectedProduct) {
     return (
       <ProductDetail
@@ -375,7 +458,10 @@ export default function CarteiraRendaFixaPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Renda Fixa</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-foreground">Renda Fixa</h1>
+          {statusBadge}
+        </div>
         {carteiraInfo && (
           carteiraInfo.status === "Ativa" ? (
             <p className="text-sm text-muted-foreground mt-1">
@@ -444,8 +530,30 @@ export default function CarteiraRendaFixaPage() {
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-md border border-border bg-card p-6">
-              <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
+              <div className="flex items-start justify-between flex-wrap gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Switch
+                      checked={seriesVisibility.cdi}
+                      onCheckedChange={(v) => setSeriesVisibility(prev => ({ ...prev, cdi: v }))}
+                      className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 data-[state=checked]:[&>span]:translate-x-4"
+                    />
+                    CDI
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Switch
+                      checked={seriesVisibility.ibovespa}
+                      onCheckedChange={(v) => setSeriesVisibility(prev => ({ ...prev, ibovespa: v }))}
+                      className="h-4 w-8 [&>span]:h-3 [&>span]:w-3 data-[state=checked]:[&>span]:translate-x-4"
+                    />
+                    Ibovespa
+                  </label>
+                </div>
+              </div>
               <div className="mt-4 h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
@@ -455,7 +563,12 @@ export default function CarteiraRendaFixaPage() {
                     <Tooltip content={<CustomTooltipChart />} />
                     <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
                     <Line type="monotone" dataKey="titulo_acumulado" name="Carteira RF" stroke="hsl(210, 100%, 45%)" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} connectNulls />
-                    <Line type="monotone" dataKey="cdi_acumulado" name="CDI" stroke="hsl(0, 0%, 55%)" strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} strokeDasharray="5 3" connectNulls />
+                    {seriesVisibility.cdi && (
+                      <Line type="monotone" dataKey="cdi_acumulado" name="CDI" stroke="hsl(0, 0%, 55%)" strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} strokeDasharray="5 3" connectNulls />
+                    )}
+                    {seriesVisibility.ibovespa && (
+                      <Line type="monotone" dataKey="ibovespa_acumulado" name="Ibovespa" stroke="hsl(30, 90%, 50%)" strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} strokeDasharray="3 2" connectNulls />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -493,10 +606,54 @@ export default function CarteiraRendaFixaPage() {
           {/* Detail Table */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
 
+          {/* Allocation Charts */}
+          {(allocationData.estrategia.length > 0 || allocationData.custodiante.length > 0 || allocationData.emissor.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { title: "Alocação por Estratégia", data: allocationData.estrategia },
+                { title: "Alocação por Custodiante", data: allocationData.custodiante },
+                { title: "Alocação por Emissor", data: allocationData.emissor },
+              ].map((chart) => (
+                <div key={chart.title} className="rounded-md border border-border bg-card p-4">
+                  <h3 className="text-xs font-semibold text-foreground mb-2">{chart.title}</h3>
+                  {chart.data.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-8">Sem dados</p>
+                  ) : (
+                    <div className="h-52">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={chart.data}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={70}
+                            innerRadius={30}
+                            paddingAngle={2}
+                            label={({ name, value }) => `${name}: ${value}%`}
+                            labelLine={{ strokeWidth: 0.5 }}
+                            style={{ fontSize: 9 }}
+                          >
+                            {chart.data.map((_, idx) => (
+                              <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<PieTooltip />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Posição Consolidada */}
           {productList.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-1">
               <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
+              <p className="text-xs text-muted-foreground mb-3">Clique no título para visualizar o Dashboard</p>
               <div className="rounded-lg border bg-card">
                 <Table>
                   <TableHeader>
@@ -513,7 +670,9 @@ export default function CarteiraRendaFixaPage() {
                     {productList.map((row, i) => (
                       <TableRow key={i} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedProduct(row.analysisProduct)}>
                         <TableCell>
-                          {row.ativo ? <CircleCheck className="h-4 w-4 text-muted-foreground" /> : <CircleX className="h-4 w-4 text-muted-foreground" />}
+                          {row.ativo
+                            ? <CircleCheck className="h-4 w-4 text-emerald-500" />
+                            : <CircleX className="h-4 w-4 text-muted-foreground" />}
                         </TableCell>
                         <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
                         <TableCell className="text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
