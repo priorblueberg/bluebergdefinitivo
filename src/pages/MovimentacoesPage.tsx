@@ -7,6 +7,9 @@ import { toast } from "sonner";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
