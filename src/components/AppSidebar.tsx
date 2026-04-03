@@ -66,7 +66,7 @@ export function AppSidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-        {menuItems.map((item) => {
+        {visibleItems.map((item) => {
           const active = isActive(item.url);
           const Icon = item.icon;
 
