@@ -59,6 +59,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
   const result: CarteiraRFRow[] = [];
   let rentAcumuladaRS = 0;
   let rentAcumuladaPct = 0;
+  let prevLiquido = 0;
 
   for (const cal of sorted) {
     const agg = dateAgg.get(cal.data);
@@ -80,8 +81,8 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
 
     const { liquido, liquido2, rentDiariaRS } = agg;
 
-    // Rent. Diária (%) = Rent. Diária (R$) / Líquido (2)
-    const rentDiariaPct = liquido2 > 0.01 ? rentDiariaRS / liquido2 : 0;
+    // Rent. Diária (%) = Rent. Diária (R$) / Líquido (1) do dia anterior
+    const rentDiariaPct = prevLiquido > 0.01 ? rentDiariaRS / prevLiquido : 0;
 
     // Rent. Acumulada (R$) = soma acumulada
     rentAcumuladaRS += rentDiariaRS;
@@ -99,6 +100,9 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       rentAcumuladaRS,
       rentAcumuladaPct,
     });
+
+    // Update prevLiquido for next iteration
+    prevLiquido = liquido;
   }
 
   return result;
