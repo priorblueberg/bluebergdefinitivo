@@ -358,6 +358,20 @@ export default function CarteiraRendaFixaPage() {
 
   const showContent = carteiraInfo && (carteiraInfo.status === "Ativa" || carteiraInfo.status === "Encerrada") && carteiraRows.length > 0;
 
+  const fmtBrl = (v: number | null) =>
+    v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+
+  // If a product is selected, show its individual analysis
+  if (selectedProduct) {
+    return (
+      <ProductDetail
+        product={selectedProduct}
+        onBack={() => setSelectedProduct(null)}
+        backLabel="Voltar para Carteira de Renda Fixa"
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -404,11 +418,7 @@ export default function CarteiraRendaFixaPage() {
               }
             }
 
-            // CDI from detail rows
             const cdiAcum = detailRows.length > 0 ? detailRows[0].cdiAcumulado : null;
-
-            const fmtBrl = (v: number | null) =>
-              v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
             const fmtPct = (v: number | null) =>
               v != null ? `${v.toFixed(2)}%` : "—";
 
@@ -482,6 +492,41 @@ export default function CarteiraRendaFixaPage() {
 
           {/* Detail Table */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
+
+          {/* Posição Consolidada */}
+          {productList.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
+              <div className="rounded-lg border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[50px]">Status</TableHead>
+                      <TableHead className="min-w-[250px]">Ativo</TableHead>
+                      <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
+                      <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
+                      <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
+                      <TableHead className="min-w-[150px]">Custodiante</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {productList.map((row, i) => (
+                      <TableRow key={i} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedProduct(row.analysisProduct)}>
+                        <TableCell>
+                          {row.ativo ? <CircleCheck className="h-4 w-4 text-muted-foreground" /> : <CircleX className="h-4 w-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
+                        <TableCell className="text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
+                        <TableCell className="text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
+                        <TableCell className="text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
+                        <TableCell className="text-foreground">{row.custodiante}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
