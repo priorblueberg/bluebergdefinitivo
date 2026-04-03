@@ -63,7 +63,7 @@ function getDateMinus(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function ProductDetail({ product, onBack, backLabel = "Voltar para lista de produtos" }: { product: CustodiaProduct; onBack: () => void; backLabel?: string }) {
+export function ProductDetail({ product, onBack, backLabel = "Voltar para lista de produtos" }: { product: CustodiaProduct; onBack: () => void; backLabel?: string }) {
   const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
