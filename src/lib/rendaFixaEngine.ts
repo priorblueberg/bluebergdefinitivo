@@ -301,9 +301,12 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // Multiplicador
     let dailyMult: number;
     if (isMistaCDI) {
-      dailyMult = diaUtil ? (1 + prevCdiDiarioVal) * mistaSpreadFactor - 1 : 0;
+      // Mista: (1 + CDI Diário anterior) * (1 + Taxa)^(1/252) - 1
+      const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
+      dailyMult = diaUtil ? (1 + prevCdiDiario) * mistaSpreadFactor - 1 : 0;
     } else if (isPosFixadoCDI) {
-      dailyMult = diaUtil ? prevCdiDiarioVal * (taxa / 100) : 0;
+      const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
+      dailyMult = diaUtil ? prevCdiDiario * (taxa / 100) : 0;
     } else {
       dailyMult = diaUtil ? rawMultiplicador : 0;
     }
