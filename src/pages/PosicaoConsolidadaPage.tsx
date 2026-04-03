@@ -231,8 +231,6 @@ export default function PosicaoConsolidadaPage() {
 
   const totalValor = useMemo(() => filteredRows.reduce((s, r) => s + r.valorAtualizado, 0), [filteredRows]);
   const totalGanho = useMemo(() => filteredRows.reduce((s, r) => s + r.ganhoFinanceiro, 0), [filteredRows]);
-  const totalInvestido = useMemo(() => filteredRows.reduce((s, r) => s + r.product.valor_investido, 0), [filteredRows]);
-  const totalRentabilidade = totalInvestido > 0 ? (totalGanho / totalInvestido) * 100 : 0;
 
   // Boleta helpers
   function openBoleta(row: PosicaoRow, tipo: "Aplicação" | "Resgate", e: React.MouseEvent) {
