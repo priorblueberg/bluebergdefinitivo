@@ -1,13 +1,23 @@
 import { useEffect, useState, useMemo } from "react";
+import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Search, CircleCheck, CircleX } from "lucide-react";
+import { toast } from "sonner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import BoletaCustodiaDialog, { type CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
+import PosicaoDetalheDialog, { type PosicaoDetalheData } from "@/components/PosicaoDetalheDialog";
 
 interface CustodiaProduct {
   id: string;
@@ -20,7 +30,9 @@ interface CustodiaProduct {
   multiplicador: string | null;
   preco_unitario: number | null;
   categoria_nome: string;
+  categoria_id: string;
   produto_nome: string;
+  produto_id: string;
   resgate_total: string | null;
   pagamento: string | null;
   vencimento: string | null;
@@ -28,6 +40,9 @@ interface CustodiaProduct {
   data_limite: string | null;
   valor_investido: number;
   instituicao_nome: string;
+  instituicao_id: string | null;
+  emissor_nome: string | null;
+  emissor_id: string | null;
   quantidade: number | null;
 }
 
@@ -36,18 +51,24 @@ interface PosicaoRow {
   valorAtualizado: number;
   ganhoFinanceiro: number;
   rentabilidade: number;
-  quantidade: number | null;
-  precoUnitario: number;
   custodiante: string;
   ativo: boolean;
+  product: CustodiaProduct;
 }
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
-  const { appliedVersion, dataReferenciaISO } = useDataReferencia();
+  const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+
+  // Dialog states
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTipo, setDialogTipo] = useState<"Aplicação" | "Resgate">("Aplicação");
+  const [dialogRow, setDialogRow] = useState<CustodiaRowForBoleta | null>(null);
+  const [deleteRow, setDeleteRow] = useState<PosicaoRow | null>(null);
+  const [detalheRow, setDetalheRow] = useState<PosicaoRow | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -60,16 +81,12 @@ export default function PosicaoConsolidadaPage() {
     try {
       const { data: products } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categorias(nome), produtos(nome), instituicoes(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
         .eq("user_id", user!.id);
 
-      if (!products || products.length === 0) {
-        setRows([]);
-        setLoading(false);
-        return;
-      }
+      if (!products || products.length === 0) { setRows([]); setLoading(false); return; }
 
-      const mapped = products.map((r: any) => ({
+      const mapped: CustodiaProduct[] = products.map((r: any) => ({
         id: r.id,
         codigo_custodia: r.codigo_custodia,
         nome: r.nome,
@@ -80,7 +97,9 @@ export default function PosicaoConsolidadaPage() {
         multiplicador: r.multiplicador,
         preco_unitario: r.preco_unitario,
         categoria_nome: r.categorias?.nome || "",
+        categoria_id: r.categoria_id,
         produto_nome: r.produtos?.nome || "",
+        produto_id: r.produto_id,
         resgate_total: r.resgate_total,
         pagamento: r.pagamento,
         vencimento: r.vencimento,
@@ -88,36 +107,32 @@ export default function PosicaoConsolidadaPage() {
         data_limite: r.data_limite,
         valor_investido: Number(r.valor_investido),
         instituicao_nome: r.instituicoes?.nome || "—",
+        instituicao_id: r.instituicao_id,
+        emissor_nome: r.emissores?.nome || null,
+        emissor_id: r.emissor_id,
         quantidade: r.quantidade != null ? Number(r.quantidade) : null,
-      })) as CustodiaProduct[];
+      }));
 
-      // Only process Renda Fixa (Prefixado/Pós-fixado/Mista) for now
       const rfProducts = mapped.filter((p) => p.categoria_nome === "Renda Fixa");
       const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa");
 
-      // Determine date range
       const minDate = rfProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), rfProducts[0]?.data_inicio || dataReferenciaISO);
       const maxDate = rfProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataReferenciaISO;
         return end > max ? end : max;
       }, dataReferenciaISO);
 
-      // Batch fetch calendar, CDI, and movements
       const allCodigos = rfProducts.map((p) => p.codigo_custodia);
       const [calRes, cdiRes, movRes] = await Promise.all([
-        supabase.from("calendario_dias_uteis").select("data, dia_util")
-          .gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
-        supabase.from("historico_cdi").select("data, taxa_anual")
-          .gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
+        supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
+        supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         allCodigos.length > 0
-          ? supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, codigo_custodia")
-              .in("codigo_custodia", allCodigos).eq("user_id", user!.id).order("data")
+          ? supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, codigo_custodia").in("codigo_custodia", allCodigos).eq("user_id", user!.id).order("data")
           : Promise.resolve({ data: [] }),
       ]);
 
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
       const cdiRecords = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
-
       const cdiMap = new Map<string, number>();
       for (const c of cdiRecords) cdiMap.set(c.data, c.taxa_anual);
 
@@ -132,12 +147,7 @@ export default function PosicaoConsolidadaPage() {
 
       for (const product of rfProducts) {
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
-        const isEncerrado = product.resgate_total
-          ? product.resgate_total <= dataReferenciaISO
-          : product.vencimento
-            ? product.vencimento <= dataReferenciaISO
-            : false;
-
+        const isEncerrado = product.resgate_total ? product.resgate_total <= dataReferenciaISO : product.vencimento ? product.vencimento <= dataReferenciaISO : false;
         const calcEnd = dataFim > dataReferenciaISO ? dataReferenciaISO : dataFim;
 
         const engineRows = calcularRendaFixaDiario({
@@ -159,35 +169,30 @@ export default function PosicaoConsolidadaPage() {
         });
 
         const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
-
         if (lastRow) {
           const usePeriodic = product.pagamento && product.pagamento !== "No Vencimento";
           const rentPct = usePeriodic ? lastRow.rentAcumulada2 : lastRow.rentabilidadeAcumuladaPct;
-
           posicaoRows.push({
             nome: product.nome || product.produto_nome,
             valorAtualizado: isEncerrado ? 0 : lastRow.liquido,
             ganhoFinanceiro: lastRow.ganhoAcumulado,
             rentabilidade: (rentPct ?? 0) * 100,
-            quantidade: product.quantidade,
-            precoUnitario: lastRow.precoUnitario,
             custodiante: product.instituicao_nome,
             ativo: !isEncerrado,
+            product,
           });
         }
       }
 
-      // Non-RF products: show basic info without engine calculation
       for (const product of otherProducts) {
         posicaoRows.push({
           nome: product.nome || product.produto_nome,
           valorAtualizado: product.valor_investido,
           ganhoFinanceiro: 0,
           rentabilidade: 0,
-          quantidade: product.quantidade,
-          precoUnitario: product.preco_unitario || 0,
           custodiante: product.instituicao_nome,
           ativo: true,
+          product,
         });
       }
 
@@ -206,6 +211,70 @@ export default function PosicaoConsolidadaPage() {
   }, [rows, search]);
 
   const totalValor = useMemo(() => filteredRows.reduce((s, r) => s + r.valorAtualizado, 0), [filteredRows]);
+  const totalGanho = useMemo(() => filteredRows.reduce((s, r) => s + r.ganhoFinanceiro, 0), [filteredRows]);
+  const totalInvestido = useMemo(() => filteredRows.reduce((s, r) => s + r.product.valor_investido, 0), [filteredRows]);
+  const totalRentabilidade = totalInvestido > 0 ? (totalGanho / totalInvestido) * 100 : 0;
+
+  // Boleta helpers
+  function openBoleta(row: PosicaoRow, tipo: "Aplicação" | "Resgate", e: React.MouseEvent) {
+    e.stopPropagation();
+    const p = row.product;
+    setDialogRow({
+      id: p.id,
+      codigo_custodia: p.codigo_custodia,
+      data_inicio: p.data_inicio,
+      nome: p.nome,
+      categoria: p.categoria_nome,
+      categoria_id: p.categoria_id,
+      produto: p.produto_nome,
+      produto_id: p.produto_id,
+      instituicao: p.instituicao_nome,
+      instituicao_id: p.instituicao_id,
+      emissor: p.emissor_nome,
+      emissor_id: p.emissor_id,
+      modalidade: p.modalidade,
+      indexador: p.indexador,
+      taxa: p.taxa,
+      pagamento: p.pagamento,
+      vencimento: p.vencimento,
+      preco_unitario: p.preco_unitario,
+      valor_investido: p.valor_investido,
+    });
+    setDialogTipo(tipo);
+    setDialogOpen(true);
+  }
+
+  async function handleDelete() {
+    if (!deleteRow || !user) return;
+    const p = deleteRow.product;
+    await supabase.from("movimentacoes").delete().eq("codigo_custodia", p.codigo_custodia).eq("user_id", user.id);
+    const { error } = await supabase.from("custodia").delete().eq("id", p.id);
+    if (error) { toast.error("Erro ao excluir."); } else {
+      toast.success("Ativo e movimentações excluídos.");
+      setRows((prev) => prev.filter((r) => r.product.id !== p.id));
+      await fullSyncAfterDelete(p.codigo_custodia, p.categoria_id, user.id, dataReferenciaISO);
+      applyDataReferencia();
+    }
+    setDeleteRow(null);
+  }
+
+  function getDetalheData(row: PosicaoRow): PosicaoDetalheData {
+    const p = row.product;
+    return {
+      nome: row.nome,
+      custodiante: row.custodiante,
+      valorAtualizado: row.valorAtualizado,
+      dataInicio: p.data_inicio,
+      codigoCustodia: p.codigo_custodia,
+      categoriaId: p.categoria_id,
+      indexador: p.indexador,
+      taxa: p.taxa,
+      modalidade: p.modalidade,
+      pagamento: p.pagamento,
+      emissor: p.emissor_nome,
+      vencimento: p.vencimento,
+    };
+  }
 
   return (
     <div className="space-y-6">
@@ -214,12 +283,7 @@ export default function PosicaoConsolidadaPage() {
       <div className="flex items-center gap-4">
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar ativo..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+          <Input placeholder="Buscar ativo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <span className="text-sm text-muted-foreground">
           Data de referência:{" "}
@@ -230,10 +294,7 @@ export default function PosicaoConsolidadaPage() {
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Carregando posição...</p>}
-
-      {!loading && filteredRows.length === 0 && (
-        <p className="text-sm text-muted-foreground">Nenhum ativo encontrado.</p>
-      )}
+      {!loading && filteredRows.length === 0 && <p className="text-sm text-muted-foreground">Nenhum ativo encontrado.</p>}
 
       {!loading && filteredRows.length > 0 && (
         <div className="rounded-lg border bg-card">
@@ -245,36 +306,34 @@ export default function PosicaoConsolidadaPage() {
                 <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
                 <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
                 <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
-                <TableHead className="min-w-[100px]">Quantidade</TableHead>
-                <TableHead className="min-w-[130px]">Preço Unitário</TableHead>
                 <TableHead className="min-w-[150px]">Custodiante</TableHead>
                 <TableHead className="min-w-[110px] text-right">% do Portfólio</TableHead>
+                <TableHead className="min-w-[180px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRows.map((row, i) => {
                 const pctPortfolio = totalValor > 0 ? (row.valorAtualizado / totalValor) * 100 : 0;
                 return (
-                  <TableRow key={i}>
+                  <TableRow key={i} className="cursor-pointer" onClick={() => setDetalheRow(row)}>
                     <TableCell>
-                      {row.ativo ? (
-                        <CircleCheck className="h-4 w-4 text-emerald-500" />
-                      ) : (
-                        <CircleX className="h-4 w-4 text-muted-foreground" />
-                      )}
+                      {row.ativo ? <CircleCheck className="h-4 w-4 text-emerald-500" /> : <CircleX className="h-4 w-4 text-muted-foreground" />}
                     </TableCell>
                     <TableCell className="font-medium">{row.nome}</TableCell>
                     <TableCell>{fmtBrl(row.valorAtualizado)}</TableCell>
-                    <TableCell className={row.ganhoFinanceiro >= 0 ? "text-emerald-600" : "text-destructive"}>
-                      {fmtBrl(row.ganhoFinanceiro)}
-                    </TableCell>
-                    <TableCell className={row.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>
-                      {row.rentabilidade.toFixed(2)}%
-                    </TableCell>
-                    <TableCell>{row.quantidade != null ? row.quantidade.toLocaleString("pt-BR") : "—"}</TableCell>
-                    <TableCell>{fmtBrl(row.precoUnitario)}</TableCell>
+                    <TableCell className={row.ganhoFinanceiro >= 0 ? "text-emerald-600" : "text-destructive"}>{fmtBrl(row.ganhoFinanceiro)}</TableCell>
+                    <TableCell className={row.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{row.rentabilidade.toFixed(2)}%</TableCell>
                     <TableCell>{row.custodiante}</TableCell>
                     <TableCell className="text-right font-medium">{pctPortfolio.toFixed(2)}%</TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoleta(row, "Aplicação", e)}>Aplicação</Button>
+                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoleta(row, "Resgate", e)}>Resgate</Button>
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteRow(row); }} className="text-muted-foreground hover:text-destructive transition-colors ml-1" title="Excluir ativo">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -282,19 +341,57 @@ export default function PosicaoConsolidadaPage() {
                 <TableCell />
                 <TableCell>Total</TableCell>
                 <TableCell>{fmtBrl(totalValor)}</TableCell>
-                <TableCell className="text-emerald-600">
-                  {fmtBrl(filteredRows.reduce((s, r) => s + r.ganhoFinanceiro, 0))}
-                </TableCell>
-                <TableCell />
-                <TableCell />
-                <TableCell />
+                <TableCell className="text-emerald-600">{fmtBrl(totalGanho)}</TableCell>
+                <TableCell className={totalRentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{totalRentabilidade.toFixed(2)}%</TableCell>
                 <TableCell />
                 <TableCell className="text-right">100,00%</TableCell>
+                <TableCell />
               </TableRow>
             </TableBody>
           </Table>
         </div>
       )}
+
+      {/* Boleta */}
+      {dialogRow && user && (
+        <BoletaCustodiaDialog
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          tipo={dialogTipo}
+          row={dialogRow}
+          userId={user.id}
+          dataReferenciaISO={dataReferenciaISO}
+          onSuccess={() => { calculate(); applyDataReferencia(); }}
+        />
+      )}
+
+      {/* Detalhe */}
+      {detalheRow && user && (
+        <PosicaoDetalheDialog
+          open={!!detalheRow}
+          onClose={() => setDetalheRow(null)}
+          data={getDetalheData(detalheRow)}
+          userId={user.id}
+          dataReferenciaISO={dataReferenciaISO}
+          onDataChanged={() => { calculate(); applyDataReferencia(); }}
+        />
+      )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão do ativo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir "{deleteRow?.nome}"? Todas as movimentações serão removidas permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
