@@ -71,6 +71,8 @@ export default function CarteiraRendaFixaPage() {
   const [allProductRows, setAllProductRows] = useState<DailyRow[][]>([]);
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; analysisProduct: AnalysisCustodiaProduct }[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
 
   useEffect(() => {
     if (!user) return;
