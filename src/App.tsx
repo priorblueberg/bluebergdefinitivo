@@ -23,6 +23,7 @@ import {
 import CarteiraRendaFixa from "@/pages/CarteiraRendaFixaPage";
 import AnaliseIndividualPage from "@/pages/AnaliseIndividualPage";
 import CalculadoraPage from "@/pages/CalculadoraPage";
+import PosicaoConsolidadaPage from "@/pages/PosicaoConsolidadaPage";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
