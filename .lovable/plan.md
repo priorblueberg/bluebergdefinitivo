@@ -1,45 +1,48 @@
 
 
-## Diagnóstico: Divergência de centavos no título Mista (104)
+## Diagnóstico: Divergência de 1 centavo no título Pós Fixado (101)
 
-### Causa raiz
+### Causa raiz provável
 
-No engine (`rendaFixaEngine.ts`), o CDI Diário é **truncado para 8 casas decimais**:
+No engine (`rendaFixaEngine.ts`, linha 308-309), o multiplicador Pós Fixado CDI usa o CDI do dia **anterior**:
 
 ```typescript
-const cdiDiarioVal = diaUtil && cdiAnual > 0
-  ? parseFloat(calcCdiDiario(cdiAnual).toFixed(8))
-  : prevCdiDiarioVal;
+const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
+dailyMult = diaUtil ? prevCdiDiario * (taxa / 100) : 0;
 ```
 
-Para produtos **Pós-Fixado CDI**, a fórmula do multiplicador é uma simples multiplicação (`cdiDiario × taxa/100`), então o erro de truncamento é insignificante.
+Para **Mista**, usar o CDI anterior é correto (fórmula explícita do Excel: `(1 + CDI anterior) * spread`). Porém, para **Pós Fixado CDI**, a convenção de mercado é capitalizar com o CDI **do próprio dia** (a taxa publicada em D capitaliza de D para D+1):
 
-Para produtos **Mista**, o CDI Diário entra numa multiplicação composta: `(1 + CDI Diário) × (1 + Taxa)^(1/252) - 1`. Como o multiplicador Mista **amplifica** o CDI (multiplica por ~1.000343 em vez de apenas escalar), cada centésimo de milionésimo perdido no truncamento se acumula dia a dia. Em ~200 dias úteis, isso vira 1-3 centavos de diferença.
+```typescript
+// Deveria ser:
+dailyMult = diaUtil ? cdiDiarioVal * (taxa / 100) : 0;
+```
 
-Os demais títulos batem na vírgula porque usam fórmulas lineares ou o multiplicador fixo Prefixado (que não depende do CDI truncado).
+Quando a SELIC/CDI muda (reuniões do COPOM), o lag de 1 dia faz com que a nova taxa seja aplicada um dia depois do correto. Ao longo de ~500 dias úteis com várias mudanças de taxa, essa defasagem acumula até chegar a 1 centavo de diferença.
+
+Os títulos Prefixado não são afetados (não usam CDI). Os títulos Mista usam `prevCdiDiario` propositalmente conforme a planilha Excel e já batem.
 
 ### Correção proposta
 
-**Arquivo: `src/lib/rendaFixaEngine.ts`**
+**Arquivo: `src/lib/rendaFixaEngine.ts`** — linha 308-309
 
-Remover o `.toFixed(8)` do cálculo do CDI Diário, usando a precisão nativa do JavaScript (float64 ~15-16 dígitos):
+Usar `cdiDiarioVal` (CDI do dia atual) em vez de `prevCdiDiario` no cálculo do multiplicador Pós Fixado:
 
 ```typescript
-// ANTES:
-const cdiDiarioVal = diaUtil && cdiAnual > 0
-  ? parseFloat(calcCdiDiario(cdiAnual).toFixed(8))
-  : prevCdiDiarioVal;
+// ANTES (linha 307-309):
+} else if (isPosFixadoCDI) {
+  const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
+  dailyMult = diaUtil ? prevCdiDiario * (taxa / 100) : 0;
 
 // DEPOIS:
-const cdiDiarioVal = diaUtil && cdiAnual > 0
-  ? calcCdiDiario(cdiAnual)
-  : prevCdiDiarioVal;
+} else if (isPosFixadoCDI) {
+  dailyMult = diaUtil ? cdiDiarioVal * (taxa / 100) : 0;
 ```
 
-Isso elimina a perda de precisão na fonte, mantendo ~15 dígitos significativos em vez de 8. Os títulos Prefixado e Pós-Fixado não são afetados (já batem na vírgula).
+Também aplicar a mesma correção no cálculo do PU (linha ~353-355), que para Pós Fixado deve usar `dailyMult` (que já será baseado no CDI correto).
 
 ### Impacto
-- Uma alteração de 1 linha no `rendaFixaEngine.ts`
-- Nenhuma mudança de regra de cálculo — apenas maior precisão numérica
-- Todos os títulos se beneficiam, mas o efeito visível será apenas no Mista
+- Alteração de 2 linhas no `rendaFixaEngine.ts`
+- Afeta apenas títulos Pós Fixado CDI
+- Títulos Mista e Prefixado permanecem inalterados
 
