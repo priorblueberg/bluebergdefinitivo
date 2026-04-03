@@ -5,6 +5,7 @@ import { Bell, CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, 
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
 import { toast } from "sonner";
