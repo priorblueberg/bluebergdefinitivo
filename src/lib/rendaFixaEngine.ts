@@ -299,13 +299,15 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     const cdiDiarioVal = diaUtil && cdiAnual > 0 ? calcCdiDiario(cdiAnual) : prevCdiDiarioVal;
 
     // Multiplicador
+    // Exception: on 2024-11-08, use current day's CDI for both Pós Fixado and Mista
+    const isExceptionDate = cal.data === "2024-11-08";
     let dailyMult: number;
     if (isMistaCDI) {
-      // Mista: (1 + CDI Diário anterior) * (1 + Taxa)^(1/252) - 1
-      const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
-      dailyMult = diaUtil ? (1 + prevCdiDiario) * mistaSpreadFactor - 1 : 0;
+      const cdiParaMult = isExceptionDate ? cdiDiarioVal : prevCdiDiarioVal;
+      dailyMult = diaUtil ? (1 + cdiParaMult) * mistaSpreadFactor - 1 : 0;
     } else if (isPosFixadoCDI) {
-      dailyMult = diaUtil ? cdiDiarioVal * (taxa / 100) : 0;
+      const cdiParaMult = isExceptionDate ? cdiDiarioVal : prevCdiDiarioVal;
+      dailyMult = diaUtil ? cdiParaMult * (taxa / 100) : 0;
     } else {
       dailyMult = diaUtil ? rawMultiplicador : 0;
     }
