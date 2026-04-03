@@ -296,7 +296,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // CDI Diário
     const cdiAnual = cdiMap.get(cal.data) ?? 0;
     const prevCdiDiarioVal = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
-    const cdiDiarioVal = diaUtil && cdiAnual > 0 ? parseFloat(calcCdiDiario(cdiAnual).toFixed(8)) : prevCdiDiarioVal;
+    const cdiDiarioVal = diaUtil && cdiAnual > 0 ? calcCdiDiario(cdiAnual) : prevCdiDiarioVal;
 
     // Multiplicador
     let dailyMult: number;
