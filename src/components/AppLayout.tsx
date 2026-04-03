@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { SubTabs } from "./SubTabs";
+import { WelcomeModal } from "./WelcomeModal";
 import { DataReferenciaProvider, useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { RecalculatingOverlay } from "./RecalculatingOverlay";
 import { useAuth } from "@/hooks/useAuth";
