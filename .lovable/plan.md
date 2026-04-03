@@ -1,47 +1,47 @@
+## Complemento da Página "Posição Consolidada"
 
+### Resumo
 
-## Diagnóstico: Rentabilidade consolidada da carteira 33.73% vs 33.75%
-
-### Causa raiz
-
-No engine da carteira (`carteiraRendaFixaEngine.ts`, linha 84), a **Rent. Diária (%)** é calculada como:
-
-```
-rentDiariaPct = rentDiariaRS / liquido2   (do dia ATUAL)
-```
-
-O problema: `liquido2` do dia atual já inclui o ganho do dia (`liquido2 = liquido1 + resgates`, e `liquido1` já tem o rendimento embutido). Isso infla o denominador, subestimando sistematicamente a rentabilidade diária.
-
-Para produtos individuais isso funciona porque a fórmula é auto-consistente (definida assim no Excel). Mas na **agregação da carteira**, quando produtos diferentes têm resgates/pagamentos em dias distintos, esse denominador inflado acumula um erro composto de ~0.02% ao longo de ~500 dias úteis.
-
-### Correção
-
-Usar o **Líquido (1) do dia anterior** como denominador da rentabilidade diária da carteira. O `ganhoDiário` já isola o ganho puro (exclui aplicações, resgates e juros), então dividir pelo patrimônio inicial do dia (= Líquido(1) do dia anterior) dá a rentabilidade correta:
-
-```
-rentDiariaPct = rentDiariaRS / prevLiquido
-```
+Adicionar ao page existente: (1) botões de Aplicação/Resgate e ícone de exclusão por linha, (2) modal "Detalhes da Posição" com duas abas (Histórico e Dados), acionado ao clicar no nome do ativo.  
+  
+*Deve ser acionada ao clicar em qualquer parte da linha do ativo.*  
+*Nesta página também deve-se incluir a rentabilidade total da carteira na linha totalizadora.*  
+*Desta página deve ser retirada os campos "Quantidade" e "Preço Unitário".*
 
 ### Alterações
 
-**Arquivo: `src/lib/carteiraRendaFixaEngine.ts`**
+**Arquivo: `src/pages/PosicaoConsolidadaPage.tsx**`
 
-1. Rastrear o `prevLiquido` (Líquido(1) do dia anterior) no loop
-2. Usar `prevLiquido` como denominador em vez de `liquido2` do dia atual
-3. Manter tudo o mais igual (colunas Líquido(1), Líquido(2), R$ Acumulada etc.)
+1. **Expandir `CustodiaProduct` e `PosicaoRow**` para incluir campos extras necessários para as boletas e o modal de detalhes:
+  - `PosicaoRow` passa a carregar o objeto `CustodiaProduct` completo (referência ao produto original), incluindo `categoria_id`, `produto_id`, `instituicao_id`, `emissor_id`, `emissor_nome`, `pagamento`, `indexador`, `taxa`, `modalidade`, `vencimento`, `codigo_custodia`, `data_inicio`, `valor_investido`, `preco_unitario`.
+  - A query de `custodia` passa a incluir `emissores(nome)`, `categoria_id`, `produto_id`, `instituicao_id`, `emissor_id`.
 
-```typescript
-// ANTES (linha 84):
-const rentDiariaPct = liquido2 > 0.01 ? rentDiariaRS / liquido2 : 0;
+*Nem todos estes objetos serão exibidos nos detalhes, certo? Precisamos chamar tudo isso para compor as informações, correto?* 
 
-// DEPOIS:
-const rentDiariaPct = prevLiquido > 0.01 ? rentDiariaRS / prevLiquido : 0;
-```
+1. **Botões de ação na tabela** (coluna "Ações" no final de cada linha):
+  - Botão "Aplicação" e "Resgate" (mesmo padrão da `CustodiaPage`): abre `BoletaCustodiaDialog`.
+  - Ícone `Trash2` para exclusão: abre `AlertDialog` de confirmação. A exclusão remove todas as movimentações do `codigo_custodia` e o registro de custódia, depois chama `fullSyncAfterDelete` e `applyDataReferencia()` (mesmo código da `CustodiaPage`).
+2. **Modal "Detalhes da Posição"** (Dialog/Sheet):
+  - Abre ao clicar na linha do ativo (no nome ou na row inteira).
+  - Header: Nome do ativo (bold, grande), Custodiante abaixo, Valor Atualizado no canto direito.
+  - Subtítulo: "Período de análise: [data_inicio] - [dataReferencia]".
+  - Duas abas via componente de Tabs existente:
+   **Aba "Histórico":**
+  - Tabela de movimentações do `codigo_custodia` (fetch de `movimentacoes` filtrando por `codigo_custodia` e `user_id`).
+  - Colunas: Data, Tipo, Valor Investido (valor), Custos Op. (fixo R$ 0,00), Valor Total (valor), Origem.  
 
-Onde `prevLiquido` é o `liquido` (soma dos Líquido(1)) do dia anterior, atualizado ao final de cada iteração.
+  *Retirar a informação de custos operacionais e incluir a informação de quantidade e preço unitário.*  
 
-### Impacto
-- Alteração de ~5 linhas em `carteiraRendaFixaEngine.ts`
-- Não afeta cálculos individuais de produtos
-- Não altera colunas R$ (Líquido, Ganho, etc.) — apenas a % composta
+  - Cada linha manual tem botões Editar (navega para `/cadastrar-transacao?edit={id}`) e Excluir (com AlertDialog e lógica de cascata para Aplicação Inicial, igual à `MovimentacoesPage`).
+  - Linhas automáticas exibem badge "Auto" sem ações.
+   **Aba "Dados":**
+  - Lista key-value simples com os dados de cadastro: Nome do Ativo, Indexador, Taxa (formatada com %), Modalidade, Tipo de Pagamento, Emissor, Custodiante, Vencimento (formatado dd/mm/yyyy).
 
+### Detalhes Técnicos
+
+- Reutiliza `BoletaCustodiaDialog` (já existente) para aplicação/resgate.
+- Reutiliza `AlertDialog` para confirmação de exclusão.
+- Reutiliza `fullSyncAfterDelete` de `syncEngine.ts`.
+- O modal de detalhes usa `Dialog` (de `@/components/ui/dialog`) com `Tabs` (`@/components/ui/tabs`).
+- A coluna "Ações" na tabela principal + header "Ações" na TableHeader.
+- A linha Total na tabela ganha uma célula vazia extra para a coluna de ações.
