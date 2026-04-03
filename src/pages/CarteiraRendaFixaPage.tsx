@@ -658,7 +658,6 @@ export default function CarteiraRendaFixaPage() {
           {productList.length > 0 && (
             <div className="space-y-1">
               <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
-              <p className="text-xs text-muted-foreground mb-3">Clique no título para visualizar o Dashboard</p>
               <div className="rounded-lg border bg-card">
                 <Table>
                   <TableHeader>
