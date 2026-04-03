@@ -33,6 +33,7 @@ export function AppHeader() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
 
   const handleForceRecalculate = async () => {
     if (!user || isForceRecalculating) return;
