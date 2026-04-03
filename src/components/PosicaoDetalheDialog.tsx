@@ -81,7 +81,20 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
       .eq("codigo_custodia", data.codigoCustodia)
       .eq("user_id", userId)
       .order("data", { ascending: true });
-    setMovs(rows || []);
+
+    // Deduplicate: remove identical auto rows (same date + type + valor)
+    const seen = new Set<string>();
+    const deduped: Movimentacao[] = [];
+    for (const row of rows || []) {
+      if (row.origem === "automatico") {
+        const key = `${row.data}|${row.tipo_movimentacao}|${row.valor}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      deduped.push(row);
+    }
+
+    setMovs(deduped);
     setLoading(false);
   }
 
@@ -91,7 +104,6 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
     const isAplicacaoInicial = mov.tipo_movimentacao === "Aplicação Inicial";
 
     if (isAplicacaoInicial) {
-      // Cascade: delete all movs + custodia
       await supabase.from("movimentacoes").delete().eq("codigo_custodia", data.codigoCustodia).eq("user_id", userId);
       await supabase.from("custodia").delete().eq("codigo_custodia", data.codigoCustodia).eq("user_id", userId);
       toast.success("Ativo e movimentações excluídos.");
@@ -117,16 +129,18 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <DialogTitle className="text-lg">{data.nome}</DialogTitle>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="pr-8">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-lg font-bold">{data.nome}</DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground">
                   {data.custodiante} · Período: {fmtDate(data.dataInicio)} — {fmtDate(dataReferenciaISO)}
                 </DialogDescription>
               </div>
-              <span className="text-lg font-semibold text-foreground">{fmtBrl(data.valorAtualizado)}</span>
+              <span className="text-lg font-semibold text-foreground whitespace-nowrap shrink-0">
+                {fmtBrl(data.valorAtualizado)}
+              </span>
             </div>
           </DialogHeader>
 
@@ -142,17 +156,17 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
               ) : movs.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">Nenhuma movimentação.</p>
               ) : (
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                        <TableHead className="text-right">Quantidade</TableHead>
-                        <TableHead className="text-right">Preço Unit.</TableHead>
-                        <TableHead>Origem</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
+                        <TableHead className="w-[100px]">Data</TableHead>
+                        <TableHead className="w-[140px]">Tipo</TableHead>
+                        <TableHead className="w-[130px]">Valor</TableHead>
+                        <TableHead className="w-[100px]">Quantidade</TableHead>
+                        <TableHead className="w-[120px]">Preço Unit.</TableHead>
+                        <TableHead className="w-[80px]">Origem</TableHead>
+                        <TableHead className="w-[80px] text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -160,11 +174,11 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                         const isAuto = m.origem === "automatico";
                         return (
                           <TableRow key={m.id}>
-                            <TableCell>{fmtDate(m.data)}</TableCell>
-                            <TableCell>{m.tipo_movimentacao}</TableCell>
-                            <TableCell className="text-right">{fmtBrl(m.valor)}</TableCell>
-                            <TableCell className="text-right">{fmtQty(m.quantidade)}</TableCell>
-                            <TableCell className="text-right">{m.preco_unitario != null ? fmtBrl(m.preco_unitario) : "—"}</TableCell>
+                            <TableCell className="whitespace-nowrap">{fmtDate(m.data)}</TableCell>
+                            <TableCell className="whitespace-nowrap">{m.tipo_movimentacao}</TableCell>
+                            <TableCell className="whitespace-nowrap">{fmtBrl(m.valor)}</TableCell>
+                            <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>
+                            <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? fmtBrl(m.preco_unitario) : "—"}</TableCell>
                             <TableCell>
                               {isAuto ? <Badge variant="secondary">Auto</Badge> : "Manual"}
                             </TableCell>

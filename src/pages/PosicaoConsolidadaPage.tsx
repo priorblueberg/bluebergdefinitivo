@@ -3,7 +3,8 @@ import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
-import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+import { calcularRendaFixaDiario, type DailyRow } from "@/lib/rendaFixaEngine";
+import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>([]);
+  const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -144,6 +146,7 @@ export default function PosicaoConsolidadaPage() {
       }
 
       const posicaoRows: PosicaoRow[] = [];
+      const allProductRows: DailyRow[][] = [];
 
       for (const product of rfProducts) {
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
@@ -167,6 +170,8 @@ export default function PosicaoConsolidadaPage() {
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
         });
+
+        allProductRows.push(engineRows);
 
         const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
         if (lastRow) {
@@ -196,6 +201,20 @@ export default function PosicaoConsolidadaPage() {
         });
       }
 
+      // Compute TWR for total rentabilidade using carteira engine
+      if (allProductRows.length > 0) {
+        const carteiraRows = calcularCarteiraRendaFixa({
+          productRows: allProductRows,
+          calendario,
+          dataInicio: minDate,
+          dataCalculo: dataReferenciaISO,
+        });
+        const lastCarteira = carteiraRows.length > 0 ? carteiraRows[carteiraRows.length - 1] : null;
+        setCarteiraRentabilidade(lastCarteira ? lastCarteira.rentAcumuladaPct * 100 : 0);
+      } else {
+        setCarteiraRentabilidade(0);
+      }
+
       setRows(posicaoRows);
     } catch (err) {
       console.error("Erro ao calcular posição consolidada:", err);
@@ -212,8 +231,6 @@ export default function PosicaoConsolidadaPage() {
 
   const totalValor = useMemo(() => filteredRows.reduce((s, r) => s + r.valorAtualizado, 0), [filteredRows]);
   const totalGanho = useMemo(() => filteredRows.reduce((s, r) => s + r.ganhoFinanceiro, 0), [filteredRows]);
-  const totalInvestido = useMemo(() => filteredRows.reduce((s, r) => s + r.product.valor_investido, 0), [filteredRows]);
-  const totalRentabilidade = totalInvestido > 0 ? (totalGanho / totalInvestido) * 100 : 0;
 
   // Boleta helpers
   function openBoleta(row: PosicaoRow, tipo: "Aplicação" | "Resgate", e: React.MouseEvent) {
@@ -342,7 +359,7 @@ export default function PosicaoConsolidadaPage() {
                 <TableCell>Total</TableCell>
                 <TableCell>{fmtBrl(totalValor)}</TableCell>
                 <TableCell className="text-emerald-600">{fmtBrl(totalGanho)}</TableCell>
-                <TableCell className={totalRentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{totalRentabilidade.toFixed(2)}%</TableCell>
+                <TableCell className={carteiraRentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{carteiraRentabilidade.toFixed(2)}%</TableCell>
                 <TableCell />
                 <TableCell className="text-right">100,00%</TableCell>
                 <TableCell />
