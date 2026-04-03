@@ -7,6 +7,11 @@ import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFix
 import { buildCdiSeries, CdiRecord } from "@/lib/cdiCalculations";
 import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 import RentabilidadeDetailTable from "@/components/RentabilidadeDetailTable";
+import { ProductDetail, type CustodiaProduct as AnalysisCustodiaProduct } from "@/pages/AnaliseIndividualPage";
+import { CircleCheck, CircleX } from "lucide-react";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
@@ -25,6 +30,7 @@ interface CustodiaProduct {
   codigo_custodia: number;
   nome: string | null;
   data_inicio: string;
+  data_calculo: string | null;
   taxa: number | null;
   modalidade: string | null;
   preco_unitario: number | null;
@@ -34,6 +40,9 @@ interface CustodiaProduct {
   indexador: string | null;
   data_limite: string | null;
   categoria_nome: string;
+  produto_nome: string;
+  instituicao_nome: string;
+  valor_investido: number;
 }
 
 const CustomTooltipChart = ({ active, payload, label }: any) => {
@@ -66,6 +75,8 @@ export default function CarteiraRendaFixaPage() {
   const [allProductRows, setAllProductRows] = useState<DailyRow[][]>([]);
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; analysisProduct: AnalysisCustodiaProduct }[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -110,7 +121,7 @@ export default function CarteiraRendaFixaPage() {
 
       const { data: custodiaData } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, categorias(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, categorias(nome), produtos(nome), instituicoes(nome)")
         .eq("user_id", user.id);
 
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
@@ -129,12 +140,17 @@ export default function CarteiraRendaFixaPage() {
           indexador: r.indexador,
           data_limite: r.data_limite,
           categoria_nome: r.categorias?.nome || "",
+          produto_nome: r.produtos?.nome || "",
+          instituicao_nome: r.instituicoes?.nome || "—",
+          data_calculo: r.data_calculo,
+          valor_investido: Number(r.valor_investido),
         }));
 
       if (rfProducts.length === 0) {
         setCarteiraRows([]);
         setAllProductRows([]);
         setCdiRecords([]);
+        setProductList([]);
         setLoading(false);
         return;
       }
@@ -205,6 +221,43 @@ export default function CarteiraRendaFixaPage() {
       });
 
       setAllProductRows(allProdRows);
+
+      // Build product list for Posição Consolidada section
+      const pList = rfProducts.map((product, idx) => {
+        const rows = allProdRows[idx];
+        const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
+        const isEncerrado = product.resgate_total ? product.resgate_total <= dataReferenciaISO : product.vencimento ? product.vencimento <= dataReferenciaISO : false;
+        const usePeriodic = product.pagamento && product.pagamento !== "No Vencimento";
+        const rentPct = lastRow ? ((usePeriodic ? lastRow.rentAcumulada2 : lastRow.rentabilidadeAcumuladaPct) * 100) : 0;
+        return {
+          nome: product.nome || product.produto_nome,
+          valorAtualizado: isEncerrado ? 0 : (lastRow?.liquido ?? 0),
+          ganhoFinanceiro: lastRow?.ganhoAcumulado ?? 0,
+          rentabilidade: rentPct,
+          custodiante: product.instituicao_nome,
+          ativo: !isEncerrado,
+          analysisProduct: {
+            id: product.id,
+            nome: product.nome,
+            codigo_custodia: product.codigo_custodia,
+            data_inicio: product.data_inicio,
+            data_calculo: product.data_calculo,
+            data_limite: product.data_limite,
+            valor_investido: product.valor_investido,
+            taxa: product.taxa,
+            indexador: product.indexador,
+            vencimento: product.vencimento,
+            modalidade: product.modalidade,
+            categoria_nome: product.categoria_nome,
+            produto_nome: product.produto_nome,
+            instituicao_nome: product.instituicao_nome,
+            resgate_total: product.resgate_total,
+            preco_unitario: product.preco_unitario,
+            pagamento: product.pagamento,
+          } as AnalysisCustodiaProduct,
+        };
+      });
+      setProductList(pList);
 
       const result = calcularCarteiraRendaFixa({
         productRows: allProdRows,
@@ -305,6 +358,20 @@ export default function CarteiraRendaFixaPage() {
 
   const showContent = carteiraInfo && (carteiraInfo.status === "Ativa" || carteiraInfo.status === "Encerrada") && carteiraRows.length > 0;
 
+  const fmtBrl = (v: number | null) =>
+    v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+
+  // If a product is selected, show its individual analysis
+  if (selectedProduct) {
+    return (
+      <ProductDetail
+        product={selectedProduct}
+        onBack={() => setSelectedProduct(null)}
+        backLabel="Voltar para Carteira de Renda Fixa"
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -351,11 +418,7 @@ export default function CarteiraRendaFixaPage() {
               }
             }
 
-            // CDI from detail rows
             const cdiAcum = detailRows.length > 0 ? detailRows[0].cdiAcumulado : null;
-
-            const fmtBrl = (v: number | null) =>
-              v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
             const fmtPct = (v: number | null) =>
               v != null ? `${v.toFixed(2)}%` : "—";
 
@@ -429,6 +492,41 @@ export default function CarteiraRendaFixaPage() {
 
           {/* Detail Table */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
+
+          {/* Posição Consolidada */}
+          {productList.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
+              <div className="rounded-lg border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[50px]">Status</TableHead>
+                      <TableHead className="min-w-[250px]">Ativo</TableHead>
+                      <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
+                      <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
+                      <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
+                      <TableHead className="min-w-[150px]">Custodiante</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {productList.map((row, i) => (
+                      <TableRow key={i} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedProduct(row.analysisProduct)}>
+                        <TableCell>
+                          {row.ativo ? <CircleCheck className="h-4 w-4 text-muted-foreground" /> : <CircleX className="h-4 w-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
+                        <TableCell className="text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
+                        <TableCell className="text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
+                        <TableCell className="text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
+                        <TableCell className="text-foreground">{row.custodiante}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

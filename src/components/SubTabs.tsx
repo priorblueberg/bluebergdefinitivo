@@ -6,7 +6,6 @@ const tabs = [
   { label: "Renda Variável", url: "/carteira/renda-variavel" },
   { label: "Fundos de Investimentos", url: "/carteira/fundos" },
   { label: "Tesouro Direto", url: "/carteira/tesouro-direto" },
-  { label: "Análise Individual por Produto", url: "/carteira/analise-individual" },
 ];
 
 export function SubTabs() {

@@ -21,7 +21,7 @@ import {
   ControleCarteiras,
 } from "@/pages/AppPages";
 import CarteiraRendaFixa from "@/pages/CarteiraRendaFixaPage";
-import AnaliseIndividualPage from "@/pages/AnaliseIndividualPage";
+// AnaliseIndividualPage is now accessed from within CarteiraRendaFixaPage
 import CalculadoraPage from "@/pages/CalculadoraPage";
 import PosicaoConsolidadaPage from "@/pages/PosicaoConsolidadaPage";
 import NotFound from "./pages/NotFound";
@@ -90,7 +90,7 @@ const App = () => (
               <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
               <Route path="/carteira/fundos" element={<CarteiraFundos />} />
               <Route path="/carteira/tesouro-direto" element={<CarteiraTesouroDireto />} />
-              <Route path="/carteira/analise-individual" element={<AnaliseIndividualPage />} />
+              {/* analise-individual is now accessed from within renda-fixa page */}
               <Route path="/posicao-consolidada" element={<PosicaoConsolidadaPage />} />
               <Route path="/movimentacoes" element={<Movimentacoes />} />
               <Route path="/custodia" element={<Custodia />} />

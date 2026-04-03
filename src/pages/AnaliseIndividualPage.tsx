@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Search, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
@@ -14,7 +15,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 
-interface CustodiaProduct {
+export interface CustodiaProduct {
   id: string;
   nome: string | null;
   codigo_custodia: number;
@@ -62,7 +63,7 @@ function getDateMinus(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: () => void }) {
+export function ProductDetail({ product, onBack, backLabel = "Voltar para lista de produtos" }: { product: CustodiaProduct; onBack: () => void; backLabel?: string }) {
   const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
@@ -235,7 +236,7 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
           <ArrowLeft size={16} />
-          Voltar para lista de produtos
+          {backLabel}
         </button>
         <div className="flex items-start gap-4 flex-wrap">
           <div>
