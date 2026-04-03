@@ -21,7 +21,7 @@ import {
   ControleCarteiras,
 } from "@/pages/AppPages";
 import CarteiraRendaFixa from "@/pages/CarteiraRendaFixaPage";
-import AnaliseIndividualPage from "@/pages/AnaliseIndividualPage";
+// AnaliseIndividualPage is now accessed from within CarteiraRendaFixaPage
 import CalculadoraPage from "@/pages/CalculadoraPage";
 import PosicaoConsolidadaPage from "@/pages/PosicaoConsolidadaPage";
 import NotFound from "./pages/NotFound";
