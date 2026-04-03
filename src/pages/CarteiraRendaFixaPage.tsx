@@ -117,7 +117,7 @@ export default function CarteiraRendaFixaPage() {
 
       const { data: custodiaData } = await supabase
         .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, categorias(nome)")
+        .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, categorias(nome), produtos(nome), instituicoes(nome)")
         .eq("user_id", user.id);
 
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
@@ -136,12 +136,17 @@ export default function CarteiraRendaFixaPage() {
           indexador: r.indexador,
           data_limite: r.data_limite,
           categoria_nome: r.categorias?.nome || "",
+          produto_nome: r.produtos?.nome || "",
+          instituicao_nome: r.instituicoes?.nome || "—",
+          data_calculo: r.data_calculo,
+          valor_investido: Number(r.valor_investido),
         }));
 
       if (rfProducts.length === 0) {
         setCarteiraRows([]);
         setAllProductRows([]);
         setCdiRecords([]);
+        setProductList([]);
         setLoading(false);
         return;
       }
