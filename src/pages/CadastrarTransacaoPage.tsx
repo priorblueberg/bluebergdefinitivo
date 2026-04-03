@@ -456,6 +456,14 @@ export default function CadastrarTransacaoPage() {
       const taxaNum = parseFloat(taxa.replace(",", "."));
       const quantidade = puNum > 0 ? valorNum / puNum : null;
 
+      // Mapeamento: "Pós Fixado" + "CDI+" → "Mista" + "CDI"
+      let modalidadeToSave = modalidade;
+      let indexadorToSave = isPosFixado ? indexador : null;
+      if (modalidade === "Pós Fixado" && indexador === "CDI+") {
+        modalidadeToSave = "Mista";
+        indexadorToSave = "CDI";
+      }
+
       const fmtBR = (v: number) =>
         v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const valorExtrato = quantidade != null
