@@ -30,6 +30,7 @@ interface CustodiaProduct {
   codigo_custodia: number;
   nome: string | null;
   data_inicio: string;
+  data_calculo: string | null;
   taxa: number | null;
   modalidade: string | null;
   preco_unitario: number | null;
@@ -39,6 +40,9 @@ interface CustodiaProduct {
   indexador: string | null;
   data_limite: string | null;
   categoria_nome: string;
+  produto_nome: string;
+  instituicao_nome: string;
+  valor_investido: number;
 }
 
 const CustomTooltipChart = ({ active, payload, label }: any) => {
