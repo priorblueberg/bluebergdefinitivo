@@ -48,6 +48,29 @@ function formatValorExtrato(valor: number, precoUnitario: number, quantidade: nu
   return `R$ ${fmtBR(valor)} (${fmtBR(precoUnitario)} x ${fmtBR(quantidade)})`;
 }
 
+const syncLocks = new Map<string, Promise<void>>();
+
+async function withSyncLock<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const previous = (syncLocks.get(key) ?? Promise.resolve()).catch(() => undefined);
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.then(() => current);
+  syncLocks.set(key, queued);
+
+  await previous;
+
+  try {
+    return await work();
+  } finally {
+    release();
+    if (syncLocks.get(key) === queued) {
+      syncLocks.delete(key);
+    }
+  }
+}
+
 /**
  * Recalculate manual "Resgate Total" rows created by the "Fechar Posição" flow.
  * These rows are derived values and must be updated when earlier movimentações change.
@@ -159,121 +182,130 @@ async function syncResgateNoVencimento(
   userId: string,
   custodiaRecord: SyncCustodiaBase
 ) {
-  const hoje = new Date().toISOString().slice(0, 10);
-  const { vencimento, resgate_total } = custodiaRecord;
+  return withSyncLock(`auto-resgate:${userId}:${codigoCustodia}`, async () => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const { vencimento, resgate_total } = custodiaRecord;
 
-  const shouldCreate =
-    vencimento && resgate_total && resgate_total === vencimento && vencimento < hoje;
+    const shouldCreate =
+      vencimento && resgate_total && resgate_total === vencimento && vencimento < hoje;
 
-  // Find existing auto resgate
-  const { data: existingAuto } = await supabase
-    .from("movimentacoes")
-    .select("id")
-    .eq("codigo_custodia", codigoCustodia)
-    .eq("user_id", userId)
-    .eq("tipo_movimentacao", "Resgate no Vencimento")
-    .eq("origem", "automatico")
-    .limit(1);
+    const { data: existingAuto } = await supabase
+      .from("movimentacoes")
+      .select("id")
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", userId)
+      .eq("tipo_movimentacao", "Resgate no Vencimento")
+      .eq("origem", "automatico")
+      .order("created_at", { ascending: true });
 
-  if (!shouldCreate) {
-    // Remove if exists
-    if (existingAuto && existingAuto.length > 0) {
+    const existingIds = existingAuto?.map((row) => row.id) ?? [];
+    const existingId = existingIds[0] ?? null;
+    const duplicateIds = existingIds.slice(1);
+
+    if (!shouldCreate) {
+      if (existingIds.length > 0) {
+        await supabase
+          .from("movimentacoes")
+          .delete()
+          .in("id", existingIds);
+      }
+      return;
+    }
+
+    if (duplicateIds.length > 0) {
       await supabase
         .from("movimentacoes")
         .delete()
-        .eq("id", existingAuto[0].id);
-    }
-    return;
-  }
-
-  const existingId = existingAuto && existingAuto.length > 0 ? existingAuto[0].id : null;
-
-  // Calculate liquido and cota via engine
-  try {
-    const { data: calendario } = await supabase
-      .from("calendario_dias_uteis")
-      .select("data, dia_util")
-      .gte("data", custodiaRecord.data_inicio)
-      .lte("data", vencimento!)
-      .order("data");
-
-    const { data: movs } = await supabase
-      .from("movimentacoes")
-      .select("data, tipo_movimentacao, valor")
-      .eq("codigo_custodia", codigoCustodia)
-      .eq("user_id", userId)
-      .neq("tipo_movimentacao", "Resgate no Vencimento")
-      .order("data");
-
-    if (!calendario || !movs) return;
-
-    const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
-
-    const rows = calcularRendaFixaDiario({
-      dataInicio: custodiaRecord.data_inicio,
-      dataCalculo: vencimento!,
-      taxa: custodiaRecord.taxa || 0,
-      modalidade: custodiaRecord.modalidade || "Prefixado",
-      puInicial: custodiaRecord.preco_unitario || 1000,
-      calendario,
-      movimentacoes: movs,
-      dataResgateTotal: custodiaRecord.resgate_total,
-      pagamento: custodiaRecord.pagamento,
-      vencimento: custodiaRecord.vencimento,
-      indexador: custodiaRecord.indexador,
-      cdiRecords,
-    });
-
-    if (rows.length === 0) return;
-
-    const lastRow = rows[rows.length - 1];
-    const isNoVencimento = custodiaRecord.pagamento === "No Vencimento";
-
-    // Resgate no Vencimento: PU and Qty depend on pagamento type
-    let valor: number;
-    let precoUnitario: number;
-    let quantidade: number;
-
-    if (isNoVencimento) {
-      valor = lastRow.resgates + lastRow.jurosPago;
-      precoUnitario = lastRow.precoUnitario;
-      quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
-    } else {
-      valor = lastRow.resgates + lastRow.jurosPago;
-      precoUnitario = lastRow.puJurosPeriodicos;
-      quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
+        .in("id", duplicateIds);
     }
 
-    const movData = {
-      user_id: userId,
-      data: vencimento!,
-      tipo_movimentacao: "Resgate no Vencimento",
-      codigo_custodia: codigoCustodia,
-      categoria_id: custodiaRecord.categoria_id,
-      produto_id: custodiaRecord.produto_id,
-      instituicao_id: custodiaRecord.instituicao_id,
-      emissor_id: custodiaRecord.emissor_id,
-      modalidade: custodiaRecord.modalidade,
-      indexador: custodiaRecord.indexador,
-      taxa: custodiaRecord.taxa,
-      pagamento: custodiaRecord.pagamento,
-      vencimento: custodiaRecord.vencimento,
-      preco_unitario: precoUnitario,
-      quantidade,
-      valor,
-      valor_extrato: formatValorExtrato(valor, precoUnitario, quantidade),
-      nome_ativo: custodiaRecord.nome,
-      origem: "automatico",
-    };
+    // Calculate liquido and cota via engine
+    try {
+      const { data: calendario } = await supabase
+        .from("calendario_dias_uteis")
+        .select("data, dia_util")
+        .gte("data", custodiaRecord.data_inicio)
+        .lte("data", vencimento!)
+        .order("data");
 
-    if (existingId) {
-      await supabase.from("movimentacoes").update(movData).eq("id", existingId);
-    } else {
-      await supabase.from("movimentacoes").insert(movData);
+      const { data: movs } = await supabase
+        .from("movimentacoes")
+        .select("data, tipo_movimentacao, valor")
+        .eq("codigo_custodia", codigoCustodia)
+        .eq("user_id", userId)
+        .neq("tipo_movimentacao", "Resgate no Vencimento")
+        .order("data");
+
+      if (!calendario || !movs) return;
+
+      const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
+
+      const rows = calcularRendaFixaDiario({
+        dataInicio: custodiaRecord.data_inicio,
+        dataCalculo: vencimento!,
+        taxa: custodiaRecord.taxa || 0,
+        modalidade: custodiaRecord.modalidade || "Prefixado",
+        puInicial: custodiaRecord.preco_unitario || 1000,
+        calendario,
+        movimentacoes: movs,
+        dataResgateTotal: custodiaRecord.resgate_total,
+        pagamento: custodiaRecord.pagamento,
+        vencimento: custodiaRecord.vencimento,
+        indexador: custodiaRecord.indexador,
+        cdiRecords,
+      });
+
+      if (rows.length === 0) return;
+
+      const lastRow = rows[rows.length - 1];
+      const isNoVencimento = custodiaRecord.pagamento === "No Vencimento";
+
+      // Resgate no Vencimento: PU and Qty depend on pagamento type
+      let valor: number;
+      let precoUnitario: number;
+      let quantidade: number;
+
+      if (isNoVencimento) {
+        valor = lastRow.resgates + lastRow.jurosPago;
+        precoUnitario = lastRow.precoUnitario;
+        quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
+      } else {
+        valor = lastRow.resgates + lastRow.jurosPago;
+        precoUnitario = lastRow.puJurosPeriodicos;
+        quantidade = lastRow.qtdResgate2 > 0 ? lastRow.qtdResgate2 : (precoUnitario > 0 ? valor / precoUnitario : 0);
+      }
+
+      const movData = {
+        user_id: userId,
+        data: vencimento!,
+        tipo_movimentacao: "Resgate no Vencimento",
+        codigo_custodia: codigoCustodia,
+        categoria_id: custodiaRecord.categoria_id,
+        produto_id: custodiaRecord.produto_id,
+        instituicao_id: custodiaRecord.instituicao_id,
+        emissor_id: custodiaRecord.emissor_id,
+        modalidade: custodiaRecord.modalidade,
+        indexador: custodiaRecord.indexador,
+        taxa: custodiaRecord.taxa,
+        pagamento: custodiaRecord.pagamento,
+        vencimento: custodiaRecord.vencimento,
+        preco_unitario: precoUnitario,
+        quantidade,
+        valor,
+        valor_extrato: formatValorExtrato(valor, precoUnitario, quantidade),
+        nome_ativo: custodiaRecord.nome,
+        origem: "automatico",
+      };
+
+      if (existingId) {
+        await supabase.from("movimentacoes").update(movData).eq("id", existingId);
+      } else {
+        await supabase.from("movimentacoes").insert(movData);
+      }
+    } catch (err) {
+      console.error("syncResgateNoVencimento: erro ao calcular/inserir", err);
     }
-  } catch (err) {
-    console.error("syncResgateNoVencimento: erro ao calcular/inserir", err);
-  }
+  });
 }
 
 // ── Custodia Sync ──
