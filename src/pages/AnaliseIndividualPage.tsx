@@ -72,7 +72,8 @@ function ProductDetail({ product, onBack }: { product: CustodiaProduct; onBack: 
   const isPrefixado = product.categoria_nome === "Renda Fixa" && (
     product.modalidade === "Prefixado" ||
     product.modalidade === "Pos Fixado" ||
-    product.modalidade === "Pós Fixado"
+    product.modalidade === "Pós Fixado" ||
+    product.modalidade === "Mista"
   );
 
   useEffect(() => {
