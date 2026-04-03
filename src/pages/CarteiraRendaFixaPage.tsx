@@ -472,9 +472,14 @@ export default function CarteiraRendaFixaPage() {
               Data selecionada anterior ao início dos seus investimentos em Renda Fixa
             </p>
           ) : carteiraInfo.status === "Encerrada" ? (
-            <p className="text-sm text-muted-foreground mt-1">
-              Carteira Encerrada em {fmtDate(carteiraInfo.data_calculo)}
-            </p>
+            <>
+              <p className="text-sm text-muted-foreground mt-1">
+                Carteira Encerrada em {fmtDate(carteiraInfo.data_calculo)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
+              </p>
+            </>
           ) : null
         )}
       </div>

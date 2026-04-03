@@ -13,24 +13,26 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface MenuItem {
   title: string;
   url: string;
   icon: React.ElementType;
+  adminOnly?: boolean;
 }
 
 const menuItems: MenuItem[] = [
   { title: "Carteira de Investimentos", url: "/carteira", icon: LayoutGrid },
   { title: "Posição Consolidada", url: "/posicao-consolidada", icon: ClipboardList },
   { title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight },
-  { title: "Custódia", url: "/custodia", icon: Vault },
-  { title: "Controle de Carteiras", url: "/controle-carteiras", icon: Briefcase },
+  { title: "Custódia", url: "/custodia", icon: Vault, adminOnly: true },
+  { title: "Controle de Carteiras", url: "/controle-carteiras", icon: Briefcase, adminOnly: true },
   { title: "Proventos Recebidos", url: "/proventos", icon: DollarSign },
   
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
-  { title: "Admin", url: "/admin", icon: Shield },
-  { title: "Calculadora", url: "/calculadora", icon: Calculator },
+  { title: "Configurações", url: "/configuracoes", icon: Settings, adminOnly: true },
+  { title: "Admin", url: "/admin", icon: Shield, adminOnly: true },
+  { title: "Calculadora", url: "/calculadora", icon: Calculator, adminOnly: true },
 ];
 
 export function AppSidebar({
@@ -41,9 +43,11 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const location = useLocation();
+  const isAdmin = useIsAdmin();
   const isActive = (url: string) =>
     url === "/carteira" ? location.pathname.startsWith("/carteira") : location.pathname === url;
 
+  const visibleItems = menuItems.filter(item => !item.adminOnly || isAdmin);
   return (
     <aside
       className="fixed left-0 top-0 bottom-0 z-30 flex flex-col bg-[hsl(213,60%,20%)]"
@@ -62,7 +66,7 @@ export function AppSidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-        {menuItems.map((item) => {
+        {visibleItems.map((item) => {
           const active = isActive(item.url);
           const Icon = item.icon;
 
