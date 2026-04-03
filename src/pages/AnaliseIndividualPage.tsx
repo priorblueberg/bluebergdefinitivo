@@ -15,7 +15,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 
-interface CustodiaProduct {
+export interface CustodiaProduct {
   id: string;
   nome: string | null;
   codigo_custodia: number;
