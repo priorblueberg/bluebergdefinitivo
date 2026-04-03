@@ -9,6 +9,7 @@ import {
   Shield,
   Briefcase,
   Calculator,
+  ClipboardList,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
