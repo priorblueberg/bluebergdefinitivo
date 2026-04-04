@@ -764,10 +764,11 @@ export default function CadastrarTransacaoPage() {
                 {/* Row 2: Instituição, Emissor */}
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Instituição" required>
-                    <NativeSelect
+                    <SearchableSelect
                       value={instituicaoId}
-                      onChange={setInstituicaoId}
-                      placeholder="Selecione"
+                      onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
+                      placeholder="Pesquisar instituição..."
+                      hasError={validationErrors.has("instituicaoId")}
                       options={instituicoes.map((i) => ({
                         value: i.id,
                         label: i.nome,
@@ -776,10 +777,11 @@ export default function CadastrarTransacaoPage() {
                   </Field>
 
                   <Field label="Emissor" required>
-                    <NativeSelect
+                    <SearchableSelect
                       value={emissorId}
-                      onChange={setEmissorId}
-                      placeholder="Selecione"
+                      onChange={(v) => { setEmissorId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("emissorId"); return n; }); }}
+                      placeholder="Pesquisar emissor..."
+                      hasError={validationErrors.has("emissorId")}
                       options={emissores.map((e) => ({
                         value: e.id,
                         label: e.nome,
@@ -788,7 +790,7 @@ export default function CadastrarTransacaoPage() {
                   </Field>
                 </div>
 
-                {/* Row 3: Modalidade, (Indexador if Pós Fixado), Taxa, Pagamento */}
+                {/* Row 3: Modalidade, (Indexador if Pós Fixado), Taxa, Pagamento de Juros */}
                 <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
                   <Field label="Modalidade" required>
                     <NativeSelect
@@ -796,12 +798,14 @@ export default function CadastrarTransacaoPage() {
                       onChange={(v) => {
                         setModalidade(v);
                         if (v !== "Pós Fixado") setIndexador("");
+                        setValidationErrors((prev) => { const n = new Set(prev); n.delete("modalidade"); return n; });
                       }}
                       placeholder="Selecione"
                       options={MODALIDADE_OPTIONS.map((m) => ({
                         value: m,
                         label: m,
                       }))}
+                      hasError={validationErrors.has("modalidade")}
                     />
                   </Field>
 
@@ -809,12 +813,13 @@ export default function CadastrarTransacaoPage() {
                     <Field label="Indexador" required>
                       <NativeSelect
                         value={indexador}
-                        onChange={setIndexador}
+                        onChange={(v) => { setIndexador(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("indexador"); return n; }); }}
                         placeholder="Selecione"
                         options={INDEXADOR_OPTIONS.map((idx) => ({
                           value: idx,
                           label: idx,
                         }))}
+                        hasError={validationErrors.has("indexador")}
                       />
                     </Field>
                   )}
@@ -824,9 +829,9 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={taxa}
-                        onChange={(e) => setTaxa(e.target.value)}
-                        placeholder="12,5"
-                        className="input-field pr-7"
+                        onChange={(e) => { setTaxa(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("taxa"); return n; }); }}
+                        placeholder="0,00"
+                        className={`input-field pr-7 ${validationErrors.has("taxa") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                         %
@@ -834,15 +839,16 @@ export default function CadastrarTransacaoPage() {
                     </div>
                   </Field>
 
-                  <Field label="Pagamento" required>
+                  <Field label="Pagamento de Juros" required>
                     <NativeSelect
                       value={pagamento}
-                      onChange={setPagamento}
+                      onChange={(v) => { setPagamento(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("pagamento"); return n; }); }}
                       placeholder="Selecione"
                       options={PAGAMENTO_OPTIONS.map((p) => ({
                         value: p,
                         label: p,
                       }))}
+                      hasError={validationErrors.has("pagamento")}
                     />
                   </Field>
                 </div>
