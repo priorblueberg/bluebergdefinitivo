@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import {
   CarteiraVisaoGeral,
@@ -27,14 +27,13 @@ import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
-import WelcomeOnboardingPage from "./pages/WelcomeOnboardingPage";
 import PlanosPage from "./pages/PlanosPage";
 import CheckoutPage from "./pages/CheckoutPage";
 
 const queryClient = new QueryClient();
 
 const ProtectedRoute = () => {
-  const { user, loading, hasProfile, hasCustodia } = useAuth();
+  const { user, loading, hasProfile } = useAuth();
 
   if (loading)
     return (
@@ -43,7 +42,7 @@ const ProtectedRoute = () => {
       </div>
     );
   if (!user) return <Navigate to="/auth" replace />;
-  if (hasProfile === null || hasCustodia === null)
+  if (hasProfile === null)
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Carregando...
@@ -62,53 +61,53 @@ const OnboardingRoute = () => {
       </div>
     );
   if (!user) return <Navigate to="/auth" replace />;
-  if (hasProfile) return <Navigate to="/carteira" replace />;
+  if (hasProfile) return <Navigate to="/carteira/renda-fixa" replace />;
   return <OnboardingPage />;
 };
 
-// WelcomeRoute removed — welcome is now inside AppLayout
-
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/onboarding" element={<OnboardingRoute />} />
-          
-          <Route path="/planos" element={<PlanosPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
+  <AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/onboarding" element={<OnboardingRoute />} />
+            
+            <Route path="/planos" element={<PlanosPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
 
-          {/* Protected routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AppLayout />}>
-              <Route path="/welcome" element={<WelcomeOnboardingPage />} />
-              <Route path="/carteira" element={<Navigate to="/carteira/renda-fixa" replace />} />
-              <Route path="/carteira/renda-fixa" element={<CarteiraRendaFixa />} />
-              <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
-              <Route path="/carteira/fundos" element={<CarteiraFundos />} />
-              <Route path="/carteira/tesouro-direto" element={<CarteiraTesouroDireto />} />
-              <Route path="/posicao-consolidada" element={<PosicaoConsolidadaPage />} />
-              <Route path="/movimentacoes" element={<Movimentacoes />} />
-              <Route path="/custodia" element={<Custodia />} />
-              <Route path="/controle-carteiras" element={<ControleCarteiras />} />
-              <Route path="/proventos" element={<ProventosRecebidos />} />
-              <Route path="/cadastrar-transacao" element={<CadastrarTransacao />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
-              <Route path="/usuario" element={<Usuario />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/calculadora" element={<CalculadoraPage />} />
+            {/* Protected routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/welcome" element={<Navigate to="/carteira/renda-fixa" replace />} />
+                <Route path="/carteira" element={<Navigate to="/carteira/renda-fixa" replace />} />
+                <Route path="/carteira/renda-fixa" element={<CarteiraRendaFixa />} />
+                <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
+                <Route path="/carteira/fundos" element={<CarteiraFundos />} />
+                <Route path="/carteira/tesouro-direto" element={<CarteiraTesouroDireto />} />
+                <Route path="/posicao-consolidada" element={<PosicaoConsolidadaPage />} />
+                <Route path="/movimentacoes" element={<Movimentacoes />} />
+                <Route path="/custodia" element={<Custodia />} />
+                <Route path="/controle-carteiras" element={<ControleCarteiras />} />
+                <Route path="/proventos" element={<ProventosRecebidos />} />
+                <Route path="/cadastrar-transacao" element={<CadastrarTransacao />} />
+                <Route path="/configuracoes" element={<Configuracoes />} />
+                <Route path="/usuario" element={<Usuario />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/calculadora" element={<CalculadoraPage />} />
+              </Route>
             </Route>
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </AuthProvider>
 );
 
 export default App;

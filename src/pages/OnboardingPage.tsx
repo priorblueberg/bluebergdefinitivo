@@ -36,7 +36,7 @@ const OnboardingPage = () => {
     } else {
       toast.success("Perfil criado com sucesso!");
       await refreshProfile();
-      navigate("/carteira");
+      navigate("/carteira/renda-fixa");
     }
     setLoading(false);
   };
