@@ -794,11 +794,11 @@ export default function CadastrarTransacaoPage() {
 
                 {/* Row 2: Instituição, Emissor */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Instituição" required>
+                  <Field label="Corretora" required>
                     <SearchableSelect
                       value={instituicaoId}
                       onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
-                      placeholder="Pesquisar instituição..."
+                      placeholder="Pesquisar corretora..."
                       hasError={validationErrors.has("instituicaoId")}
                       options={instituicoes.map((i) => ({
                         value: i.id,
@@ -997,7 +997,7 @@ export default function CadastrarTransacaoPage() {
 
                 {/* Row 2: Instituição, Emissor (readonly) */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Instituição">
+                  <Field label="Corretora">
                     <input
                       type="text"
                       value={getInstituicaoNome(instituicaoId)}
