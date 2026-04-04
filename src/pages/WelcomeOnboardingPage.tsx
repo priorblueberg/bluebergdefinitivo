@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface Produto { id: string; nome: string; }
 interface Instituicao { id: string; nome: string; }
 interface Emissor { id: string; nome: string; }
+interface Categoria { id: string; nome: string; }
 
 const PAGAMENTO_OPTIONS = ["Mensal", "Bimestral", "Trimestral", "Quatrimestral", "Semestral", "No Vencimento"];
 const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
