@@ -160,7 +160,13 @@ export default function CadastrarTransacaoPage() {
       .eq("ativa", true)
       .order("nome")
       .then(({ data }) => {
-        if (data) setCategorias(data);
+        if (data) {
+          const rfOnly = data.filter((c: Categoria) => c.nome === "Renda Fixa");
+          setCategorias(rfOnly);
+          if (rfOnly.length === 1 && !editId) {
+            setCategoriaId(rfOnly[0].id);
+          }
+        }
       });
   }, []);
 
