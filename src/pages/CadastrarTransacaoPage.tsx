@@ -74,34 +74,22 @@ function formatCurrency(value: string): string {
 }
 
 function formatValorInicial(value: string): string {
-  // Remove everything except digits and comma
   let cleaned = value.replace(/[^\d,]/g, "");
-  
-  // Split by comma
   const parts = cleaned.split(",");
   
-  // Allow only one comma
   if (parts.length > 2) {
     cleaned = parts[0] + "," + parts.slice(1).join("");
   }
   
-  // If no comma yet, just show digits (integer part) with ,00 appended for display
   if (parts.length === 1) {
-    // Only digits, no comma typed yet
     const intDigits = parts[0].replace(/^0+(?=\d)/, "") || "";
     if (!intDigits) return "";
-    const formatted = intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return formatted + ",00";
+    return intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   }
   
-  // Comma was typed - limit decimal places to 2
-  let decPart = parts[1].slice(0, 2);
-  // Pad with zeros to always show 2 decimal places
-  decPart = decPart.padEnd(2, "0");
-  
+  let decPart = parts[1].slice(0, 2).padEnd(2, "0");
   const intPart = (parts[0].replace(/^0+(?=\d)/, "") || "0").replace(/\./g, "");
-  const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return formatted + "," + decPart;
+  return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + decPart;
 }
 
 function formatTaxaInput(value: string): string {

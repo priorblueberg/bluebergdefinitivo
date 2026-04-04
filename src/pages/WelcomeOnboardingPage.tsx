@@ -31,7 +31,7 @@ function formatValorInicial(value: string): string {
   if (parts.length === 1) {
     const intDigits = parts[0].replace(/^0+(?=\d)/, "") || "";
     if (!intDigits) return "";
-    return intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + ",00";
+    return intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   }
   let decPart = parts[1].slice(0, 2).padEnd(2, "0");
   const intPart = (parts[0].replace(/^0+(?=\d)/, "") || "0").replace(/\./g, "");
