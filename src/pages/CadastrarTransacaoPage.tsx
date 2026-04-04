@@ -694,7 +694,6 @@ export default function CadastrarTransacaoPage() {
               options={categorias.map((c) => ({
                 value: c.id,
                 label: c.nome,
-                disabled: c.nome !== "Renda Fixa",
               }))}
             />
           </Field>
