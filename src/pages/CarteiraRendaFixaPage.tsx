@@ -153,30 +153,7 @@ export default function CarteiraRendaFixaPage() {
           emissor_nome: r.emissores?.nome || "—",
         }));
 
-      if (rfProducts.length === 0) {
-        setCarteiraInfo(cartData ? {
-          nome_carteira: cartData.nome_carteira,
-          status: cartData.status,
-          data_inicio: cartData.data_inicio,
-          data_calculo: cartData.data_calculo,
-          data_limite: cartData.data_limite,
-          resgate_total: cartData.resgate_total,
-        } : null);
-        setCarteiraRows([]);
-        setAllProductRows([]);
-        setCdiRecords([]);
-        setIbovespaData([]);
-        setProductList([]);
-        setIsEmpty(true);
-        setShowOnboarding(true);
-        setLoading(false);
-        return;
-      }
-
-      setIsEmpty(false);
-      setShowOnboarding(false);
-
-      if (!cartData || !cartData.data_inicio || !cartData.data_calculo || cartData.status === "Não Iniciada") {
+      if (rfProducts.length === 0 || !cartData || !cartData.data_inicio || !cartData.data_calculo || cartData.status === "Não Iniciada") {
         setCarteiraInfo(cartData ? {
           nome_carteira: cartData.nome_carteira,
           status: cartData.status,
