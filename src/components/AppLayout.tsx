@@ -3,7 +3,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { SubTabs } from "./SubTabs";
-import { WelcomeModal } from "./WelcomeModal";
 import { DataReferenciaProvider, useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { RecalculatingOverlay } from "./RecalculatingOverlay";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,7 +47,6 @@ function AppLayoutInner() {
         {isCarteira && <SubTabs />}
         <main className="relative flex-1 overflow-y-auto p-6">
           <RecalculatingOverlay />
-          <WelcomeModal />
           <Outlet />
         </main>
       </div>

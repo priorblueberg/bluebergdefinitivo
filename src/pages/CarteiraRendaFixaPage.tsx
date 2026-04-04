@@ -180,47 +180,18 @@ export default function CarteiraRendaFixaPage() {
     (async () => {
       setLoading(true);
 
-      const { data: cartData } = await supabase
-        .from("controle_de_carteiras")
-        .select("nome_carteira, status, data_inicio, data_calculo, data_limite, resgate_total")
-        .eq("nome_carteira", "Renda Fixa")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!cartData || !cartData.data_inicio || !cartData.data_calculo || cartData.status === "Não Iniciada") {
-        setCarteiraInfo(cartData ? {
-          nome_carteira: cartData.nome_carteira,
-          status: cartData.status,
-          data_inicio: cartData.data_inicio,
-          data_calculo: cartData.data_calculo,
-          data_limite: cartData.data_limite,
-          resgate_total: cartData.resgate_total,
-        } : null);
-        setCarteiraRows([]);
-        setAllProductRows([]);
-        setCdiRecords([]);
-        setIbovespaData([]);
-        setLoading(false);
-        return;
-      }
-
-      const info: CarteiraInfo = {
-        nome_carteira: cartData.nome_carteira,
-        status: cartData.status,
-        data_inicio: cartData.data_inicio,
-        data_calculo: cartData.data_calculo,
-        data_limite: cartData.data_limite,
-        resgate_total: cartData.resgate_total,
-      };
-      setCarteiraInfo(info);
-
-      const dataInicio = cartData.data_inicio;
-      const dataCalculo = cartData.data_calculo;
-
-      const { data: custodiaData } = await supabase
-        .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
-        .eq("user_id", user.id);
+      const [{ data: cartData }, { data: custodiaData }] = await Promise.all([
+        supabase
+          .from("controle_de_carteiras")
+          .select("nome_carteira, status, data_inicio, data_calculo, data_limite, resgate_total")
+          .eq("nome_carteira", "Renda Fixa")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("custodia")
+          .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
+          .eq("user_id", user.id),
+      ]);
 
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
         .filter((r: any) => r.categorias?.nome === "Renda Fixa")
@@ -247,6 +218,14 @@ export default function CarteiraRendaFixaPage() {
         }));
 
       if (rfProducts.length === 0) {
+        setCarteiraInfo(cartData ? {
+          nome_carteira: cartData.nome_carteira,
+          status: cartData.status,
+          data_inicio: cartData.data_inicio,
+          data_calculo: cartData.data_calculo,
+          data_limite: cartData.data_limite,
+          resgate_total: cartData.resgate_total,
+        } : null);
         setCarteiraRows([]);
         setAllProductRows([]);
         setCdiRecords([]);
@@ -259,6 +238,38 @@ export default function CarteiraRendaFixaPage() {
       }
 
       setIsEmpty(false);
+      setShowOnboarding(false);
+
+      if (!cartData || !cartData.data_inicio || !cartData.data_calculo || cartData.status === "Não Iniciada") {
+        setCarteiraInfo(cartData ? {
+          nome_carteira: cartData.nome_carteira,
+          status: cartData.status,
+          data_inicio: cartData.data_inicio,
+          data_calculo: cartData.data_calculo,
+          data_limite: cartData.data_limite,
+          resgate_total: cartData.resgate_total,
+        } : null);
+        setCarteiraRows([]);
+        setAllProductRows([]);
+        setCdiRecords([]);
+        setIbovespaData([]);
+        setProductList([]);
+        setLoading(false);
+        return;
+      }
+
+      const info: CarteiraInfo = {
+        nome_carteira: cartData.nome_carteira,
+        status: cartData.status,
+        data_inicio: cartData.data_inicio,
+        data_calculo: cartData.data_calculo,
+        data_limite: cartData.data_limite,
+        resgate_total: cartData.resgate_total,
+      };
+      setCarteiraInfo(info);
+
+      const dataInicio = cartData.data_inicio;
+      const dataCalculo = cartData.data_calculo;
 
       const maxEndDate = rfProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataCalculo;
