@@ -82,6 +82,7 @@ export default function BoletaCustodiaDialog({
   const [valorCotaDia, setValorCotaDia] = useState<number | null>(null);
   const [loadingCota, setLoadingCota] = useState(false);
   const [fecharPosicao, setFecharPosicao] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   const fmtReadonly = (v: string | null | undefined) => v ?? "—";
   const fmtTaxa = (v: number | null) =>
@@ -113,9 +114,39 @@ export default function BoletaCustodiaDialog({
     setSaldoDisponivel(null);
     setFecharPosicao(false);
     setValor("");
+    setDateError(null);
     if (!d) return;
 
     const dateISO = format(d, "yyyy-MM-dd");
+
+    // Validate: not in the future (> today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (d > today) {
+      setDateError("A data não pode ser superior à data atual.");
+      return;
+    }
+
+    // Validate: not after vencimento
+    if (row.vencimento) {
+      const vencDate = new Date(row.vencimento + "T00:00:00");
+      if (d > vencDate) {
+        setDateError("A data não pode ser posterior ao vencimento do título.");
+        return;
+      }
+    }
+
+    // Validate: business day
+    const { data: diaUtil } = await supabase
+      .from("calendario_dias_uteis")
+      .select("dia_util")
+      .eq("data", dateISO)
+      .maybeSingle();
+
+    if (!diaUtil || !diaUtil.dia_util) {
+      setDateError("A data selecionada não é um dia útil.");
+      return;
+    }
 
     const isRendaFixaEngine = (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.taxa && row.preco_unitario;
 
