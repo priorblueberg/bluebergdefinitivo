@@ -50,7 +50,6 @@ const ProtectedRoute = () => {
       </div>
     );
   if (!hasProfile) return <Navigate to="/onboarding" replace />;
-  if (!hasCustodia) return <Navigate to="/welcome" replace />;
   return <Outlet />;
 };
 
