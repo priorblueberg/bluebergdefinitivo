@@ -452,10 +452,11 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     categoria_id: aplicacaoInicial.categoria_id,
     user_id: mov.user_id,
     data_limite: dataLimite,
-    alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : null,
+    alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : isPoupanca ? "Poupança" : null,
     multiplicador: categoriaNome || null,
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
+    pu_inicial: aplicacaoInicial.preco_unitario,
   };
 
   if (existing && existing.length > 0) {
