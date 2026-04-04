@@ -860,7 +860,7 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={taxa}
-                        onChange={(e) => { setTaxa(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("taxa"); return n; }); }}
+                        onChange={(e) => { setTaxa(formatTaxaInput(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("taxa"); return n; }); }}
                         placeholder="0,00"
                         className={`input-field pr-7 ${validationErrors.has("taxa") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
