@@ -513,17 +513,24 @@ export default function CadastrarTransacaoPage() {
     try {
       const produtoNome = produtos.find((p) => p.id === produtoId)?.nome || "";
       const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
-      const nomeAtivo = isRendaFixa
-        ? buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador)
-        : null;
+      const instituicaoNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
+
+      let nomeAtivo: string | null;
+      if (isPoupanca) {
+        nomeAtivo = `Poupança ${instituicaoNome}`.trim();
+      } else if (isRendaFixa) {
+        nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
+      } else {
+        nomeAtivo = null;
+      }
 
       const valorNum = parseCurrencyToNumber(valor);
-      const puNum = parseCurrencyToNumber(precoUnitario);
-      const taxaNum = parseFloat(taxa.replace(",", "."));
-      const quantidade = puNum > 0 ? valorNum / puNum : null;
+      const puNum = isPoupanca ? 0 : parseCurrencyToNumber(precoUnitario);
+      const taxaNum = isPoupanca ? 0 : parseFloat(taxa.replace(",", ".") || "0");
+      const quantidade = !isPoupanca && puNum > 0 ? valorNum / puNum : null;
 
       // Mapeamento: "Pós Fixado" + "CDI+" → "Mista" + "CDI"
-      let modalidadeToSave = modalidade;
+      let modalidadeToSave = isPoupanca ? "Poupança" : modalidade;
       let indexadorToSave = isPosFixado ? indexador : null;
       if (modalidade === "Pós Fixado" && indexador === "CDI+") {
         modalidadeToSave = "Mista";
