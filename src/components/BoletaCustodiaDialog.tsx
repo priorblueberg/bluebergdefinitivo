@@ -82,6 +82,7 @@ export default function BoletaCustodiaDialog({
   const [valorCotaDia, setValorCotaDia] = useState<number | null>(null);
   const [loadingCota, setLoadingCota] = useState(false);
   const [fecharPosicao, setFecharPosicao] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   const fmtReadonly = (v: string | null | undefined) => v ?? "—";
   const fmtTaxa = (v: number | null) =>
@@ -113,9 +114,39 @@ export default function BoletaCustodiaDialog({
     setSaldoDisponivel(null);
     setFecharPosicao(false);
     setValor("");
+    setDateError(null);
     if (!d) return;
 
     const dateISO = format(d, "yyyy-MM-dd");
+
+    // Validate: not in the future (> today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (d > today) {
+      setDateError("A data não pode ser superior à data atual.");
+      return;
+    }
+
+    // Validate: not after vencimento
+    if (row.vencimento) {
+      const vencDate = new Date(row.vencimento + "T00:00:00");
+      if (d > vencDate) {
+        setDateError("A data não pode ser posterior ao vencimento do título.");
+        return;
+      }
+    }
+
+    // Validate: business day
+    const { data: diaUtil } = await supabase
+      .from("calendario_dias_uteis")
+      .select("dia_util")
+      .eq("data", dateISO)
+      .maybeSingle();
+
+    if (!diaUtil || !diaUtil.dia_util) {
+      setDateError("A data selecionada não é um dia útil.");
+      return;
+    }
 
     const isRendaFixaEngine = (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.taxa && row.preco_unitario;
 
@@ -204,6 +235,10 @@ export default function BoletaCustodiaDialog({
       toast.error("Selecione a data da operação.");
       return;
     }
+    if (dateError) {
+      toast.error(dateError);
+      return;
+    }
     const valorNum = parseCurrencyToNumber(valor);
     if (valorNum <= 0) {
       toast.error("Informe um valor válido.");
@@ -212,14 +247,8 @@ export default function BoletaCustodiaDialog({
 
     const dateISO = format(date, "yyyy-MM-dd");
 
-    const { data: diaUtil } = await supabase
-      .from("calendario_dias_uteis")
-      .select("dia_util")
-      .eq("data", dateISO)
-      .maybeSingle();
-
-    if (!diaUtil || !diaUtil.dia_util) {
-      toast.error("A data selecionada não é um dia útil.");
+    if (tipo === "Resgate" && saldoDisponivel != null && valorNum > saldoDisponivel) {
+      toast.error("Valor excede o saldo disponível para resgate.");
       return;
     }
 
@@ -289,6 +318,7 @@ export default function BoletaCustodiaDialog({
     setSaldoDisponivel(null);
     setValorCotaDia(null);
     setFecharPosicao(false);
+    setDateError(null);
     onClose();
   };
 
@@ -330,24 +360,33 @@ export default function BoletaCustodiaDialog({
           <Input
             type="date"
             value={date ? format(date, "yyyy-MM-dd") : ""}
+            className={dateError ? "border-destructive ring-1 ring-destructive" : ""}
             onChange={(e) => {
               const val = e.target.value;
-              if (val) {
+              if (val && /^\d{4}-\d{2}-\d{2}$/.test(val) && parseInt(val.slice(0, 4), 10) >= 1900) {
                 const d = new Date(val + "T00:00:00");
                 handleDateSelect(d);
               } else {
-                handleDateSelect(undefined);
+                setDate(undefined);
+                setDateError(null);
+                setSaldoDisponivel(null);
+                setValorCotaDia(null);
+                setFecharPosicao(false);
+                setValor("");
               }
             }}
           />
+          {dateError && (
+            <p className="text-xs font-medium text-destructive">{dateError}</p>
+          )}
         </div>
 
-        {tipo === "Aplicação" && date && loadingCota && (
+        {tipo === "Aplicação" && date && !dateError && loadingCota && (
           <p className="text-sm text-muted-foreground">Calculando...</p>
         )}
 
         {/* Saldo disponível para resgate */}
-        {tipo === "Resgate" && date && (
+        {tipo === "Resgate" && date && !dateError && (
           <div className="text-sm">
             {loadingSaldo ? (
               <p className="text-muted-foreground">Calculando saldo...</p>
@@ -370,7 +409,7 @@ export default function BoletaCustodiaDialog({
         )}
 
         {/* Fechar Posição checkbox */}
-        {tipo === "Resgate" && date && saldoDisponivel != null && saldoDisponivel > 0 && (
+        {tipo === "Resgate" && date && !dateError && saldoDisponivel != null && saldoDisponivel > 0 && (
           <div className="flex items-center gap-2">
             <Checkbox
               id="fechar-posicao"

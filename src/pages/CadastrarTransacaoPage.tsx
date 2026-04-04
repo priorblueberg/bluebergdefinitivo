@@ -393,34 +393,34 @@ export default function CadastrarTransacaoPage() {
       return;
     }
 
-    // Validate business day (skip for Poupança — deposits can happen any day)
-    if (!isPoupanca) {
+    // ── Resgate submission ── (moved up to validate before business day)
+    if (isResgate && selectedCustodia) {
+      const errors = new Set<string>();
+      if (!data) errors.add("data");
+      if (!valor || parseCurrencyToNumber(valor) <= 0) errors.add("valor");
+      if (errors.size > 0) {
+        setValidationErrors(errors);
+        toast.error("Preencha todos os campos obrigatórios.");
+        return;
+      }
+      setValidationErrors(new Set());
+
+      // Business day validation for resgate
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
         .eq("data", data)
         .single();
-
       if (!diaUtil) {
-        toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido.");
+        toast.error("A data informada não foi encontrada no calendário.");
         return;
       }
-
       if (!diaUtil.dia_util) {
         toast.error("A Data de Transação deve ser um dia útil.");
         return;
       }
-    }
-
-    // ── Resgate submission ──
-    if (isResgate && selectedCustodia) {
-      if (!valor) {
-        toast.error("Preencha o valor do resgate.");
-        return;
-      }
 
       const valorNum = parseCurrencyToNumber(valor);
-
       if (saldoDisponivel !== null && valorNum > saldoDisponivel) {
         toast.error("O valor do resgate excede o saldo disponível.");
         return;
@@ -455,7 +455,6 @@ export default function CadastrarTransacaoPage() {
 
         if (error) throw error;
 
-        // Fetch inserted ID
         const { data: inserted } = await supabase
           .from("movimentacoes")
           .select("id")
@@ -480,6 +479,7 @@ export default function CadastrarTransacaoPage() {
       return;
     }
 
+    // (Resgate already handled above)
     // ── Aplicação submission (existing logic) ──
     let requiredFields: Record<string, string>;
 
@@ -503,6 +503,25 @@ export default function CadastrarTransacaoPage() {
       return;
     }
     setValidationErrors(new Set());
+
+    // Validate business day AFTER required fields check
+    if (!isPoupanca) {
+      const { data: diaUtil } = await supabase
+        .from("calendario_dias_uteis")
+        .select("dia_util")
+        .eq("data", data)
+        .single();
+
+      if (!diaUtil) {
+        toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido.");
+        return;
+      }
+
+      if (!diaUtil.dia_util) {
+        toast.error("A Data de Transação deve ser um dia útil.");
+        return;
+      }
+    }
 
     setSubmitting(true);
 
@@ -757,7 +776,7 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={valor}
-                        onChange={(e) => { setValor(formatValorInicial(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
+                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
                         placeholder="0,00"
                         className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
@@ -1017,13 +1036,13 @@ export default function CadastrarTransacaoPage() {
                 <input
                   type="date"
                   value={data}
-                  onChange={(e) => setData(e.target.value)}
-                  className="input-field max-w-[220px]"
+                  onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); setSaldoDisponivel(null); }}
+                  className={`input-field max-w-[220px] ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
                 />
               </Field>
             )}
 
-            {selectedCustodia && data && (
+            {selectedCustodia && data && /^\d{4}-\d{2}-\d{2}$/.test(data) && parseInt(data.slice(0, 4), 10) >= 1900 && (
               <>
                 {/* Row 1: Valor, Vencimento */}
                 <div className="grid grid-cols-2 gap-4">
@@ -1036,9 +1055,9 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={valor}
-                        onChange={(e) => setValor(formatCurrency(e.target.value))}
+                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
                         placeholder="0,00"
-                        className="input-field pl-9"
+                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
                   </Field>
