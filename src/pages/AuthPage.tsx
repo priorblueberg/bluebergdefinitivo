@@ -20,9 +20,8 @@ const AuthPage = () => {
     const { data: exists } = await supabase.rpc("check_email_exists", { p_email: email });
 
     if (!exists) {
-      toast.error("Este e-mail não está cadastrado. Crie uma conta para continuar.");
+      toast.error("Este e-mail não está cadastrado. Entre em contato com o administrador.");
       setLoading(false);
-      navigate("/cadastro");
       return;
     }
 
