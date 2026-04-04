@@ -118,6 +118,11 @@ function parseCurrencyToNumber(value: string): number {
   return parseFloat(cleaned) || 0;
 }
 
+/** Strip parenthetical suffix: "CDB (Certificado de Depósito Bancário)" → "CDB" */
+function sigla(nome: string): string {
+  return nome.replace(/\s*\(.*\)$/, "").trim();
+}
+
 function buildNomeAtivo(
   produtoNome: string,
   emissorNome: string,
@@ -126,6 +131,7 @@ function buildNomeAtivo(
   vencimento: string,
   indexador: string
 ): string {
+  const prod = sigla(produtoNome);
   const taxaFormatted = taxa ? `${taxa.replace(".", ",")}%` : "";
   const vencFormatted = vencimento
     ? new Date(vencimento + "T00:00:00").toLocaleDateString("pt-BR")
