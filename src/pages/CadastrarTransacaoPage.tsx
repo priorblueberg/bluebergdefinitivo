@@ -374,7 +374,7 @@ export default function CadastrarTransacaoPage() {
     setCategoriaId("");
     setProdutoId("");
     setTipoMovimentacao("");
-    setData(new Date().toISOString().slice(0, 10));
+    setData("");
     setValor("");
     setPrecoUnitario("1.000,00");
     setInstituicaoId("");
