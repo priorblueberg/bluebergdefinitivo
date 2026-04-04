@@ -98,6 +98,68 @@ function getDateMinus(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// ── Mock data for empty-state demo ──
+const MOCK_CHART_DATA = (() => {
+  const pts: any[] = [];
+  const months = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+  for (let i = 0; i < 12; i++) {
+    const d = `2025-${String(i + 1).padStart(2, "0")}-15`;
+    pts.push({
+      data: d,
+      label: `15/${String(i + 1).padStart(2, "0")}/2025`,
+      titulo_acumulado: parseFloat((i * 1.05 + Math.random() * 0.4).toFixed(2)),
+      cdi_acumulado: parseFloat((i * 0.95 + Math.random() * 0.2).toFixed(2)),
+    });
+  }
+  return pts;
+})();
+
+const MOCK_BAR_DATA = [
+  { mes: "JAN/25", patrimonio: 102000 },
+  { mes: "FEV/25", patrimonio: 104500 },
+  { mes: "MAR/25", patrimonio: 107200 },
+  { mes: "ABR/25", patrimonio: 109800 },
+  { mes: "MAI/25", patrimonio: 112500 },
+  { mes: "JUN/25", patrimonio: 115100 },
+  { mes: "JUL/25", patrimonio: 118000 },
+  { mes: "AGO/25", patrimonio: 120500 },
+  { mes: "SET/25", patrimonio: 123200 },
+  { mes: "OUT/25", patrimonio: 126000 },
+  { mes: "NOV/25", patrimonio: 128800 },
+  { mes: "DEZ/25", patrimonio: 131500 },
+];
+
+const MOCK_PRODUCTS = [
+  { nome: "CDB Banco XYZ 120% CDI", valorAtualizado: 52500, ganhoFinanceiro: 2500, rentabilidade: 5.00, custodiante: "XP Investimentos", ativo: true },
+  { nome: "LCA Banco ABC 98% CDI", valorAtualizado: 41200, ganhoFinanceiro: 1200, rentabilidade: 3.00, custodiante: "BTG Pactual", ativo: true },
+  { nome: "CDB Prefixado 14,5% a.a.", valorAtualizado: 37800, ganhoFinanceiro: 2800, rentabilidade: 8.00, custodiante: "Nu Invest", ativo: true },
+];
+
+const MOCK_ALLOCATION = {
+  estrategia: [
+    { name: "Pós-fixado", value: 55.2 },
+    { name: "Prefixado", value: 28.7 },
+    { name: "Inflação", value: 16.1 },
+  ],
+  custodiante: [
+    { name: "XP Investimentos", value: 40.0 },
+    { name: "BTG Pactual", value: 31.3 },
+    { name: "Nu Invest", value: 28.7 },
+  ],
+  emissor: [
+    { name: "Banco XYZ", value: 40.0 },
+    { name: "Banco ABC", value: 31.3 },
+    { name: "Banco DEF", value: 28.7 },
+  ],
+};
+
+const MOCK_CARDS = [
+  { label: "Patrimônio", value: "R$ 131.500,00" },
+  { label: "Ganho Financeiro", value: "R$ 6.500,00" },
+  { label: "Rentabilidade", value: "5,20%" },
+  { label: "CDI Acumulado", value: "4,85%" },
+];
+
 export default function CarteiraRendaFixaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO } = useDataReferencia();
@@ -110,6 +172,8 @@ export default function CarteiraRendaFixaPage() {
   const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; estrategia: string | null; emissor_nome: string; analysisProduct: AnalysisCustodiaProduct }[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
 
   useEffect(() => {
     if (!user) return;
