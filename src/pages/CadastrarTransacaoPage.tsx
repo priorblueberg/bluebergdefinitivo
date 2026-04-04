@@ -405,21 +405,23 @@ export default function CadastrarTransacaoPage() {
       return;
     }
 
-    // Validate business day
-    const { data: diaUtil } = await supabase
-      .from("calendario_dias_uteis")
-      .select("dia_util")
-      .eq("data", data)
-      .single();
+    // Validate business day (skip for Poupança — deposits can happen any day)
+    if (!isPoupanca) {
+      const { data: diaUtil } = await supabase
+        .from("calendario_dias_uteis")
+        .select("dia_util")
+        .eq("data", data)
+        .single();
 
-    if (!diaUtil) {
-      toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido.");
-      return;
-    }
+      if (!diaUtil) {
+        toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido.");
+        return;
+      }
 
-    if (!diaUtil.dia_util) {
-      toast.error("A Data de Transação deve ser um dia útil.");
-      return;
+      if (!diaUtil.dia_util) {
+        toast.error("A Data de Transação deve ser um dia útil.");
+        return;
+      }
     }
 
     // ── Resgate submission ──
