@@ -360,16 +360,25 @@ export default function BoletaCustodiaDialog({
           <Input
             type="date"
             value={date ? format(date, "yyyy-MM-dd") : ""}
+            className={dateError ? "border-destructive ring-1 ring-destructive" : ""}
             onChange={(e) => {
               const val = e.target.value;
-              if (val) {
+              if (val && /^\d{4}-\d{2}-\d{2}$/.test(val) && parseInt(val.slice(0, 4), 10) >= 1900) {
                 const d = new Date(val + "T00:00:00");
                 handleDateSelect(d);
               } else {
-                handleDateSelect(undefined);
+                setDate(undefined);
+                setDateError(null);
+                setSaldoDisponivel(null);
+                setValorCotaDia(null);
+                setFecharPosicao(false);
+                setValor("");
               }
             }}
           />
+          {dateError && (
+            <p className="text-xs font-medium text-destructive">{dateError}</p>
+          )}
         </div>
 
         {tipo === "Aplicação" && date && loadingCota && (
