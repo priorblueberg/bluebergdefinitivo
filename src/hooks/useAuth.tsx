@@ -1,122 +1,135 @@
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
-export const useAuth = () => {
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  hasProfile: boolean | null;
+  profileName: string | null;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  refreshCustodia: () => Promise<boolean | null>;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
-  const [hasCustodia, setHasCustodia] = useState<boolean | null>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
 
+  const loadProfile = useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, nome_completo")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Erro ao verificar perfil", error);
+      setHasProfile(false);
+      setProfileName(null);
+      return;
+    }
+
+    setHasProfile(!!data);
+    setProfileName(data?.nome_completo ?? null);
+  }, []);
+
+  const clearAuthState = useCallback(() => {
+    setUser(null);
+    setHasProfile(null);
+    setProfileName(null);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
-    const checkProfile = async (userId: string) => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, nome_completo")
-        .eq("user_id", userId)
-        .maybeSingle();
+    let isMounted = true;
 
-      if (error) {
-        console.error("Erro ao verificar perfil", error);
+    const hydrateUserState = async (nextUser: User | null, refreshProfileData = true) => {
+      if (!isMounted) return;
+
+      setUser(nextUser);
+
+      if (!nextUser) {
+        clearAuthState();
         return;
       }
 
-      setHasProfile(!!data);
-      setProfileName(data?.nome_completo ?? null);
-    };
+      if (!refreshProfileData) return;
 
-    const checkCustodia = async (userId: string) => {
-      const { data, error } = await supabase
-        .from("custodia")
-        .select("id")
-        .eq("user_id", userId)
-        .limit(1);
-
-      if (error) {
-        console.error("Erro ao verificar custódia", error);
-        return;
+      setLoading(true);
+      await loadProfile(nextUser.id);
+      if (isMounted) {
+        setLoading(false);
       }
-
-      setHasCustodia(data.length > 0);
-    };
-
-    const hydrateUserState = async (userId: string, resetFirst = true) => {
-      if (resetFirst) {
-        setHasProfile(null);
-        setHasCustodia(null);
-        setProfileName(null);
-      }
-      await Promise.all([checkProfile(userId), checkCustodia(userId)]);
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
+      (event, session) => {
+        const sessionUser = session?.user ?? null;
 
-        if (session?.user) {
-          // On TOKEN_REFRESHED, don't reset states to null (avoids reload flash)
-          const isTokenRefresh = _event === "TOKEN_REFRESHED";
-          void hydrateUserState(session.user.id, !isTokenRefresh);
-        } else {
-          setHasProfile(null);
-          setHasCustodia(null);
-          setProfileName(null);
+        if (event === "TOKEN_REFRESHED") {
+          setUser(sessionUser);
+          return;
         }
+
+        void hydrateUserState(sessionUser);
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-
-      if (session?.user) {
-        void hydrateUserState(session.user.id);
-      }
+      void hydrateUserState(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [clearAuthState, loadProfile]);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    await loadProfile(user.id);
+  }, [loadProfile, user]);
 
-  const refreshProfile = async () => {
-    if (user) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, nome_completo")
-        .eq("user_id", user.id)
-        .maybeSingle();
+  const refreshCustodia = useCallback(async () => {
+    if (!user) return null;
 
-      if (error) {
-        console.error("Erro ao atualizar perfil", error);
-        return;
-      }
+    const { data, error } = await supabase
+      .from("custodia")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1);
 
-      setHasProfile(!!data);
-      setProfileName(data?.nome_completo ?? null);
+    if (error) {
+      console.error("Erro ao atualizar custódia", error);
+      return null;
     }
-  };
 
-  const refreshCustodia = async () => {
-    if (user) {
-      const { data, error } = await supabase
-        .from("custodia")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1);
+    return data.length > 0;
+  }, [user]);
 
-      if (error) {
-        console.error("Erro ao atualizar custódia", error);
-        return;
-      }
+  const value = useMemo(
+    () => ({ user, loading, hasProfile, profileName, signOut, refreshProfile, refreshCustodia }),
+    [user, loading, hasProfile, profileName, signOut, refreshProfile, refreshCustodia]
+  );
 
-      setHasCustodia(data.length > 0);
-    }
-  };
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
 
-  return { user, loading, hasProfile, hasCustodia, profileName, signOut, refreshProfile, refreshCustodia };
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+
+  return context;
 };
