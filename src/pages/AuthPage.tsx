@@ -20,9 +20,8 @@ const AuthPage = () => {
     const { data: exists } = await supabase.rpc("check_email_exists", { p_email: email });
 
     if (!exists) {
-      toast.error("Este e-mail não está cadastrado. Crie uma conta para continuar.");
+      toast.error("Este e-mail não está cadastrado. Entre em contato com o administrador.");
       setLoading(false);
-      navigate("/cadastro");
       return;
     }
 
@@ -102,12 +101,6 @@ const AuthPage = () => {
           </form>
 
           <div className="mt-6 text-center">
-            <Link to="/cadastro" className="text-sm text-[#4a6580] hover:text-[#0a5eb8] transition-colors">
-              Não tem conta? <span className="font-semibold text-[#0a5eb8]">Cadastre-se</span>
-            </Link>
-          </div>
-
-          <div className="mt-4 text-center">
             <Link to="/" className="text-sm text-[#8da4bf] hover:text-[#0a5eb8] transition-colors">
               ← Voltar ao site
             </Link>
