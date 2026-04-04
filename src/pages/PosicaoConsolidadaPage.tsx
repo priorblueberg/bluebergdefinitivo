@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, type DailyRow } from "@/lib/rendaFixaEngine";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
+import { calcularPoupancaDiario, type PoupancaLote } from "@/lib/poupancaEngine";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -116,20 +117,30 @@ export default function PosicaoConsolidadaPage() {
       }));
 
       const rfProducts = mapped.filter((p) => p.categoria_nome === "Renda Fixa");
-      const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa");
+      const poupancaProducts = mapped.filter((p) => p.categoria_nome === "Poupança");
+      const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa" && p.categoria_nome !== "Poupança");
 
-      const minDate = rfProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), rfProducts[0]?.data_inicio || dataReferenciaISO);
-      const maxDate = rfProducts.reduce((max, p) => {
+      const allCalcProducts = [...rfProducts, ...poupancaProducts];
+      const minDate = allCalcProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), allCalcProducts[0]?.data_inicio || dataReferenciaISO);
+      const maxDate = allCalcProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataReferenciaISO;
         return end > max ? end : max;
       }, dataReferenciaISO);
 
-      const allCodigos = rfProducts.map((p) => p.codigo_custodia);
-      const [calRes, cdiRes, movRes] = await Promise.all([
+      const allCodigos = allCalcProducts.map((p) => p.codigo_custodia);
+      const poupancaCodigos = poupancaProducts.map((p) => p.codigo_custodia);
+
+      const [calRes, cdiRes, movRes, selicRes, lotesRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         allCodigos.length > 0
           ? supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, codigo_custodia").in("codigo_custodia", allCodigos).eq("user_id", user!.id).order("data")
+          : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("poupanca_lotes").select("*").in("codigo_custodia", poupancaCodigos).eq("user_id", user!.id).eq("status", "ativo")
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -137,12 +148,20 @@ export default function PosicaoConsolidadaPage() {
       const cdiRecords = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
       const cdiMap = new Map<string, number>();
       for (const c of cdiRecords) cdiMap.set(c.data, c.taxa_anual);
+      const selicRecords = ((selicRes as any).data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) }));
 
       const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
       for (const m of ((movRes as any).data || [])) {
         const code = m.codigo_custodia as number;
         if (!movByCodigo.has(code)) movByCodigo.set(code, []);
         movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
+      }
+
+      const lotesByCodigo = new Map<number, PoupancaLote[]>();
+      for (const l of ((lotesRes as any).data || [])) {
+        const code = l.codigo_custodia as number;
+        if (!lotesByCodigo.has(code)) lotesByCodigo.set(code, []);
+        lotesByCodigo.get(code)!.push(l as PoupancaLote);
       }
 
       const posicaoRows: PosicaoRow[] = [];
@@ -184,6 +203,35 @@ export default function PosicaoConsolidadaPage() {
             rentabilidade: (rentPct ?? 0) * 100,
             custodiante: product.instituicao_nome,
             ativo: !isEncerrado,
+            product,
+          });
+        }
+      }
+
+      // Poupança products
+      for (const product of poupancaProducts) {
+        const lotes = lotesByCodigo.get(product.codigo_custodia) || [];
+        const engineRows = calcularPoupancaDiario({
+          dataInicio: product.data_inicio,
+          dataCalculo: dataReferenciaISO,
+          calendario,
+          movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
+          lotes,
+          selicRecords,
+          dataResgateTotal: product.resgate_total,
+        });
+
+        allProductRows.push(engineRows);
+
+        const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
+        if (lastRow) {
+          posicaoRows.push({
+            nome: product.nome || "Poupança",
+            valorAtualizado: lastRow.liquido,
+            ganhoFinanceiro: lastRow.ganhoAcumulado,
+            rentabilidade: lastRow.rentabilidadeAcumuladaPct * 100,
+            custodiante: product.instituicao_nome,
+            ativo: true,
             product,
           });
         }

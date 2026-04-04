@@ -276,6 +276,102 @@ async function syncResgateNoVencimento(
   }
 }
 
+// ── Poupança Lotes Sync ──
+
+/** Sync poupanca_lotes based on movimentacoes for a given codigo_custodia */
+async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodiaId?: string) {
+  // Fetch all movimentacoes for this poupança
+  const { data: allMovs } = await supabase
+    .from("movimentacoes")
+    .select("*")
+    .eq("codigo_custodia", codigoCustodia)
+    .eq("user_id", userId)
+    .order("data", { ascending: true });
+
+  if (!allMovs) return;
+
+  // Get custodia id if not provided
+  let cusId = custodiaId;
+  if (!cusId) {
+    const { data: cust } = await supabase
+      .from("custodia")
+      .select("id")
+      .eq("codigo_custodia", codigoCustodia)
+      .eq("user_id", userId)
+      .maybeSingle();
+    cusId = cust?.id;
+  }
+
+  // Delete existing lotes and recreate from movimentacoes
+  await supabase
+    .from("poupanca_lotes")
+    .delete()
+    .eq("codigo_custodia", codigoCustodia)
+    .eq("user_id", userId);
+
+  // Build lotes from applications
+  interface TempLote {
+    data_aplicacao: string;
+    dia_aniversario: number;
+    valor_principal: number;
+    valor_atual: number;
+  }
+
+  const lotes: TempLote[] = [];
+
+  for (const m of allMovs) {
+    if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
+      const dia = new Date(m.data + "T00:00:00").getDate();
+      lotes.push({
+        data_aplicacao: m.data,
+        dia_aniversario: dia,
+        valor_principal: m.valor,
+        valor_atual: m.valor,
+      });
+    } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
+      // FIFO consumption
+      let restante = m.valor;
+      for (const lote of lotes) {
+        if (restante <= 0) break;
+        if (lote.valor_atual <= 0) continue;
+        
+        if (restante >= lote.valor_atual - 0.01) {
+          restante -= lote.valor_atual;
+          lote.valor_atual = 0;
+          lote.valor_principal = 0;
+        } else {
+          const proporcao = restante / lote.valor_atual;
+          lote.valor_principal -= lote.valor_principal * proporcao;
+          lote.valor_atual -= restante;
+          restante = 0;
+        }
+      }
+    }
+  }
+
+  // Insert active lotes
+  const activeLotes = lotes.filter(l => l.valor_atual > 0.01);
+  if (activeLotes.length === 0) return;
+
+  const lotesToInsert = activeLotes.map(l => ({
+    user_id: userId,
+    custodia_id: cusId || null,
+    codigo_custodia: codigoCustodia,
+    data_aplicacao: l.data_aplicacao,
+    dia_aniversario: l.dia_aniversario,
+    valor_principal: l.valor_principal,
+    valor_atual: l.valor_atual,
+    rendimento_acumulado: 0,
+    status: "ativo",
+  }));
+
+  const { error } = await supabase
+    .from("poupanca_lotes")
+    .insert(lotesToInsert);
+
+  if (error) console.error("syncPoupancaLotes: erro ao inserir lotes", error);
+}
+
 // ── Custodia Sync ──
 
 /** Compute resgate_total for a Renda Fixa custodia record */
@@ -354,6 +450,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   const categoriaNome = (mov as any).categorias?.nome || "";
   const isRendaFixa = categoriaNome === "Renda Fixa";
+  const isPoupanca = categoriaNome === "Poupança";
 
   if (!mov.codigo_custodia) return;
 
@@ -418,7 +515,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, aplicacaoInicial.vencimento);
   }
 
-  // Compute data_limite
+  // Compute data_limite (skip for Poupança — no vencimento)
   const dataLimite = isRendaFixa ? aplicacaoInicial.vencimento : null;
 
   // Compute data_calculo
@@ -451,10 +548,11 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     categoria_id: aplicacaoInicial.categoria_id,
     user_id: mov.user_id,
     data_limite: dataLimite,
-    alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : null,
+    alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : isPoupanca ? "Poupança" : null,
     multiplicador: categoriaNome || null,
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
+    pu_inicial: aplicacaoInicial.preco_unitario,
   };
 
   if (existing && existing.length > 0) {
@@ -504,6 +602,11 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
       nome: aplicacaoInicial.nome_ativo,
       preco_unitario: aplicacaoInicial.preco_unitario,
     });
+  }
+
+  // ── Sync Poupança lotes ──
+  if (isPoupanca) {
+    await syncPoupancaLotes(mov.codigo_custodia, mov.user_id!, existing?.[0]?.id);
   }
 }
 

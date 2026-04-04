@@ -198,7 +198,66 @@ Deno.serve(async (req) => {
       console.error("Ibovespa error:", e);
     }
 
-    // ── 3. Calendário Dias Úteis ─────────────────────────────────────
+    // ── 3. Selic ───────────────────────────────────────────────────────
+    try {
+      const { data: maxSelic } = await supabase
+        .from("historico_selic")
+        .select("data")
+        .order("data", { ascending: false })
+        .limit(1)
+        .single();
+
+      const startSelic = maxSelic
+        ? addDays(new Date(maxSelic.data + "T12:00:00"), 1)
+        : new Date(2024, 0, 2);
+
+      const yesterdaySelic = new Date();
+      yesterdaySelic.setDate(yesterdaySelic.getDate() - 1);
+
+      if (startSelic <= yesterdaySelic) {
+        const fmt = (d: Date) =>
+          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+
+        const bcbSelicUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados?formato=json&dataInicial=${fmt(startSelic)}&dataFinal=${fmt(yesterdaySelic)}`;
+        console.log("Fetching Selic from BCB:", bcbSelicUrl);
+
+        const selicResp = await fetch(bcbSelicUrl);
+        if (!selicResp.ok) throw new Error(`BCB Selic API error ${selicResp.status}`);
+
+        const selicData: { data: string; valor: string }[] = await selicResp.json();
+
+        if (selicData.length > 0) {
+          const selicRows = selicData.map((r) => {
+            const [dd, mm, yyyy] = r.data.split("/");
+            return {
+              data: `${yyyy}-${mm}-${dd}`,
+              taxa_anual: parseFloat(r.valor),
+            };
+          });
+
+          const batchSize = 500;
+          let inserted = 0;
+          for (let i = 0; i < selicRows.length; i += batchSize) {
+            const batch = selicRows.slice(i, i + batchSize);
+            const { error } = await supabase
+              .from("historico_selic")
+              .upsert(batch, { onConflict: "data" });
+            if (error) throw new Error(`Selic insert: ${error.message}`);
+            inserted += batch.length;
+          }
+          results.selic = `Upserted ${inserted} Selic records`;
+        } else {
+          results.selic = "No new Selic data";
+        }
+      } else {
+        results.selic = "Selic already up to date";
+      }
+    } catch (e) {
+      results.selic = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("Selic error:", e);
+    }
+
+    // ── 4. Calendário Dias Úteis ─────────────────────────────────────
     try {
       // Get max date in calendar
       const { data: maxCal } = await supabase

@@ -201,6 +201,7 @@ export default function CadastrarTransacaoPage() {
   // Derived
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
+  const isPoupanca = categoriaSelecionada?.nome === "Poupança";
   const isPosFixado = modalidade === "Pós Fixado";
   const isEditing = !!editId;
   const isResgate = tipoMovimentacao === "Resgate";
@@ -216,10 +217,10 @@ export default function CadastrarTransacaoPage() {
       .order("nome")
       .then(({ data }) => {
         if (data) {
-          const rfOnly = data.filter((c: Categoria) => c.nome === "Renda Fixa");
-          setCategorias(rfOnly);
-          if (rfOnly.length === 1 && !editId) {
-            setCategoriaId(rfOnly[0].id);
+          const allowed = data.filter((c: Categoria) => c.nome === "Renda Fixa" || c.nome === "Poupança");
+          setCategorias(allowed);
+          if (allowed.length === 1 && !editId) {
+            setCategoriaId(allowed[0].id);
           }
         }
       });
@@ -238,7 +239,13 @@ export default function CadastrarTransacaoPage() {
       .eq("ativo", true)
       .order("nome")
       .then(({ data }) => {
-        if (data) setProdutos(data);
+        if (data) {
+          setProdutos(data);
+          // Auto-select when only one product (e.g. Poupança)
+          if (data.length === 1 && !editId) {
+            setProdutoId(data[0].id);
+          }
+        }
       });
   }, [categoriaId]);
 
@@ -366,9 +373,10 @@ export default function CadastrarTransacaoPage() {
   }, [editId, editLoaded, categorias]);
 
   // Step visibility
-  const showTipoMovimentacao = !!categoriaId && isRendaFixa;
+  const showTipoMovimentacao = !!categoriaId && (isRendaFixa || isPoupanca);
   const showAplicacaoFields = showTipoMovimentacao && !!produtoId && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate));
   const showResgateFields = showTipoMovimentacao && isResgate && !isEditing;
+  const showPoupancaFields = isPoupanca && isAplicacao && !!produtoId;
 
   const resetForm = () => {
     setCategoriaId("");
@@ -397,21 +405,23 @@ export default function CadastrarTransacaoPage() {
       return;
     }
 
-    // Validate business day
-    const { data: diaUtil } = await supabase
-      .from("calendario_dias_uteis")
-      .select("dia_util")
-      .eq("data", data)
-      .single();
+    // Validate business day (skip for Poupança — deposits can happen any day)
+    if (!isPoupanca) {
+      const { data: diaUtil } = await supabase
+        .from("calendario_dias_uteis")
+        .select("dia_util")
+        .eq("data", data)
+        .single();
 
-    if (!diaUtil) {
-      toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido.");
-      return;
-    }
+      if (!diaUtil) {
+        toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido.");
+        return;
+      }
 
-    if (!diaUtil.dia_util) {
-      toast.error("A Data de Transação deve ser um dia útil.");
-      return;
+      if (!diaUtil.dia_util) {
+        toast.error("A Data de Transação deve ser um dia útil.");
+        return;
+      }
     }
 
     // ── Resgate submission ──
@@ -483,13 +493,18 @@ export default function CadastrarTransacaoPage() {
     }
 
     // ── Aplicação submission (existing logic) ──
-    const requiredFields: Record<string, string> = {
-      categoriaId, tipoMovimentacao, produtoId, valor, data, precoUnitario,
-      instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento,
-    };
+    let requiredFields: Record<string, string>;
 
-    if (isPosFixado) {
-      requiredFields.indexador = indexador;
+    if (isPoupanca) {
+      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
+    } else {
+      requiredFields = {
+        categoriaId, tipoMovimentacao, produtoId, valor, data, precoUnitario,
+        instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento,
+      };
+      if (isPosFixado) {
+        requiredFields.indexador = indexador;
+      }
     }
 
     const emptyFields = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
@@ -506,17 +521,24 @@ export default function CadastrarTransacaoPage() {
     try {
       const produtoNome = produtos.find((p) => p.id === produtoId)?.nome || "";
       const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
-      const nomeAtivo = isRendaFixa
-        ? buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador)
-        : null;
+      const instituicaoNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
+
+      let nomeAtivo: string | null;
+      if (isPoupanca) {
+        nomeAtivo = `Poupança ${instituicaoNome}`.trim();
+      } else if (isRendaFixa) {
+        nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
+      } else {
+        nomeAtivo = null;
+      }
 
       const valorNum = parseCurrencyToNumber(valor);
-      const puNum = parseCurrencyToNumber(precoUnitario);
-      const taxaNum = parseFloat(taxa.replace(",", "."));
-      const quantidade = puNum > 0 ? valorNum / puNum : null;
+      const puNum = isPoupanca ? 0 : parseCurrencyToNumber(precoUnitario);
+      const taxaNum = isPoupanca ? 0 : parseFloat(taxa.replace(",", ".") || "0");
+      const quantidade = !isPoupanca && puNum > 0 ? valorNum / puNum : null;
 
       // Mapeamento: "Pós Fixado" + "CDI+" → "Mista" + "CDI"
-      let modalidadeToSave = modalidade;
+      let modalidadeToSave = isPoupanca ? "Poupança" : modalidade;
       let indexadorToSave = isPosFixado ? indexador : null;
       if (modalidade === "Pós Fixado" && indexador === "CDI+") {
         modalidadeToSave = "Mista";
@@ -589,16 +611,16 @@ export default function CadastrarTransacaoPage() {
           data,
           produto_id: produtoId,
           valor: valorNum,
-          preco_unitario: puNum,
+          preco_unitario: isPoupanca ? null : puNum,
           instituicao_id: instituicaoId,
-          emissor_id: emissorId,
+          emissor_id: isPoupanca ? null : emissorId || null,
           modalidade: modalidadeToSave,
-          taxa: taxaNum,
-          pagamento,
-          vencimento,
+          taxa: isPoupanca ? null : taxaNum,
+          pagamento: isPoupanca ? "Mensal" : pagamento,
+          vencimento: isPoupanca ? null : vencimento || null,
           nome_ativo: nomeAtivo,
           codigo_custodia: nomeAtivo ? codigoCustodia : null,
-          indexador: indexadorToSave,
+          indexador: isPoupanca ? null : indexadorToSave,
           quantidade,
           valor_extrato: valorExtrato,
           user_id: user?.id,
@@ -680,7 +702,6 @@ export default function CadastrarTransacaoPage() {
               options={categorias.map((c) => ({
                 value: c.id,
                 label: c.nome,
-                disabled: c.nome !== "Renda Fixa",
               }))}
             />
           </Field>
@@ -880,6 +901,92 @@ export default function CadastrarTransacaoPage() {
                         label: p,
                       }))}
                       hasError={validationErrors.has("pagamento")}
+                    />
+                  </Field>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
+                  >
+                    <PlusCircle size={16} />
+                    {submitting ? "Enviando..." : isEditing ? "Salvar Alterações" : "Enviar"}
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── Poupança Aplicação Flow ── */}
+        {isPoupanca && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && (
+          <>
+            {/* Produto selector (auto-selects "Poupança") */}
+            <Field label="Produto" required>
+              <NativeSelect
+                value={produtoId}
+                onChange={setProdutoId}
+                placeholder="Selecione"
+                disabled={isEditing}
+                options={produtos.map((p) => ({
+                  value: p.id,
+                  label: p.nome,
+                }))}
+              />
+            </Field>
+
+            {showPoupancaFields && (
+              <>
+                {/* Row 1: Data, Valor */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Data de Transação" required>
+                    <input
+                      type="date"
+                      value={data}
+                      onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                      className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                    />
+                  </Field>
+
+                  <Field label="Valor da Aplicação" required>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={valor}
+                        onChange={(e) => { setValor(formatValorInicial(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
+                        placeholder="0,00"
+                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                      />
+                    </div>
+                  </Field>
+                </div>
+
+                {/* Row 2: Banco */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Banco" required>
+                    <SearchableSelect
+                      value={instituicaoId}
+                      onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
+                      placeholder="Pesquisar banco..."
+                      hasError={validationErrors.has("instituicaoId")}
+                      options={instituicoes.map((i) => ({
+                        value: i.id,
+                        label: i.nome,
+                      }))}
                     />
                   </Field>
                 </div>
