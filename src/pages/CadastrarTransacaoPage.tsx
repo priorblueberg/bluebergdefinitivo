@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, PlusCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, PlusCircle, AlertTriangle, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -7,6 +7,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import SearchableSelect from "@/components/SearchableSelect";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Categoria {
   id: string;
@@ -69,6 +71,27 @@ function formatCurrency(value: string): string {
     maximumFractionDigits: 2,
   });
   return formatted;
+}
+
+function formatValorInicial(value: string): string {
+  // Remove everything except digits and comma
+  let cleaned = value.replace(/[^\d,]/g, "");
+  // Allow only one comma
+  const parts = cleaned.split(",");
+  if (parts.length > 2) {
+    cleaned = parts[0] + "," + parts.slice(1).join("");
+  }
+  // Limit decimal places to 2
+  if (parts.length === 2 && parts[1].length > 2) {
+    cleaned = parts[0] + "," + parts[1].slice(0, 2);
+  }
+  // Add thousand separators to integer part
+  if (parts[0]) {
+    const intPart = parts[0].replace(/\./g, "");
+    const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    cleaned = parts.length > 1 ? formatted + "," + parts[1] : formatted;
+  }
+  return cleaned;
 }
 
 function parseCurrencyToNumber(value: string): number {
@@ -142,6 +165,7 @@ export default function CadastrarTransacaoPage() {
   const [vencimento, setVencimento] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [editLoaded, setEditLoaded] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
   // Derived
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
@@ -440,10 +464,11 @@ export default function CadastrarTransacaoPage() {
     const emptyFields = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
 
     if (emptyFields.length > 0) {
-      console.log("Campos vazios:", emptyFields, requiredFields);
+      setValidationErrors(new Set(emptyFields));
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
+    setValidationErrors(new Set());
 
     setSubmitting(true);
 
@@ -600,7 +625,7 @@ export default function CadastrarTransacaoPage() {
             {isEditing ? "Editar Transação" : "Nova Transação"}
           </h1>
           <p className="text-xs text-muted-foreground">
-            {isEditing ? "Altere os dados da movimentação" : "Cadastre uma nova movimentação"}
+            {isEditing ? "Altere os dados da movimentação" : "Os campos com * são de preenchimento obrigatório"}
           </p>
         </div>
       </div>
@@ -672,18 +697,18 @@ export default function CadastrarTransacaoPage() {
 
             {showAplicacaoFields && (
               <>
-                {/* Row 1: Data, Valor, Preço Unitário, Vencimento */}
+                {/* Row 1: Data, Valor Inicial, Preço de Emissão, Vencimento */}
                 <div className="grid grid-cols-4 gap-4">
                   <Field label="Data de Transação" required>
                     <input
                       type="date"
                       value={data}
-                      onChange={(e) => setData(e.target.value)}
-                      className="input-field"
+                      onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                      className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
                     />
                   </Field>
 
-                  <Field label="Valor (R$)" required>
+                  <Field label="Valor Inicial" required>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                         R$
@@ -691,34 +716,47 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={valor}
-                        onChange={(e) => setValor(formatCurrency(e.target.value))}
+                        onChange={(e) => { setValor(formatValorInicial(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
                         placeholder="0,00"
-                        className="input-field pl-9"
+                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
                   </Field>
 
-                  <Field label="Preço Unitário (R$)" required>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        R$
-                      </span>
-                      <input
-                        type="text"
-                        value={precoUnitario}
-                        onChange={(e) => setPrecoUnitario(formatCurrency(e.target.value))}
-                        placeholder="1.000,00"
-                        className="input-field pl-9"
-                      />
-                    </div>
+                  <Field label="Preço de Emissão" required>
+                    <TooltipProvider>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          R$
+                        </span>
+                        <input
+                          type="text"
+                          value={precoUnitario}
+                          onChange={(e) => { setPrecoUnitario(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("precoUnitario"); return n; }); }}
+                          placeholder="1.000,00"
+                          className={`input-field pl-9 pr-8 ${validationErrors.has("precoUnitario") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 cursor-help text-muted-foreground">
+                              <HelpCircle className="h-3.5 w-3.5" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[220px] text-xs">
+                            Caso não saiba, deixe o valor de R$ 1.000,00 (Padrão)
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
                   </Field>
 
                   <Field label="Vencimento" required>
                     <input
                       type="date"
                       value={vencimento}
-                      onChange={(e) => setVencimento(e.target.value)}
-                      className="input-field"
+                      min={data || undefined}
+                      onChange={(e) => { setVencimento(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("vencimento"); return n; }); }}
+                      className={`input-field ${validationErrors.has("vencimento") ? "border-destructive ring-1 ring-destructive" : ""}`}
                     />
                   </Field>
                 </div>
@@ -726,10 +764,11 @@ export default function CadastrarTransacaoPage() {
                 {/* Row 2: Instituição, Emissor */}
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Instituição" required>
-                    <NativeSelect
+                    <SearchableSelect
                       value={instituicaoId}
-                      onChange={setInstituicaoId}
-                      placeholder="Selecione"
+                      onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
+                      placeholder="Pesquisar instituição..."
+                      hasError={validationErrors.has("instituicaoId")}
                       options={instituicoes.map((i) => ({
                         value: i.id,
                         label: i.nome,
@@ -738,10 +777,11 @@ export default function CadastrarTransacaoPage() {
                   </Field>
 
                   <Field label="Emissor" required>
-                    <NativeSelect
+                    <SearchableSelect
                       value={emissorId}
-                      onChange={setEmissorId}
-                      placeholder="Selecione"
+                      onChange={(v) => { setEmissorId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("emissorId"); return n; }); }}
+                      placeholder="Pesquisar emissor..."
+                      hasError={validationErrors.has("emissorId")}
                       options={emissores.map((e) => ({
                         value: e.id,
                         label: e.nome,
@@ -750,7 +790,7 @@ export default function CadastrarTransacaoPage() {
                   </Field>
                 </div>
 
-                {/* Row 3: Modalidade, (Indexador if Pós Fixado), Taxa, Pagamento */}
+                {/* Row 3: Modalidade, (Indexador if Pós Fixado), Taxa, Pagamento de Juros */}
                 <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
                   <Field label="Modalidade" required>
                     <NativeSelect
@@ -758,12 +798,14 @@ export default function CadastrarTransacaoPage() {
                       onChange={(v) => {
                         setModalidade(v);
                         if (v !== "Pós Fixado") setIndexador("");
+                        setValidationErrors((prev) => { const n = new Set(prev); n.delete("modalidade"); return n; });
                       }}
                       placeholder="Selecione"
                       options={MODALIDADE_OPTIONS.map((m) => ({
                         value: m,
                         label: m,
                       }))}
+                      hasError={validationErrors.has("modalidade")}
                     />
                   </Field>
 
@@ -771,12 +813,13 @@ export default function CadastrarTransacaoPage() {
                     <Field label="Indexador" required>
                       <NativeSelect
                         value={indexador}
-                        onChange={setIndexador}
+                        onChange={(v) => { setIndexador(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("indexador"); return n; }); }}
                         placeholder="Selecione"
                         options={INDEXADOR_OPTIONS.map((idx) => ({
                           value: idx,
                           label: idx,
                         }))}
+                        hasError={validationErrors.has("indexador")}
                       />
                     </Field>
                   )}
@@ -786,9 +829,9 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={taxa}
-                        onChange={(e) => setTaxa(e.target.value)}
-                        placeholder="12,5"
-                        className="input-field pr-7"
+                        onChange={(e) => { setTaxa(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("taxa"); return n; }); }}
+                        placeholder="0,00"
+                        className={`input-field pr-7 ${validationErrors.has("taxa") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                         %
@@ -796,15 +839,16 @@ export default function CadastrarTransacaoPage() {
                     </div>
                   </Field>
 
-                  <Field label="Pagamento" required>
+                  <Field label="Pagamento de Juros" required>
                     <NativeSelect
                       value={pagamento}
-                      onChange={setPagamento}
+                      onChange={(v) => { setPagamento(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("pagamento"); return n; }); }}
                       placeholder="Selecione"
                       options={PAGAMENTO_OPTIONS.map((p) => ({
                         value: p,
                         label: p,
                       }))}
+                      hasError={validationErrors.has("pagamento")}
                     />
                   </Field>
                 </div>
@@ -1038,18 +1082,20 @@ function NativeSelect({
   placeholder,
   options,
   disabled,
+  hasError,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   options: { value: string; label: string; disabled?: boolean }[];
   disabled?: boolean;
+  hasError?: boolean;
 }) {
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="input-field"
+      className={`input-field ${hasError ? "border-destructive ring-1 ring-destructive" : ""}`}
       disabled={disabled}
     >
       <option value="">{placeholder}</option>
