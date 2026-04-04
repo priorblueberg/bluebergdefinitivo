@@ -18,6 +18,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
+import { OnboardingRendaFixaModal } from "@/components/OnboardingRendaFixaModal";
 
 interface CarteiraInfo {
   nome_carteira: string;
@@ -97,6 +98,68 @@ function getDateMinus(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// ── Mock data for empty-state demo ──
+const MOCK_CHART_DATA = (() => {
+  const pts: any[] = [];
+  const months = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+  for (let i = 0; i < 12; i++) {
+    const d = `2025-${String(i + 1).padStart(2, "0")}-15`;
+    pts.push({
+      data: d,
+      label: `15/${String(i + 1).padStart(2, "0")}/2025`,
+      titulo_acumulado: parseFloat((i * 1.05 + Math.random() * 0.4).toFixed(2)),
+      cdi_acumulado: parseFloat((i * 0.95 + Math.random() * 0.2).toFixed(2)),
+    });
+  }
+  return pts;
+})();
+
+const MOCK_BAR_DATA = [
+  { mes: "JAN/25", patrimonio: 102000 },
+  { mes: "FEV/25", patrimonio: 104500 },
+  { mes: "MAR/25", patrimonio: 107200 },
+  { mes: "ABR/25", patrimonio: 109800 },
+  { mes: "MAI/25", patrimonio: 112500 },
+  { mes: "JUN/25", patrimonio: 115100 },
+  { mes: "JUL/25", patrimonio: 118000 },
+  { mes: "AGO/25", patrimonio: 120500 },
+  { mes: "SET/25", patrimonio: 123200 },
+  { mes: "OUT/25", patrimonio: 126000 },
+  { mes: "NOV/25", patrimonio: 128800 },
+  { mes: "DEZ/25", patrimonio: 131500 },
+];
+
+const MOCK_PRODUCTS = [
+  { nome: "CDB Banco XYZ 120% CDI", valorAtualizado: 52500, ganhoFinanceiro: 2500, rentabilidade: 5.00, custodiante: "XP Investimentos", ativo: true },
+  { nome: "LCA Banco ABC 98% CDI", valorAtualizado: 41200, ganhoFinanceiro: 1200, rentabilidade: 3.00, custodiante: "BTG Pactual", ativo: true },
+  { nome: "CDB Prefixado 14,5% a.a.", valorAtualizado: 37800, ganhoFinanceiro: 2800, rentabilidade: 8.00, custodiante: "Nu Invest", ativo: true },
+];
+
+const MOCK_ALLOCATION = {
+  estrategia: [
+    { name: "Pós-fixado", value: 55.2 },
+    { name: "Prefixado", value: 28.7 },
+    { name: "Inflação", value: 16.1 },
+  ],
+  custodiante: [
+    { name: "XP Investimentos", value: 40.0 },
+    { name: "BTG Pactual", value: 31.3 },
+    { name: "Nu Invest", value: 28.7 },
+  ],
+  emissor: [
+    { name: "Banco XYZ", value: 40.0 },
+    { name: "Banco ABC", value: 31.3 },
+    { name: "Banco DEF", value: 28.7 },
+  ],
+};
+
+const MOCK_CARDS = [
+  { label: "Patrimônio", value: "R$ 131.500,00" },
+  { label: "Ganho Financeiro", value: "R$ 6.500,00" },
+  { label: "Rentabilidade", value: "5,20%" },
+  { label: "CDI Acumulado", value: "4,85%" },
+];
+
 export default function CarteiraRendaFixaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO } = useDataReferencia();
@@ -109,6 +172,8 @@ export default function CarteiraRendaFixaPage() {
   const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; estrategia: string | null; emissor_nome: string; analysisProduct: AnalysisCustodiaProduct }[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -187,9 +252,13 @@ export default function CarteiraRendaFixaPage() {
         setCdiRecords([]);
         setIbovespaData([]);
         setProductList([]);
+        setIsEmpty(true);
+        setShowOnboarding(true);
         setLoading(false);
         return;
       }
+
+      setIsEmpty(false);
 
       const maxEndDate = rfProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataCalculo;
@@ -480,9 +549,120 @@ export default function CarteiraRendaFixaPage() {
           <p className="text-muted-foreground">Carregando...</p>
         </div>
       ) : !showContent ? (
-        <div className="rounded-md border border-border p-8 text-center text-muted-foreground">
-          Nenhum dado disponível para o período selecionado.
-        </div>
+        isEmpty ? (
+          /* ── Empty-state: mock data behind onboarding modal ── */
+          <div className="relative">
+            <OnboardingRendaFixaModal open={showOnboarding} onOpenChange={setShowOnboarding} />
+            <div className="pointer-events-none select-none opacity-60 blur-[1px]">
+              {/* Mock summary cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {MOCK_CARDS.map((c) => (
+                  <div key={c.label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
+                    <p className="text-lg font-semibold text-foreground">{c.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mock charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+                <div className="rounded-md border border-border bg-card p-6">
+                  <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
+                  <div className="mt-4 h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={MOCK_CHART_DATA}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `${v}%`} />
+                        <Tooltip content={<CustomTooltipChart />} />
+                        <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                        <Line type="monotone" dataKey="titulo_acumulado" name="Carteira RF" stroke="hsl(210, 100%, 45%)" strokeWidth={2} dot={false} connectNulls />
+                        <Line type="monotone" dataKey="cdi_acumulado" name="CDI" stroke="hsl(0, 0%, 55%)" strokeWidth={1.5} dot={false} strokeDasharray="5 3" connectNulls />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-border bg-card p-6">
+                  <h2 className="text-sm font-semibold text-foreground">Patrimônio Mensal</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
+                  <div className="mt-4 h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={MOCK_BAR_DATA}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} />
+                        <Bar dataKey="patrimonio" name="Patrimônio" fill="hsl(210, 100%, 45%)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mock allocation charts */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                {[
+                  { title: "Alocação por Estratégia", data: MOCK_ALLOCATION.estrategia },
+                  { title: "Alocação por Custodiante", data: MOCK_ALLOCATION.custodiante },
+                  { title: "Alocação por Emissor", data: MOCK_ALLOCATION.emissor },
+                ].map((chart) => (
+                  <div key={chart.title} className="rounded-md border border-border bg-card p-4">
+                    <h3 className="text-xs font-semibold text-foreground mb-2">{chart.title}</h3>
+                    <div className="h-52">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={chart.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={30} paddingAngle={2} label={({ name, value }) => `${name}: ${value}%`} labelLine={{ strokeWidth: 0.5 }} style={{ fontSize: 9 }}>
+                            {chart.data.map((_, idx) => (
+                              <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mock position table */}
+              <div className="space-y-1 mt-6">
+                <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
+                <div className="rounded-lg border bg-card">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[50px]">Status</TableHead>
+                        <TableHead className="min-w-[250px]">Ativo</TableHead>
+                        <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
+                        <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
+                        <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
+                        <TableHead className="min-w-[150px]">Custodiante</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {MOCK_PRODUCTS.map((row, i) => (
+                        <TableRow key={i}>
+                          <TableCell>
+                            <CircleCheck className="h-4 w-4 text-emerald-500" />
+                          </TableCell>
+                          <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
+                          <TableCell className="text-foreground">{row.valorAtualizado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                          <TableCell className="text-foreground">{row.ganhoFinanceiro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                          <TableCell className="text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
+                          <TableCell className="text-foreground">{row.custodiante}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-md border border-border p-8 text-center text-muted-foreground">
+            Nenhum dado disponível para o período selecionado.
+          </div>
+        )
       ) : (
         <>
           {/* Summary Cards */}
