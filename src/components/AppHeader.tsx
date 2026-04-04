@@ -25,7 +25,7 @@ function clampDate(date: Date): Date {
   return date > max ? max : date;
 }
 
-export function AppHeader() {
+export function AppHeader({ disableControls = false }: { disableControls?: boolean }) {
   const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
