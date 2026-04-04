@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, Navigate } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { SubTabs } from "./SubTabs";
@@ -13,9 +13,19 @@ function AppLayoutInner() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const isCarteira = location.pathname.startsWith("/carteira");
-  const { user } = useAuth();
+  const isWelcome = location.pathname === "/welcome";
+  const { user, hasCustodia } = useAuth();
   const { dataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const hasRunInitial = useRef(false);
+
+  // Redirect non-welcome pages when user has no custodia
+  if (!isWelcome && hasCustodia === false) {
+    return <Navigate to="/welcome" replace />;
+  }
+  // Redirect /welcome to /carteira when user already has custodia
+  if (isWelcome && hasCustodia === true) {
+    return <Navigate to="/carteira" replace />;
+  }
 
   useEffect(() => {
     if (!user || hasRunInitial.current) return;
@@ -35,7 +45,9 @@ function AppLayoutInner() {
 
   return (
     <div className="flex min-h-screen w-full">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      <div className={isWelcome ? "pointer-events-none opacity-60" : ""}>
+        <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      </div>
       <div
         className="flex flex-1 flex-col min-h-screen"
         style={{
@@ -43,10 +55,12 @@ function AppLayoutInner() {
           transition: "margin-left 120ms linear",
         }}
       >
-        <AppHeader />
-        {isCarteira && <SubTabs />}
+        <div className={isWelcome ? "pointer-events-none opacity-60" : ""}>
+          <AppHeader />
+        </div>
+        {isCarteira && !isWelcome && <SubTabs />}
         <main className="relative flex-1 overflow-y-auto p-6">
-          <RecalculatingOverlay />
+          {!isWelcome && <RecalculatingOverlay />}
           <Outlet />
         </main>
       </div>
