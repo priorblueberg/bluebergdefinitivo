@@ -625,7 +625,7 @@ export default function CadastrarTransacaoPage() {
             {isEditing ? "Editar Transação" : "Nova Transação"}
           </h1>
           <p className="text-xs text-muted-foreground">
-            {isEditing ? "Altere os dados da movimentação" : "Cadastre uma nova movimentação"}
+            {isEditing ? "Altere os dados da movimentação" : "Os campos com * são de preenchimento obrigatório"}
           </p>
         </div>
       </div>
