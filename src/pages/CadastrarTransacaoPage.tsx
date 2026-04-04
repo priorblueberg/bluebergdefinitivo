@@ -700,7 +700,8 @@ export default function CadastrarTransacaoPage() {
                 value={tipoMovimentacao}
                 onChange={(v) => {
                   setTipoMovimentacao(v);
-                  setProdutoId("");
+                  // Don't reset produtoId for Poupança (auto-selected, single product)
+                  if (!isPoupanca) setProdutoId("");
                   setSelectedCustodiaId("");
                   setValor("");
                   setSaldoDisponivel(null);
