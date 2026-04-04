@@ -419,7 +419,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, aplicacaoInicial.vencimento);
   }
 
-  // Compute data_limite
+  // Compute data_limite (skip for Poupança — no vencimento)
   const dataLimite = isRendaFixa ? aplicacaoInicial.vencimento : null;
 
   // Compute data_calculo
