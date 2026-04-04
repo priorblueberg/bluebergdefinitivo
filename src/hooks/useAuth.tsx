@@ -41,10 +41,12 @@ export const useAuth = () => {
       setHasCustodia(data.length > 0);
     };
 
-    const hydrateUserState = async (userId: string) => {
-      setHasProfile(null);
-      setHasCustodia(null);
-      setProfileName(null);
+    const hydrateUserState = async (userId: string, resetFirst = true) => {
+      if (resetFirst) {
+        setHasProfile(null);
+        setHasCustodia(null);
+        setProfileName(null);
+      }
       await Promise.all([checkProfile(userId), checkCustodia(userId)]);
     };
 
