@@ -297,6 +297,21 @@ export type Database = {
         }
         Relationships: []
       }
+      historico_selic: {
+        Row: {
+          data: string
+          taxa_anual: number
+        }
+        Insert: {
+          data: string
+          taxa_anual: number
+        }
+        Update: {
+          data?: string
+          taxa_anual?: number
+        }
+        Relationships: []
+      }
       instituicoes: {
         Row: {
           ativa: boolean
@@ -415,6 +430,62 @@ export type Database = {
             columns: ["produto_id"]
             isOneToOne: false
             referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poupanca_lotes: {
+        Row: {
+          codigo_custodia: number
+          created_at: string
+          custodia_id: string | null
+          data_aplicacao: string
+          data_resgate: string | null
+          dia_aniversario: number
+          id: string
+          rendimento_acumulado: number
+          status: string
+          ultimo_aniversario: string | null
+          user_id: string
+          valor_atual: number
+          valor_principal: number
+        }
+        Insert: {
+          codigo_custodia: number
+          created_at?: string
+          custodia_id?: string | null
+          data_aplicacao: string
+          data_resgate?: string | null
+          dia_aniversario: number
+          id?: string
+          rendimento_acumulado?: number
+          status?: string
+          ultimo_aniversario?: string | null
+          user_id: string
+          valor_atual: number
+          valor_principal: number
+        }
+        Update: {
+          codigo_custodia?: number
+          created_at?: string
+          custodia_id?: string | null
+          data_aplicacao?: string
+          data_resgate?: string | null
+          dia_aniversario?: number
+          id?: string
+          rendimento_acumulado?: number
+          status?: string
+          ultimo_aniversario?: string | null
+          user_id?: string
+          valor_atual?: number
+          valor_principal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poupanca_lotes_custodia_id_fkey"
+            columns: ["custodia_id"]
+            isOneToOne: false
+            referencedRelation: "custodia"
             referencedColumns: ["id"]
           },
         ]
