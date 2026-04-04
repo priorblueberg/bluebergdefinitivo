@@ -132,10 +132,12 @@ export default function WelcomeOnboardingPage() {
     }
     setValidationErrors(new Set());
 
-    // Validate business day
-    const { data: diaUtil } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).single();
-    if (!diaUtil) { toast.error("Data não encontrada no calendário."); return; }
-    if (!diaUtil.dia_util) { toast.error("A Data de Transação deve ser um dia útil."); return; }
+    // Validate business day (skip for Poupança)
+    if (!isPoupanca) {
+      const { data: diaUtil } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).single();
+      if (!diaUtil) { toast.error("Data não encontrada no calendário."); return; }
+      if (!diaUtil.dia_util) { toast.error("A Data de Transação deve ser um dia útil."); return; }
+    }
 
     setSubmitting(true);
     try {
