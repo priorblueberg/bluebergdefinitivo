@@ -409,7 +409,7 @@ export default function BoletaCustodiaDialog({
         )}
 
         {/* Fechar Posição checkbox */}
-        {tipo === "Resgate" && date && saldoDisponivel != null && saldoDisponivel > 0 && (
+        {tipo === "Resgate" && date && !dateError && saldoDisponivel != null && saldoDisponivel > 0 && (
           <div className="flex items-center gap-2">
             <Checkbox
               id="fechar-posicao"
