@@ -142,19 +142,37 @@ export default function WelcomeOnboardingPage() {
     setSubmitting(true);
     try {
       const produtoNome = produtos.find((p) => p.id === produtoId)?.nome || "";
-      const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
-      const nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
       const valorNum = parseCurrencyToNumber(valor);
-      const puNum = parseCurrencyToNumber(precoUnitario);
-      const taxaNum = parseFloat(taxa.replace(",", "."));
-      const quantidade = puNum > 0 ? valorNum / puNum : null;
-
-      let modalidadeToSave = modalidade;
-      let indexadorToSave = isPosFixado ? indexador : null;
-      if (modalidade === "Pós Fixado" && indexador === "CDI+") { modalidadeToSave = "Mista"; indexadorToSave = "CDI"; }
-
       const fmtBR = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const valorExtrato = quantidade != null ? `R$ ${fmtBR(valorNum)} (R$ ${fmtBR(puNum)} x ${fmtBR(quantidade)})` : `R$ ${fmtBR(valorNum)}`;
+
+      let nomeAtivo: string;
+      let puNum: number;
+      let taxaNum: number | null;
+      let quantidade: number | null;
+      let modalidadeToSave: string | null;
+      let indexadorToSave: string | null;
+      let valorExtrato: string;
+
+      if (isPoupanca) {
+        const instNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
+        nomeAtivo = `Poupança ${instNome}`;
+        puNum = 1;
+        taxaNum = null;
+        quantidade = valorNum;
+        modalidadeToSave = "Poupança";
+        indexadorToSave = null;
+        valorExtrato = `R$ ${fmtBR(valorNum)}`;
+      } else {
+        const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
+        nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
+        puNum = parseCurrencyToNumber(precoUnitario);
+        taxaNum = parseFloat(taxa.replace(",", "."));
+        quantidade = puNum > 0 ? valorNum / puNum : null;
+        modalidadeToSave = modalidade;
+        indexadorToSave = isPosFixado ? indexador : null;
+        if (modalidade === "Pós Fixado" && indexador === "CDI+") { modalidadeToSave = "Mista"; indexadorToSave = "CDI"; }
+        valorExtrato = quantidade != null ? `R$ ${fmtBR(valorNum)} (R$ ${fmtBR(puNum)} x ${fmtBR(quantidade)})` : `R$ ${fmtBR(valorNum)}`;
+      }
 
       const { data: maxRow } = await supabase.from("movimentacoes").select("codigo_custodia").not("codigo_custodia", "is", null).order("codigo_custodia", { ascending: false }).limit(1);
       const maxCodigo = maxRow && maxRow.length > 0 ? (maxRow[0].codigo_custodia ?? 99) : 99;
