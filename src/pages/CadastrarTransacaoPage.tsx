@@ -153,7 +153,7 @@ export default function CadastrarTransacaoPage() {
   const [categoriaId, setCategoriaId] = useState("");
   const [produtoId, setProdutoId] = useState("");
   const [tipoMovimentacao, setTipoMovimentacao] = useState("");
-  const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState("");
   const [valor, setValor] = useState("");
   const [precoUnitario, setPrecoUnitario] = useState("1.000,00");
   const [instituicaoId, setInstituicaoId] = useState("");
