@@ -34,6 +34,15 @@ function AppLayoutInner() {
     })();
   }, [user]);
 
+  // Wait until hasCustodia is resolved before redirecting
+  if (hasCustodia === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Carregando...
+      </div>
+    );
+  }
+
   // Redirect non-welcome pages when user has no custodia
   if (!isWelcome && hasCustodia === false) {
     return <Navigate to="/welcome" replace />;
