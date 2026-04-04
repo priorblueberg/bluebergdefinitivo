@@ -43,10 +43,7 @@ interface CustodiaItem {
 
 const TIPOS_MOVIMENTACAO = [
   "Aplicação",
-  "Aporte Adicional",
   "Resgate",
-  "Pagamento de Juros",
-  "Fechar Posição",
 ];
 
 const PAGAMENTO_OPTIONS = [
@@ -60,7 +57,7 @@ const PAGAMENTO_OPTIONS = [
 
 const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
 
-const INDEXADOR_OPTIONS = ["CDI", "CDI+", "IPCA+", "IGP-M+"];
+const INDEXADOR_OPTIONS = ["CDI", "CDI+"];
 
 // ── Currency formatting helpers ──
 function formatCurrency(value: string): string {
@@ -163,7 +160,13 @@ export default function CadastrarTransacaoPage() {
       .eq("ativa", true)
       .order("nome")
       .then(({ data }) => {
-        if (data) setCategorias(data);
+        if (data) {
+          const rfOnly = data.filter((c: Categoria) => c.nome === "Renda Fixa");
+          setCategorias(rfOnly);
+          if (rfOnly.length === 1 && !editId) {
+            setCategoriaId(rfOnly[0].id);
+          }
+        }
       });
   }, []);
 
