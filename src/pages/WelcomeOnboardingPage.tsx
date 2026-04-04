@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface Produto { id: string; nome: string; }
 interface Instituicao { id: string; nome: string; }
 interface Emissor { id: string; nome: string; }
+interface Categoria { id: string; nome: string; }
 
 const PAGAMENTO_OPTIONS = ["Mensal", "Bimestral", "Trimestral", "Quatrimestral", "Semestral", "No Vencimento"];
 const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
@@ -66,10 +67,12 @@ function buildNomeAtivo(produtoNome: string, emissorNome: string, modalidade: st
 export default function WelcomeOnboardingPage() {
   const { user, profileName, refreshCustodia } = useAuth();
 
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [instituicoes, setInstituicoes] = useState<Instituicao[]>([]);
   const [emissores, setEmissores] = useState<Emissor[]>([]);
   const [categoriaId, setCategoriaId] = useState("");
+  const [categoriaNome, setCategoriaNome] = useState("");
 
   // form state
   const [produtoId, setProdutoId] = useState("");
@@ -87,12 +90,13 @@ export default function WelcomeOnboardingPage() {
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
   const isPosFixado = modalidade === "Pós Fixado";
+  const isPoupanca = categoriaNome === "Poupança";
 
   useEffect(() => {
-    supabase.from("categorias").select("id, nome").eq("ativa", true).then(({ data }) => {
+    supabase.from("categorias").select("id, nome").eq("ativa", true).order("nome").then(({ data }) => {
       if (data) {
-        const rf = data.find((c: any) => c.nome === "Renda Fixa");
-        if (rf) setCategoriaId(rf.id);
+        const filtered = data.filter((c: any) => c.nome === "Renda Fixa" || c.nome === "Poupança");
+        setCategorias(filtered);
       }
     });
     supabase.from("instituicoes").select("id, nome").eq("ativa", true).order("nome").then(({ data }) => { if (data) setInstituicoes(data); });
@@ -101,16 +105,24 @@ export default function WelcomeOnboardingPage() {
 
   useEffect(() => {
     if (!categoriaId) return;
-    supabase.from("produtos").select("id, nome").eq("categoria_id", categoriaId).eq("ativo", true).order("nome").then(({ data }) => { if (data) setProdutos(data); });
-  }, [categoriaId]);
+    supabase.from("produtos").select("id, nome").eq("categoria_id", categoriaId).eq("ativo", true).order("nome").then(({ data }) => {
+      if (data) {
+        setProdutos(data);
+        // Auto-select product for Poupança
+        if (isPoupanca && data.length > 0) {
+          setProdutoId(data[0].id);
+        }
+      }
+    });
+  }, [categoriaId, isPoupanca]);
 
   const handleSubmit = async () => {
     if (!user) { toast.error("Usuário não autenticado."); return; }
 
-    const requiredFields: Record<string, string> = {
-      produtoId, valor, data, precoUnitario, instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento,
-    };
-    if (isPosFixado) requiredFields.indexador = indexador;
+    const requiredFields: Record<string, string> = isPoupanca
+      ? { produtoId, valor, data, instituicaoId }
+      : { produtoId, valor, data, precoUnitario, instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento };
+    if (!isPoupanca && isPosFixado) requiredFields.indexador = indexador;
 
     const emptyFields = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
     if (emptyFields.length > 0) {
@@ -120,27 +132,47 @@ export default function WelcomeOnboardingPage() {
     }
     setValidationErrors(new Set());
 
-    // Validate business day
-    const { data: diaUtil } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).single();
-    if (!diaUtil) { toast.error("Data não encontrada no calendário."); return; }
-    if (!diaUtil.dia_util) { toast.error("A Data de Transação deve ser um dia útil."); return; }
+    // Validate business day (skip for Poupança)
+    if (!isPoupanca) {
+      const { data: diaUtil } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).single();
+      if (!diaUtil) { toast.error("Data não encontrada no calendário."); return; }
+      if (!diaUtil.dia_util) { toast.error("A Data de Transação deve ser um dia útil."); return; }
+    }
 
     setSubmitting(true);
     try {
       const produtoNome = produtos.find((p) => p.id === produtoId)?.nome || "";
-      const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
-      const nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
       const valorNum = parseCurrencyToNumber(valor);
-      const puNum = parseCurrencyToNumber(precoUnitario);
-      const taxaNum = parseFloat(taxa.replace(",", "."));
-      const quantidade = puNum > 0 ? valorNum / puNum : null;
-
-      let modalidadeToSave = modalidade;
-      let indexadorToSave = isPosFixado ? indexador : null;
-      if (modalidade === "Pós Fixado" && indexador === "CDI+") { modalidadeToSave = "Mista"; indexadorToSave = "CDI"; }
-
       const fmtBR = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const valorExtrato = quantidade != null ? `R$ ${fmtBR(valorNum)} (R$ ${fmtBR(puNum)} x ${fmtBR(quantidade)})` : `R$ ${fmtBR(valorNum)}`;
+
+      let nomeAtivo: string;
+      let puNum: number;
+      let taxaNum: number | null;
+      let quantidade: number | null;
+      let modalidadeToSave: string | null;
+      let indexadorToSave: string | null;
+      let valorExtrato: string;
+
+      if (isPoupanca) {
+        const instNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
+        nomeAtivo = `Poupança ${instNome}`;
+        puNum = 1;
+        taxaNum = null;
+        quantidade = valorNum;
+        modalidadeToSave = "Poupança";
+        indexadorToSave = null;
+        valorExtrato = `R$ ${fmtBR(valorNum)}`;
+      } else {
+        const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
+        nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
+        puNum = parseCurrencyToNumber(precoUnitario);
+        taxaNum = parseFloat(taxa.replace(",", "."));
+        quantidade = puNum > 0 ? valorNum / puNum : null;
+        modalidadeToSave = modalidade;
+        indexadorToSave = isPosFixado ? indexador : null;
+        if (modalidade === "Pós Fixado" && indexador === "CDI+") { modalidadeToSave = "Mista"; indexadorToSave = "CDI"; }
+        valorExtrato = quantidade != null ? `R$ ${fmtBR(valorNum)} (R$ ${fmtBR(puNum)} x ${fmtBR(quantidade)})` : `R$ ${fmtBR(valorNum)}`;
+      }
 
       const { data: maxRow } = await supabase.from("movimentacoes").select("codigo_custodia").not("codigo_custodia", "is", null).order("codigo_custodia", { ascending: false }).limit(1);
       const maxCodigo = maxRow && maxRow.length > 0 ? (maxRow[0].codigo_custodia ?? 99) : 99;
@@ -154,11 +186,11 @@ export default function WelcomeOnboardingPage() {
         valor: valorNum,
         preco_unitario: puNum,
         instituicao_id: instituicaoId,
-        emissor_id: emissorId,
+        emissor_id: isPoupanca ? null : emissorId,
         modalidade: modalidadeToSave,
         taxa: taxaNum,
-        pagamento,
-        vencimento,
+        pagamento: isPoupanca ? "Mensal" : pagamento,
+        vencimento: isPoupanca ? null : vencimento,
         nome_ativo: nomeAtivo,
         codigo_custodia: codigoCustodia,
         indexador: indexadorToSave,
@@ -251,94 +283,136 @@ export default function WelcomeOnboardingPage() {
           </div>
 
           <div className="space-y-5">
-            {/* Produto */}
-            <Field label="Produto" required>
+            {/* Categoria */}
+            <Field label="Categoria" required>
               <NativeSelect
-                value={produtoId}
-                onChange={(v) => { setProdutoId(v); clearError("produtoId"); }}
+                value={categoriaId}
+                onChange={(v) => {
+                  setCategoriaId(v);
+                  const cat = categorias.find((c) => c.id === v);
+                  setCategoriaNome(cat?.nome || "");
+                  setProdutoId("");
+                  clearError("produtoId");
+                }}
                 placeholder="Selecione"
-                options={produtos.map((p) => ({ value: p.id, label: p.nome }))}
-                hasError={validationErrors.has("produtoId")}
+                options={categorias.map((c) => ({ value: c.id, label: c.nome }))}
               />
             </Field>
 
-            {produtoId && (
-              <>
-                {/* Row 1: Data, Vencimento */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Data de Transação" required>
-                    <input type="date" value={data} onChange={(e) => { setData(e.target.value); clearError("data"); }}
-                      className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
-                  </Field>
-                  <Field label="Vencimento" required>
-                    <input type="date" value={vencimento} min={data || undefined} onChange={(e) => { setVencimento(e.target.value); clearError("vencimento"); }}
-                      className={`input-field ${validationErrors.has("vencimento") ? "border-destructive ring-1 ring-destructive" : ""}`} />
-                  </Field>
-                </div>
+            {/* Produto (hidden for Poupança since auto-selected) */}
+            {categoriaId && !isPoupanca && (
+              <Field label="Produto" required>
+                <NativeSelect
+                  value={produtoId}
+                  onChange={(v) => { setProdutoId(v); clearError("produtoId"); }}
+                  placeholder="Selecione"
+                  options={produtos.map((p) => ({ value: p.id, label: p.nome }))}
+                  hasError={validationErrors.has("produtoId")}
+                />
+              </Field>
+            )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Valor Inicial" required>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
-                      <input type="text" value={valor} onChange={(e) => { setValor(formatValorInicial(e.target.value)); clearError("valor"); }}
-                        placeholder="0,00" className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`} />
-                    </div>
-                  </Field>
-                  <Field label="Preço de Emissão" required>
-                    <TooltipProvider>
+            {(isPoupanca ? categoriaId : produtoId) && (
+              <>
+                {/* Poupança: simplified form */}
+                {isPoupanca ? (
+                  <>
+                    <Field label="Data de Transação" required>
+                      <input type="date" value={data} onChange={(e) => { setData(e.target.value); clearError("data"); }}
+                        className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                    </Field>
+
+                    <Field label="Valor Inicial" required>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
-                        <input type="text" value={precoUnitario} onChange={(e) => { setPrecoUnitario(formatCurrency(e.target.value)); clearError("precoUnitario"); }}
-                          placeholder="1.000,00" className={`input-field pl-9 pr-8 ${validationErrors.has("precoUnitario") ? "border-destructive ring-1 ring-destructive" : ""}`} />
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 cursor-help text-muted-foreground"><HelpCircle className="h-3.5 w-3.5" /></span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[220px] text-xs">Caso não saiba, deixe o valor de R$ 1.000,00 (Padrão)</TooltipContent>
-                        </Tooltip>
+                        <input type="text" value={valor} onChange={(e) => { setValor(formatValorInicial(e.target.value)); clearError("valor"); }}
+                          placeholder="0,00" className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`} />
                       </div>
-                    </TooltipProvider>
-                  </Field>
-                </div>
-
-                {/* Corretora + Emissor */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Corretora" required>
-                    <SearchableSelect value={instituicaoId} onChange={(v) => { setInstituicaoId(v); clearError("instituicaoId"); }}
-                      placeholder="Pesquisar corretora..." hasError={validationErrors.has("instituicaoId")}
-                      options={instituicoes.map((i) => ({ value: i.id, label: i.nome }))} />
-                  </Field>
-                  <Field label="Emissor" required>
-                    <SearchableSelect value={emissorId} onChange={(v) => { setEmissorId(v); clearError("emissorId"); }}
-                      placeholder="Pesquisar emissor..." hasError={validationErrors.has("emissorId")}
-                      options={emissores.map((e) => ({ value: e.id, label: e.nome }))} />
-                  </Field>
-                </div>
-
-                {/* Modalidade, Indexador, Taxa, Pagamento */}
-                <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
-                  <Field label="Modalidade" required>
-                    <NativeSelect value={modalidade} onChange={(v) => { setModalidade(v); if (v !== "Pós Fixado") setIndexador(""); clearError("modalidade"); }}
-                      placeholder="Selecione" options={MODALIDADE_OPTIONS.map((m) => ({ value: m, label: m }))} hasError={validationErrors.has("modalidade")} />
-                  </Field>
-                  {isPosFixado && (
-                    <Field label="Indexador" required>
-                      <NativeSelect value={indexador} onChange={(v) => { setIndexador(v); clearError("indexador"); }}
-                        placeholder="Selecione" options={INDEXADOR_OPTIONS.map((idx) => ({ value: idx, label: idx }))} hasError={validationErrors.has("indexador")} />
                     </Field>
-                  )}
-                  <Field label="Taxa" required>
-                    <div className="relative">
-                      <input type="text" value={taxa} onChange={(e) => { setTaxa(formatTaxaInput(e.target.value)); clearError("taxa"); }}
-                        placeholder="0,00" className={`input-field pr-7 ${validationErrors.has("taxa") ? "border-destructive ring-1 ring-destructive" : ""}`} />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+
+                    <Field label="Banco" required>
+                      <SearchableSelect value={instituicaoId} onChange={(v) => { setInstituicaoId(v); clearError("instituicaoId"); }}
+                        placeholder="Pesquisar banco..." hasError={validationErrors.has("instituicaoId")}
+                        options={instituicoes.map((i) => ({ value: i.id, label: i.nome }))} />
+                    </Field>
+                  </>
+                ) : (
+                  <>
+                    {/* Renda Fixa: full form */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Data de Transação" required>
+                        <input type="date" value={data} onChange={(e) => { setData(e.target.value); clearError("data"); }}
+                          className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                      </Field>
+                      <Field label="Vencimento" required>
+                        <input type="date" value={vencimento} min={data || undefined} onChange={(e) => { setVencimento(e.target.value); clearError("vencimento"); }}
+                          className={`input-field ${validationErrors.has("vencimento") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                      </Field>
                     </div>
-                  </Field>
-                  <Field label="Pagamento de Juros" required>
-                    <NativeSelect value={pagamento} onChange={(v) => { setPagamento(v); clearError("pagamento"); }}
-                      placeholder="Selecione" options={PAGAMENTO_OPTIONS.map((p) => ({ value: p, label: p }))} hasError={validationErrors.has("pagamento")} />
-                  </Field>
-                </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Valor Inicial" required>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                          <input type="text" value={valor} onChange={(e) => { setValor(formatValorInicial(e.target.value)); clearError("valor"); }}
+                            placeholder="0,00" className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                        </div>
+                      </Field>
+                      <Field label="Preço de Emissão" required>
+                        <TooltipProvider>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                            <input type="text" value={precoUnitario} onChange={(e) => { setPrecoUnitario(formatCurrency(e.target.value)); clearError("precoUnitario"); }}
+                              placeholder="1.000,00" className={`input-field pl-9 pr-8 ${validationErrors.has("precoUnitario") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 cursor-help text-muted-foreground"><HelpCircle className="h-3.5 w-3.5" /></span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[220px] text-xs">Caso não saiba, deixe o valor de R$ 1.000,00 (Padrão)</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
+                      </Field>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Corretora" required>
+                        <SearchableSelect value={instituicaoId} onChange={(v) => { setInstituicaoId(v); clearError("instituicaoId"); }}
+                          placeholder="Pesquisar corretora..." hasError={validationErrors.has("instituicaoId")}
+                          options={instituicoes.map((i) => ({ value: i.id, label: i.nome }))} />
+                      </Field>
+                      <Field label="Emissor" required>
+                        <SearchableSelect value={emissorId} onChange={(v) => { setEmissorId(v); clearError("emissorId"); }}
+                          placeholder="Pesquisar emissor..." hasError={validationErrors.has("emissorId")}
+                          options={emissores.map((e) => ({ value: e.id, label: e.nome }))} />
+                      </Field>
+                    </div>
+
+                    <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
+                      <Field label="Modalidade" required>
+                        <NativeSelect value={modalidade} onChange={(v) => { setModalidade(v); if (v !== "Pós Fixado") setIndexador(""); clearError("modalidade"); }}
+                          placeholder="Selecione" options={MODALIDADE_OPTIONS.map((m) => ({ value: m, label: m }))} hasError={validationErrors.has("modalidade")} />
+                      </Field>
+                      {isPosFixado && (
+                        <Field label="Indexador" required>
+                          <NativeSelect value={indexador} onChange={(v) => { setIndexador(v); clearError("indexador"); }}
+                            placeholder="Selecione" options={INDEXADOR_OPTIONS.map((idx) => ({ value: idx, label: idx }))} hasError={validationErrors.has("indexador")} />
+                        </Field>
+                      )}
+                      <Field label="Taxa" required>
+                        <div className="relative">
+                          <input type="text" value={taxa} onChange={(e) => { setTaxa(formatTaxaInput(e.target.value)); clearError("taxa"); }}
+                            placeholder="0,00" className={`input-field pr-7 ${validationErrors.has("taxa") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                        </div>
+                      </Field>
+                      <Field label="Pagamento de Juros" required>
+                        <NativeSelect value={pagamento} onChange={(v) => { setPagamento(v); clearError("pagamento"); }}
+                          placeholder="Selecione" options={PAGAMENTO_OPTIONS.map((p) => ({ value: p, label: p }))} hasError={validationErrors.has("pagamento")} />
+                      </Field>
+                    </div>
+                  </>
+                )}
 
                 {/* Submit */}
                 <div className="pt-2">
