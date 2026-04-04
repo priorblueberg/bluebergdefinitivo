@@ -549,9 +549,120 @@ export default function CarteiraRendaFixaPage() {
           <p className="text-muted-foreground">Carregando...</p>
         </div>
       ) : !showContent ? (
-        <div className="rounded-md border border-border p-8 text-center text-muted-foreground">
-          Nenhum dado disponível para o período selecionado.
-        </div>
+        isEmpty ? (
+          /* ── Empty-state: mock data behind onboarding modal ── */
+          <div className="relative">
+            <OnboardingRendaFixaModal open={showOnboarding} onOpenChange={setShowOnboarding} />
+            <div className="pointer-events-none select-none opacity-60 blur-[1px]">
+              {/* Mock summary cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {MOCK_CARDS.map((c) => (
+                  <div key={c.label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                    <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
+                    <p className="text-lg font-semibold text-foreground">{c.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mock charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+                <div className="rounded-md border border-border bg-card p-6">
+                  <h2 className="text-sm font-semibold text-foreground">Histórico de Rentabilidade</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Variação acumulada (%) no período</p>
+                  <div className="mt-4 h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={MOCK_CHART_DATA}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `${v}%`} />
+                        <Tooltip content={<CustomTooltipChart />} />
+                        <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
+                        <Line type="monotone" dataKey="titulo_acumulado" name="Carteira RF" stroke="hsl(210, 100%, 45%)" strokeWidth={2} dot={false} connectNulls />
+                        <Line type="monotone" dataKey="cdi_acumulado" name="CDI" stroke="hsl(0, 0%, 55%)" strokeWidth={1.5} dot={false} strokeDasharray="5 3" connectNulls />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-border bg-card p-6">
+                  <h2 className="text-sm font-semibold text-foreground">Patrimônio Mensal</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
+                  <div className="mt-4 h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={MOCK_BAR_DATA}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} />
+                        <Bar dataKey="patrimonio" name="Patrimônio" fill="hsl(210, 100%, 45%)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mock allocation charts */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                {[
+                  { title: "Alocação por Estratégia", data: MOCK_ALLOCATION.estrategia },
+                  { title: "Alocação por Custodiante", data: MOCK_ALLOCATION.custodiante },
+                  { title: "Alocação por Emissor", data: MOCK_ALLOCATION.emissor },
+                ].map((chart) => (
+                  <div key={chart.title} className="rounded-md border border-border bg-card p-4">
+                    <h3 className="text-xs font-semibold text-foreground mb-2">{chart.title}</h3>
+                    <div className="h-52">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={chart.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={30} paddingAngle={2} label={({ name, value }) => `${name}: ${value}%`} labelLine={{ strokeWidth: 0.5 }} style={{ fontSize: 9 }}>
+                            {chart.data.map((_, idx) => (
+                              <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mock position table */}
+              <div className="space-y-1 mt-6">
+                <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
+                <div className="rounded-lg border bg-card">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[50px]">Status</TableHead>
+                        <TableHead className="min-w-[250px]">Ativo</TableHead>
+                        <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
+                        <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
+                        <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
+                        <TableHead className="min-w-[150px]">Custodiante</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {MOCK_PRODUCTS.map((row, i) => (
+                        <TableRow key={i}>
+                          <TableCell>
+                            <CircleCheck className="h-4 w-4 text-emerald-500" />
+                          </TableCell>
+                          <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
+                          <TableCell className="text-foreground">{row.valorAtualizado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                          <TableCell className="text-foreground">{row.ganhoFinanceiro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
+                          <TableCell className="text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
+                          <TableCell className="text-foreground">{row.custodiante}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-md border border-border p-8 text-center text-muted-foreground">
+            Nenhum dado disponível para o período selecionado.
+          </div>
+        )
       ) : (
         <>
           {/* Summary Cards */}
