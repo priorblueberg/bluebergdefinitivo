@@ -18,15 +18,6 @@ function AppLayoutInner() {
   const { dataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const hasRunInitial = useRef(false);
 
-  // Redirect non-welcome pages when user has no custodia
-  if (!isWelcome && hasCustodia === false) {
-    return <Navigate to="/welcome" replace />;
-  }
-  // Redirect /welcome to /carteira when user already has custodia
-  if (isWelcome && hasCustodia === true) {
-    return <Navigate to="/carteira" replace />;
-  }
-
   useEffect(() => {
     if (!user || hasRunInitial.current) return;
     hasRunInitial.current = true;
@@ -42,6 +33,15 @@ function AppLayoutInner() {
       }
     })();
   }, [user]);
+
+  // Redirect non-welcome pages when user has no custodia
+  if (!isWelcome && hasCustodia === false) {
+    return <Navigate to="/welcome" replace />;
+  }
+  // Redirect /welcome to /carteira when user already has custodia
+  if (isWelcome && hasCustodia === true) {
+    return <Navigate to="/carteira" replace />;
+  }
 
   return (
     <div className="flex min-h-screen w-full">
