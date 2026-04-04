@@ -105,8 +105,16 @@ export default function WelcomeOnboardingPage() {
 
   useEffect(() => {
     if (!categoriaId) return;
-    supabase.from("produtos").select("id, nome").eq("categoria_id", categoriaId).eq("ativo", true).order("nome").then(({ data }) => { if (data) setProdutos(data); });
-  }, [categoriaId]);
+    supabase.from("produtos").select("id, nome").eq("categoria_id", categoriaId).eq("ativo", true).order("nome").then(({ data }) => {
+      if (data) {
+        setProdutos(data);
+        // Auto-select product for Poupança
+        if (isPoupanca && data.length > 0) {
+          setProdutoId(data[0].id);
+        }
+      }
+    });
+  }, [categoriaId, isPoupanca]);
 
   const handleSubmit = async () => {
     if (!user) { toast.error("Usuário não autenticado."); return; }
