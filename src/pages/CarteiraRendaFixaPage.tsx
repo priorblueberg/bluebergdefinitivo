@@ -252,9 +252,13 @@ export default function CarteiraRendaFixaPage() {
         setCdiRecords([]);
         setIbovespaData([]);
         setProductList([]);
+        setIsEmpty(true);
+        setShowOnboarding(true);
         setLoading(false);
         return;
       }
+
+      setIsEmpty(false);
 
       const maxEndDate = rfProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataCalculo;
