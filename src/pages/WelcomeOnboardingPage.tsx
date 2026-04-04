@@ -193,9 +193,9 @@ export default function WelcomeOnboardingPage() {
   const firstName = profileName?.split(" ")[0] || "usuário";
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
       {/* Left panel - welcome text */}
-      <div className="hidden lg:flex lg:w-[45%] flex-col justify-center px-12 py-10 overflow-y-auto">
+      <div className="hidden lg:block lg:w-[45%]">
         <div className="max-w-xl space-y-6">
           <h2 className="text-3xl font-bold text-foreground leading-tight">
             Olá {profileName || firstName}
@@ -240,7 +240,7 @@ export default function WelcomeOnboardingPage() {
       </div>
 
       {/* Right panel - form */}
-      <div className="flex w-full lg:w-[55%] flex-col items-center justify-start px-6 py-10 lg:border-l border-border overflow-y-auto">
+      <div className="flex-1 lg:w-[55%] lg:border-l border-border lg:pl-12">
         <div className="w-full max-w-2xl">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-foreground">Cadastre seu primeiro título</h1>
@@ -264,7 +264,7 @@ export default function WelcomeOnboardingPage() {
 
             {produtoId && (
               <>
-                {/* Row 1: Data, Valor, Preço Emissão, Vencimento */}
+                {/* Row 1: Data, Vencimento */}
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Data de Transação" required>
                     <input type="date" value={data} onChange={(e) => { setData(e.target.value); clearError("data"); }}
