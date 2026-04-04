@@ -119,10 +119,10 @@ export default function WelcomeOnboardingPage() {
   const handleSubmit = async () => {
     if (!user) { toast.error("Usuário não autenticado."); return; }
 
-    const requiredFields: Record<string, string> = {
-      produtoId, valor, data, precoUnitario, instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento,
-    };
-    if (isPosFixado) requiredFields.indexador = indexador;
+    const requiredFields: Record<string, string> = isPoupanca
+      ? { produtoId, valor, data, instituicaoId }
+      : { produtoId, valor, data, precoUnitario, instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento };
+    if (!isPoupanca && isPosFixado) requiredFields.indexador = indexador;
 
     const emptyFields = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
     if (emptyFields.length > 0) {
