@@ -697,18 +697,18 @@ export default function CadastrarTransacaoPage() {
 
             {showAplicacaoFields && (
               <>
-                {/* Row 1: Data, Valor, Preço Unitário, Vencimento */}
+                {/* Row 1: Data, Valor Inicial, Preço de Emissão, Vencimento */}
                 <div className="grid grid-cols-4 gap-4">
                   <Field label="Data de Transação" required>
                     <input
                       type="date"
                       value={data}
-                      onChange={(e) => setData(e.target.value)}
-                      className="input-field"
+                      onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                      className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
                     />
                   </Field>
 
-                  <Field label="Valor (R$)" required>
+                  <Field label="Valor Inicial" required>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                         R$
@@ -716,34 +716,47 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={valor}
-                        onChange={(e) => setValor(formatCurrency(e.target.value))}
+                        onChange={(e) => { setValor(formatValorInicial(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
                         placeholder="0,00"
-                        className="input-field pl-9"
+                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
                   </Field>
 
-                  <Field label="Preço Unitário (R$)" required>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        R$
-                      </span>
-                      <input
-                        type="text"
-                        value={precoUnitario}
-                        onChange={(e) => setPrecoUnitario(formatCurrency(e.target.value))}
-                        placeholder="1.000,00"
-                        className="input-field pl-9"
-                      />
-                    </div>
+                  <Field label="Preço de Emissão" required>
+                    <TooltipProvider>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                          R$
+                        </span>
+                        <input
+                          type="text"
+                          value={precoUnitario}
+                          onChange={(e) => { setPrecoUnitario(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("precoUnitario"); return n; }); }}
+                          placeholder="1.000,00"
+                          className={`input-field pl-9 pr-8 ${validationErrors.has("precoUnitario") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                        />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 cursor-help text-muted-foreground">
+                              <HelpCircle className="h-3.5 w-3.5" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[220px] text-xs">
+                            Caso não saiba, deixe o valor de R$ 1.000,00 (Padrão)
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
                   </Field>
 
                   <Field label="Vencimento" required>
                     <input
                       type="date"
                       value={vencimento}
-                      onChange={(e) => setVencimento(e.target.value)}
-                      className="input-field"
+                      min={data || undefined}
+                      onChange={(e) => { setVencimento(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("vencimento"); return n; }); }}
+                      className={`input-field ${validationErrors.has("vencimento") ? "border-destructive ring-1 ring-destructive" : ""}`}
                     />
                   </Field>
                 </div>
