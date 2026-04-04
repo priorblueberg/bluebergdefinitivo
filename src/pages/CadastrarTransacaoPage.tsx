@@ -239,7 +239,13 @@ export default function CadastrarTransacaoPage() {
       .eq("ativo", true)
       .order("nome")
       .then(({ data }) => {
-        if (data) setProdutos(data);
+        if (data) {
+          setProdutos(data);
+          // Auto-select when only one product (e.g. Poupança)
+          if (data.length === 1 && !editId) {
+            setProdutoId(data[0].id);
+          }
+        }
       });
   }, [categoriaId]);
 
