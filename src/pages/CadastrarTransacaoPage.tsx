@@ -1082,18 +1082,20 @@ function NativeSelect({
   placeholder,
   options,
   disabled,
+  hasError,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   options: { value: string; label: string; disabled?: boolean }[];
   disabled?: boolean;
+  hasError?: boolean;
 }) {
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="input-field"
+      className={`input-field ${hasError ? "border-destructive ring-1 ring-destructive" : ""}`}
       disabled={disabled}
     >
       <option value="">{placeholder}</option>
