@@ -354,6 +354,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   const categoriaNome = (mov as any).categorias?.nome || "";
   const isRendaFixa = categoriaNome === "Renda Fixa";
+  const isPoupanca = categoriaNome === "Poupança";
 
   if (!mov.codigo_custodia) return;
 
