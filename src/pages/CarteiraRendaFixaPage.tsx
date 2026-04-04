@@ -111,8 +111,6 @@ export default function CarteiraRendaFixaPage() {
   const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; estrategia: string | null; emissor_nome: string; analysisProduct: AnalysisCustodiaProduct }[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [isEmpty, setIsEmpty] = useState(false);
 
   useEffect(() => {
     if (!user) return;
