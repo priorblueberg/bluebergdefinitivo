@@ -55,9 +55,7 @@ function AppLayoutInner() {
           transition: "margin-left 120ms linear",
         }}
       >
-        <div className={isWelcome ? "pointer-events-none opacity-60" : ""}>
-          <AppHeader />
-        </div>
+        <AppHeader disableControls={isWelcome} />
         {isCarteira && !isWelcome && <SubTabs />}
         <main className="relative flex-1 overflow-y-auto p-6">
           {!isWelcome && <RecalculatingOverlay />}
