@@ -381,7 +381,7 @@ export default function BoletaCustodiaDialog({
           )}
         </div>
 
-        {tipo === "Aplicação" && date && loadingCota && (
+        {tipo === "Aplicação" && date && !dateError && loadingCota && (
           <p className="text-sm text-muted-foreground">Calculando...</p>
         )}
 
