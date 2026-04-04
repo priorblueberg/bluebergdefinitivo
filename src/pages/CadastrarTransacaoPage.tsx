@@ -364,7 +364,7 @@ export default function CadastrarTransacaoPage() {
   const showTipoMovimentacao = !!categoriaId && (isRendaFixa || isPoupanca);
   const showAplicacaoFields = showTipoMovimentacao && !!produtoId && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate));
   const showResgateFields = showTipoMovimentacao && isResgate && !isEditing;
-  const showPoupancaFields = isPoupanca && isAplicacao && !!produtoId;
+  const showPoupancaFields = isPoupanca && isAplicacao;
 
   const resetForm = () => {
     setCategoriaId("");
