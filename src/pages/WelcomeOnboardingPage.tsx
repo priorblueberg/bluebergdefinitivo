@@ -90,6 +90,7 @@ export default function WelcomeOnboardingPage() {
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
   const isPosFixado = modalidade === "Pós Fixado";
+  const isPoupanca = categoriaNome === "Poupança";
 
   useEffect(() => {
     supabase.from("categorias").select("id, nome").eq("ativa", true).then(({ data }) => {
