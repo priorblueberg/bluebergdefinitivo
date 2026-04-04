@@ -179,6 +179,7 @@ export default function CarteiraRendaFixaPage() {
     if (!user) return;
     (async () => {
       setLoading(true);
+      setIsEmpty(false);
 
       const [{ data: cartData }, { data: custodiaData }] = await Promise.all([
         supabase
