@@ -18,6 +18,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
+import { OnboardingRendaFixaModal } from "@/components/OnboardingRendaFixaModal";
 
 interface CarteiraInfo {
   nome_carteira: string;
