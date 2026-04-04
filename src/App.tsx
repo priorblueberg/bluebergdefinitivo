@@ -86,6 +86,7 @@ const App = () => (
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
+              <Route path="/welcome" element={<WelcomeOnboardingPage />} />
               <Route path="/carteira" element={<Navigate to="/carteira/renda-fixa" replace />} />
               <Route path="/carteira/renda-fixa" element={<CarteiraRendaFixa />} />
               <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
