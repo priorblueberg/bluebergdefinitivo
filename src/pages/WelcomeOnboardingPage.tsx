@@ -67,10 +67,12 @@ function buildNomeAtivo(produtoNome: string, emissorNome: string, modalidade: st
 export default function WelcomeOnboardingPage() {
   const { user, profileName, refreshCustodia } = useAuth();
 
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [instituicoes, setInstituicoes] = useState<Instituicao[]>([]);
   const [emissores, setEmissores] = useState<Emissor[]>([]);
   const [categoriaId, setCategoriaId] = useState("");
+  const [categoriaNome, setCategoriaNome] = useState("");
 
   // form state
   const [produtoId, setProdutoId] = useState("");
