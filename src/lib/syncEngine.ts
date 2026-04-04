@@ -507,6 +507,11 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
       preco_unitario: aplicacaoInicial.preco_unitario,
     });
   }
+
+  // ── Sync Poupança lotes ──
+  if (isPoupanca) {
+    await syncPoupancaLotes(mov.codigo_custodia, mov.user_id!, existing?.[0]?.id);
+  }
 }
 
 /** After deleting a movimentacao, remove the custodia record if no more movimentacoes reference it */
