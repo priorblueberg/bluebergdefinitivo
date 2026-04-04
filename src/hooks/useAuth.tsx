@@ -11,31 +11,50 @@ export const useAuth = () => {
 
   useEffect(() => {
     const checkProfile = async (userId: string) => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("id, nome_completo")
         .eq("user_id", userId)
         .maybeSingle();
+
+      if (error) {
+        console.error("Erro ao verificar perfil", error);
+        return;
+      }
+
       setHasProfile(!!data);
       setProfileName(data?.nome_completo ?? null);
     };
 
     const checkCustodia = async (userId: string) => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("custodia")
         .select("id")
         .eq("user_id", userId)
         .limit(1);
-      setHasCustodia(!!data && data.length > 0);
+
+      if (error) {
+        console.error("Erro ao verificar custódia", error);
+        return;
+      }
+
+      setHasCustodia(data.length > 0);
+    };
+
+    const hydrateUserState = async (userId: string) => {
+      setHasProfile(null);
+      setHasCustodia(null);
+      setProfileName(null);
+      await Promise.all([checkProfile(userId), checkCustodia(userId)]);
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user ?? null);
         setLoading(false);
+
         if (session?.user) {
-          checkProfile(session.user.id);
-          checkCustodia(session.user.id);
+          void hydrateUserState(session.user.id);
         } else {
           setHasProfile(null);
           setHasCustodia(null);
@@ -47,9 +66,9 @@ export const useAuth = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
+
       if (session?.user) {
-        checkProfile(session.user.id);
-        checkCustodia(session.user.id);
+        void hydrateUserState(session.user.id);
       }
     });
 
@@ -62,11 +81,17 @@ export const useAuth = () => {
 
   const refreshProfile = async () => {
     if (user) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("id, nome_completo")
         .eq("user_id", user.id)
         .maybeSingle();
+
+      if (error) {
+        console.error("Erro ao atualizar perfil", error);
+        return;
+      }
+
       setHasProfile(!!data);
       setProfileName(data?.nome_completo ?? null);
     }
@@ -74,12 +99,18 @@ export const useAuth = () => {
 
   const refreshCustodia = async () => {
     if (user) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("custodia")
         .select("id")
         .eq("user_id", user.id)
         .limit(1);
-      setHasCustodia(!!data && data.length > 0);
+
+      if (error) {
+        console.error("Erro ao atualizar custódia", error);
+        return;
+      }
+
+      setHasCustodia(data.length > 0);
     }
   };
 
