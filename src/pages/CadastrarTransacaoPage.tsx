@@ -479,74 +479,7 @@ export default function CadastrarTransacaoPage() {
       return;
     }
 
-    // ── Resgate submission ──
-    if (isResgate && selectedCustodia) {
-      if (!valor) {
-        toast.error("Preencha o valor do resgate.");
-        return;
-      }
-
-      const valorNum = parseCurrencyToNumber(valor);
-
-      if (saldoDisponivel !== null && valorNum > saldoDisponivel) {
-        toast.error("O valor do resgate excede o saldo disponível.");
-        return;
-      }
-
-      setSubmitting(true);
-      try {
-        const fmtBR = (v: number) =>
-          v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-        const { error } = await supabase.from("movimentacoes").insert({
-          categoria_id: selectedCustodia.categoria_id,
-          tipo_movimentacao: "Resgate",
-          data,
-          produto_id: selectedCustodia.produto_id,
-          valor: valorNum,
-          preco_unitario: null,
-          instituicao_id: selectedCustodia.instituicao_id,
-          emissor_id: selectedCustodia.emissor_id,
-          modalidade: selectedCustodia.modalidade,
-          taxa: selectedCustodia.taxa,
-          pagamento: selectedCustodia.pagamento,
-          vencimento: selectedCustodia.vencimento,
-          nome_ativo: selectedCustodia.nome,
-          codigo_custodia: selectedCustodia.codigo_custodia,
-          indexador: selectedCustodia.indexador,
-          quantidade: null,
-          valor_extrato: `R$ ${fmtBR(valorNum)}`,
-          user_id: user.id,
-          origem: "manual",
-        });
-
-        if (error) throw error;
-
-        // Fetch inserted ID
-        const { data: inserted } = await supabase
-          .from("movimentacoes")
-          .select("id")
-          .eq("codigo_custodia", selectedCustodia.codigo_custodia)
-          .eq("user_id", user.id)
-          .eq("tipo_movimentacao", "Resgate")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        const insertedId = inserted?.[0]?.id || null;
-        await fullSyncAfterMovimentacao(insertedId, selectedCustodia.categoria_id, user.id, dataReferenciaISO);
-        applyDataReferencia();
-
-        toast.success("Resgate cadastrado com sucesso!");
-        resetForm();
-      } catch (err: any) {
-        toast.error("Erro ao cadastrar resgate.");
-        console.error(err);
-      } finally {
-        setSubmitting(false);
-      }
-      return;
-    }
-
+    // (Resgate already handled above)
     // ── Aplicação submission (existing logic) ──
     let requiredFields: Record<string, string>;
 
