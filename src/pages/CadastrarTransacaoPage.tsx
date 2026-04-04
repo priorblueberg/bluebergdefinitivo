@@ -76,22 +76,53 @@ function formatCurrency(value: string): string {
 function formatValorInicial(value: string): string {
   // Remove everything except digits and comma
   let cleaned = value.replace(/[^\d,]/g, "");
-  // Allow only one comma
+  
+  // Split by comma
   const parts = cleaned.split(",");
+  
+  // Allow only one comma
   if (parts.length > 2) {
     cleaned = parts[0] + "," + parts.slice(1).join("");
   }
-  // Limit decimal places to 2
-  if (parts.length === 2 && parts[1].length > 2) {
-    cleaned = parts[0] + "," + parts[1].slice(0, 2);
+  
+  // If no comma yet, just show digits (integer part) with ,00 appended for display
+  if (parts.length === 1) {
+    // Only digits, no comma typed yet
+    const intDigits = parts[0].replace(/^0+(?=\d)/, "") || "";
+    if (!intDigits) return "";
+    const formatted = intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return formatted + ",00";
   }
-  // Add thousand separators to integer part
-  if (parts[0]) {
-    const intPart = parts[0].replace(/\./g, "");
-    const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    cleaned = parts.length > 1 ? formatted + "," + parts[1] : formatted;
+  
+  // Comma was typed - limit decimal places to 2
+  let decPart = parts[1].slice(0, 2);
+  // Pad with zeros to always show 2 decimal places
+  decPart = decPart.padEnd(2, "0");
+  
+  const intPart = (parts[0].replace(/^0+(?=\d)/, "") || "0").replace(/\./g, "");
+  const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return formatted + "," + decPart;
+}
+
+function formatTaxaInput(value: string): string {
+  // Same logic as valor: digits fill before comma, comma enables decimals
+  let cleaned = value.replace(/[^\d,]/g, "");
+  const parts = cleaned.split(",");
+  
+  if (parts.length > 2) {
+    cleaned = parts[0] + "," + parts.slice(1).join("");
   }
-  return cleaned;
+  
+  if (parts.length === 1) {
+    const intDigits = parts[0].replace(/^0+(?=\d)/, "") || "";
+    if (!intDigits) return "";
+    return intDigits + ",00";
+  }
+  
+  let decPart = parts[1].slice(0, 2);
+  decPart = decPart.padEnd(2, "0");
+  const intPart = parts[0].replace(/^0+(?=\d)/, "") || "0";
+  return intPart + "," + decPart;
 }
 
 function parseCurrencyToNumber(value: string): number {
@@ -153,7 +184,7 @@ export default function CadastrarTransacaoPage() {
   const [categoriaId, setCategoriaId] = useState("");
   const [produtoId, setProdutoId] = useState("");
   const [tipoMovimentacao, setTipoMovimentacao] = useState("");
-  const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState("");
   const [valor, setValor] = useState("");
   const [precoUnitario, setPrecoUnitario] = useState("1.000,00");
   const [instituicaoId, setInstituicaoId] = useState("");
@@ -343,7 +374,7 @@ export default function CadastrarTransacaoPage() {
     setCategoriaId("");
     setProdutoId("");
     setTipoMovimentacao("");
-    setData(new Date().toISOString().slice(0, 10));
+    setData("");
     setValor("");
     setPrecoUnitario("1.000,00");
     setInstituicaoId("");
@@ -829,7 +860,7 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={taxa}
-                        onChange={(e) => { setTaxa(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("taxa"); return n; }); }}
+                        onChange={(e) => { setTaxa(formatTaxaInput(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("taxa"); return n; }); }}
                         placeholder="0,00"
                         className={`input-field pr-7 ${validationErrors.has("taxa") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
