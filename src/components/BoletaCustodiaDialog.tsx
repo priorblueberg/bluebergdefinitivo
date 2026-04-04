@@ -386,7 +386,7 @@ export default function BoletaCustodiaDialog({
         )}
 
         {/* Saldo disponível para resgate */}
-        {tipo === "Resgate" && date && (
+        {tipo === "Resgate" && date && !dateError && (
           <div className="text-sm">
             {loadingSaldo ? (
               <p className="text-muted-foreground">Calculando saldo...</p>
