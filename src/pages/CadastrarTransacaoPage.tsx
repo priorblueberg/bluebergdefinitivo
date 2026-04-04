@@ -73,6 +73,27 @@ function formatCurrency(value: string): string {
   return formatted;
 }
 
+function formatValorInicial(value: string): string {
+  // Remove everything except digits and comma
+  let cleaned = value.replace(/[^\d,]/g, "");
+  // Allow only one comma
+  const parts = cleaned.split(",");
+  if (parts.length > 2) {
+    cleaned = parts[0] + "," + parts.slice(1).join("");
+  }
+  // Limit decimal places to 2
+  if (parts.length === 2 && parts[1].length > 2) {
+    cleaned = parts[0] + "," + parts[1].slice(0, 2);
+  }
+  // Add thousand separators to integer part
+  if (parts[0]) {
+    const intPart = parts[0].replace(/\./g, "");
+    const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    cleaned = parts.length > 1 ? formatted + "," + parts[1] : formatted;
+  }
+  return cleaned;
+}
+
 function parseCurrencyToNumber(value: string): number {
   const cleaned = value.replace(/\./g, "").replace(",", ".");
   return parseFloat(cleaned) || 0;
