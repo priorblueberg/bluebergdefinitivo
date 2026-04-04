@@ -920,19 +920,7 @@ export default function CadastrarTransacaoPage() {
         {/* ── Poupança Aplicação Flow ── */}
         {isPoupanca && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && (
           <>
-            {/* Produto selector (auto-selects "Poupança") */}
-            <Field label="Produto" required>
-              <NativeSelect
-                value={produtoId}
-                onChange={setProdutoId}
-                placeholder="Selecione"
-                disabled={isEditing}
-                options={produtos.map((p) => ({
-                  value: p.id,
-                  label: p.nome,
-                }))}
-              />
-            </Field>
+            {/* Produto auto-selected, no selector needed */}
 
             {showPoupancaFields && (
               <>
