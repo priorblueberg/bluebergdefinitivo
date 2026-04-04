@@ -1055,9 +1055,9 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={valor}
-                        onChange={(e) => setValor(formatCurrency(e.target.value))}
+                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
                         placeholder="0,00"
-                        className="input-field pl-9"
+                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
                   </Field>
