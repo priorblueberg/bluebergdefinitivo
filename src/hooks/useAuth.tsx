@@ -41,10 +41,12 @@ export const useAuth = () => {
       setHasCustodia(data.length > 0);
     };
 
-    const hydrateUserState = async (userId: string) => {
-      setHasProfile(null);
-      setHasCustodia(null);
-      setProfileName(null);
+    const hydrateUserState = async (userId: string, resetFirst = true) => {
+      if (resetFirst) {
+        setHasProfile(null);
+        setHasCustodia(null);
+        setProfileName(null);
+      }
       await Promise.all([checkProfile(userId), checkCustodia(userId)]);
     };
 
@@ -54,7 +56,9 @@ export const useAuth = () => {
         setLoading(false);
 
         if (session?.user) {
-          void hydrateUserState(session.user.id);
+          // On TOKEN_REFRESHED, don't reset states to null (avoids reload flash)
+          const isTokenRefresh = _event === "TOKEN_REFRESHED";
+          void hydrateUserState(session.user.id, !isTokenRefresh);
         } else {
           setHasProfile(null);
           setHasCustodia(null);
