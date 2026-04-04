@@ -318,6 +318,7 @@ export default function BoletaCustodiaDialog({
     setSaldoDisponivel(null);
     setValorCotaDia(null);
     setFecharPosicao(false);
+    setDateError(null);
     onClose();
   };
 
