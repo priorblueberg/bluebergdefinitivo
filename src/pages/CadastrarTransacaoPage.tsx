@@ -504,6 +504,25 @@ export default function CadastrarTransacaoPage() {
     }
     setValidationErrors(new Set());
 
+    // Validate business day AFTER required fields check
+    if (!isPoupanca) {
+      const { data: diaUtil } = await supabase
+        .from("calendario_dias_uteis")
+        .select("dia_util")
+        .eq("data", data)
+        .single();
+
+      if (!diaUtil) {
+        toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido.");
+        return;
+      }
+
+      if (!diaUtil.dia_util) {
+        toast.error("A Data de Transação deve ser um dia útil.");
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
