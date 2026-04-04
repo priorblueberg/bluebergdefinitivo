@@ -1036,13 +1036,13 @@ export default function CadastrarTransacaoPage() {
                 <input
                   type="date"
                   value={data}
-                  onChange={(e) => setData(e.target.value)}
-                  className="input-field max-w-[220px]"
+                  onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); setSaldoDisponivel(null); }}
+                  className={`input-field max-w-[220px] ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
                 />
               </Field>
             )}
 
-            {selectedCustodia && data && (
+            {selectedCustodia && data && /^\d{4}-\d{2}-\d{2}$/.test(data) && parseInt(data.slice(0, 4), 10) >= 1900 && (
               <>
                 {/* Row 1: Valor, Vencimento */}
                 <div className="grid grid-cols-2 gap-4">
