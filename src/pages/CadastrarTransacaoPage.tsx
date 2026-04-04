@@ -165,6 +165,7 @@ export default function CadastrarTransacaoPage() {
   const [vencimento, setVencimento] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [editLoaded, setEditLoaded] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
   // Derived
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
