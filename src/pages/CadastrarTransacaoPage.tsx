@@ -464,10 +464,11 @@ export default function CadastrarTransacaoPage() {
     const emptyFields = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
 
     if (emptyFields.length > 0) {
-      console.log("Campos vazios:", emptyFields, requiredFields);
+      setValidationErrors(new Set(emptyFields));
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
+    setValidationErrors(new Set());
 
     setSubmitting(true);
 
