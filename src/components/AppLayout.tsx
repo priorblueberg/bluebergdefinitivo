@@ -14,17 +14,20 @@ function AppLayoutInner() {
   const location = useLocation();
   const isCarteira = location.pathname.startsWith("/carteira");
   const isWelcome = location.pathname === "/welcome";
-  const { user, hasCustodia } = useAuth();
+  const { user, hasCustodia, refreshCustodia } = useAuth();
   const { dataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const hasRunInitial = useRef(false);
 
   useEffect(() => {
-    if (!user || hasRunInitial.current) return;
+    if (!user || hasCustodia !== true || isWelcome || hasRunInitial.current) return;
+
     hasRunInitial.current = true;
+
     (async () => {
       setIsRecalculating(true);
       try {
         await recalculateAllForDataReferencia(user.id, format(dataReferencia, "yyyy-MM-dd"));
+        await refreshCustodia();
         applyDataReferencia();
       } catch (err) {
         console.error("Erro no recálculo inicial", err);
@@ -32,9 +35,8 @@ function AppLayoutInner() {
         setIsRecalculating(false);
       }
     })();
-  }, [user]);
+  }, [user, hasCustodia, isWelcome, dataReferencia, refreshCustodia, applyDataReferencia, setIsRecalculating]);
 
-  // Wait until hasCustodia is resolved before redirecting
   if (hasCustodia === null) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
@@ -43,11 +45,10 @@ function AppLayoutInner() {
     );
   }
 
-  // Redirect non-welcome pages when user has no custodia
   if (!isWelcome && hasCustodia === false) {
     return <Navigate to="/welcome" replace />;
   }
-  // Redirect /welcome to /carteira when user already has custodia
+
   if (isWelcome && hasCustodia === true) {
     return <Navigate to="/carteira" replace />;
   }
