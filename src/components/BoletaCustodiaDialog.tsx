@@ -235,6 +235,10 @@ export default function BoletaCustodiaDialog({
       toast.error("Selecione a data da operação.");
       return;
     }
+    if (dateError) {
+      toast.error(dateError);
+      return;
+    }
     const valorNum = parseCurrencyToNumber(valor);
     if (valorNum <= 0) {
       toast.error("Informe um valor válido.");
@@ -243,14 +247,8 @@ export default function BoletaCustodiaDialog({
 
     const dateISO = format(date, "yyyy-MM-dd");
 
-    const { data: diaUtil } = await supabase
-      .from("calendario_dias_uteis")
-      .select("dia_util")
-      .eq("data", dateISO)
-      .maybeSingle();
-
-    if (!diaUtil || !diaUtil.dia_util) {
-      toast.error("A data selecionada não é um dia útil.");
+    if (tipo === "Resgate" && saldoDisponivel != null && valorNum > saldoDisponivel) {
+      toast.error("Valor excede o saldo disponível para resgate.");
       return;
     }
 
