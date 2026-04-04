@@ -485,13 +485,18 @@ export default function CadastrarTransacaoPage() {
     }
 
     // ── Aplicação submission (existing logic) ──
-    const requiredFields: Record<string, string> = {
-      categoriaId, tipoMovimentacao, produtoId, valor, data, precoUnitario,
-      instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento,
-    };
+    let requiredFields: Record<string, string>;
 
-    if (isPosFixado) {
-      requiredFields.indexador = indexador;
+    if (isPoupanca) {
+      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
+    } else {
+      requiredFields = {
+        categoriaId, tipoMovimentacao, produtoId, valor, data, precoUnitario,
+        instituicaoId, emissorId, modalidade, taxa, pagamento, vencimento,
+      };
+      if (isPosFixado) {
+        requiredFields.indexador = indexador;
+      }
     }
 
     const emptyFields = Object.entries(requiredFields).filter(([, v]) => !v).map(([k]) => k);
