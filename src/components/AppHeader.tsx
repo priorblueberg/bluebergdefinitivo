@@ -25,7 +25,7 @@ function clampDate(date: Date): Date {
   return date > max ? max : date;
 }
 
-export function AppHeader() {
+export function AppHeader({ disableControls = false }: { disableControls?: boolean }) {
   const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -134,7 +134,7 @@ export function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex items-center gap-4">
+        <div className={`flex items-center gap-4${disableControls ? " pointer-events-none opacity-40" : ""}`}>
           <button
             onClick={() => navigate("/cadastrar-transacao")}
             className="flex items-center gap-1 rounded-md border border-primary px-2 py-1 text-xs text-primary hover:bg-primary hover:text-primary-foreground bg-background"
