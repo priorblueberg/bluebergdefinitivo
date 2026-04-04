@@ -94,33 +94,60 @@ export default function CalculadoraPage() {
       setLoading(true);
       setCarteiraRows([]);
       try {
+        const isPoupanca = product.modalidade === "Poupança";
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
 
-        const [calRes, movRes, cdiRes] = await Promise.all([
-          supabase.from("calendario_dias_uteis").select("data, dia_util")
-            .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
-          supabase.from("movimentacoes").select("data, tipo_movimentacao, valor")
-            .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).order("data"),
-          supabase.from("historico_cdi").select("data, taxa_anual")
-            .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
-        ]);
+        if (isPoupanca) {
+          // Poupança calculation
+          const [calRes, movRes, selicRes, lotesRes] = await Promise.all([
+            supabase.from("calendario_dias_uteis").select("data, dia_util")
+              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+            supabase.from("movimentacoes").select("data, tipo_movimentacao, valor")
+              .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).order("data"),
+            supabase.from("historico_selic").select("data, taxa_anual")
+              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+            supabase.from("poupanca_lotes").select("*")
+              .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).eq("status", "ativo"),
+          ]);
 
-        const result = calcularRendaFixaDiario({
-          dataInicio: product.data_inicio,
-          dataCalculo: dataFim,
-          taxa: product.taxa || 0,
-          modalidade: product.modalidade || "",
-          puInicial: product.preco_unitario || 1000,
-          calendario: (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util })),
-          movimentacoes: (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
-          dataResgateTotal: product.resgate_total,
-          pagamento: product.pagamento,
-          vencimento: product.vencimento,
-          indexador: product.indexador,
-          cdiRecords: (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) })),
-          dataLimite: product.data_limite,
-        });
-        setRows(result);
+          const result = calcularPoupancaDiario({
+            dataInicio: product.data_inicio,
+            dataCalculo: dataFim,
+            calendario: (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util })),
+            movimentacoes: (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
+            lotes: ((lotesRes.data || []) as PoupancaLote[]),
+            selicRecords: (selicRes.data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) })),
+            dataResgateTotal: product.resgate_total,
+          });
+          setRows(result);
+        } else {
+          // Renda Fixa calculation
+          const [calRes, movRes, cdiRes] = await Promise.all([
+            supabase.from("calendario_dias_uteis").select("data, dia_util")
+              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+            supabase.from("movimentacoes").select("data, tipo_movimentacao, valor")
+              .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).order("data"),
+            supabase.from("historico_cdi").select("data, taxa_anual")
+              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+          ]);
+
+          const result = calcularRendaFixaDiario({
+            dataInicio: product.data_inicio,
+            dataCalculo: dataFim,
+            taxa: product.taxa || 0,
+            modalidade: product.modalidade || "",
+            puInicial: product.preco_unitario || 1000,
+            calendario: (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util })),
+            movimentacoes: (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
+            dataResgateTotal: product.resgate_total,
+            pagamento: product.pagamento,
+            vencimento: product.vencimento,
+            indexador: product.indexador,
+            cdiRecords: (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) })),
+            dataLimite: product.data_limite,
+          });
+          setRows(result);
+        }
       } catch (err) {
         console.error("Erro ao calcular:", err);
       } finally {
