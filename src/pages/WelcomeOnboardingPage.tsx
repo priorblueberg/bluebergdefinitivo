@@ -93,10 +93,10 @@ export default function WelcomeOnboardingPage() {
   const isPoupanca = categoriaNome === "Poupança";
 
   useEffect(() => {
-    supabase.from("categorias").select("id, nome").eq("ativa", true).then(({ data }) => {
+    supabase.from("categorias").select("id, nome").eq("ativa", true).order("nome").then(({ data }) => {
       if (data) {
-        const rf = data.find((c: any) => c.nome === "Renda Fixa");
-        if (rf) setCategoriaId(rf.id);
+        const filtered = data.filter((c: any) => c.nome === "Renda Fixa" || c.nome === "Poupança");
+        setCategorias(filtered);
       }
     });
     supabase.from("instituicoes").select("id, nome").eq("ativa", true).order("nome").then(({ data }) => { if (data) setInstituicoes(data); });
