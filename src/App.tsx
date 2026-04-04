@@ -50,7 +50,6 @@ const ProtectedRoute = () => {
       </div>
     );
   if (!hasProfile) return <Navigate to="/onboarding" replace />;
-  if (!hasCustodia) return <Navigate to="/welcome" replace />;
   return <Outlet />;
 };
 
@@ -67,19 +66,7 @@ const OnboardingRoute = () => {
   return <OnboardingPage />;
 };
 
-const WelcomeRoute = () => {
-  const { user, loading, hasProfile, hasCustodia } = useAuth();
-  if (loading || hasProfile === null || hasCustodia === null)
-    return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Carregando...
-      </div>
-    );
-  if (!user) return <Navigate to="/auth" replace />;
-  if (!hasProfile) return <Navigate to="/onboarding" replace />;
-  if (hasCustodia) return <Navigate to="/carteira" replace />;
-  return <WelcomeOnboardingPage />;
-};
+// WelcomeRoute removed — welcome is now inside AppLayout
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -92,13 +79,14 @@ const App = () => (
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/onboarding" element={<OnboardingRoute />} />
-          <Route path="/welcome" element={<WelcomeRoute />} />
+          
           <Route path="/planos" element={<PlanosPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
+              <Route path="/welcome" element={<WelcomeOnboardingPage />} />
               <Route path="/carteira" element={<Navigate to="/carteira/renda-fixa" replace />} />
               <Route path="/carteira/renda-fixa" element={<CarteiraRendaFixa />} />
               <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
