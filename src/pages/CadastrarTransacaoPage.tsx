@@ -308,7 +308,7 @@ export default function CadastrarTransacaoPage() {
     }
     supabase
       .from("custodia")
-      .select("id, nome, codigo_custodia, data_inicio, valor_investido, taxa, indexador, vencimento, modalidade, pagamento, produto_id, instituicao_id, emissor_id, categoria_id")
+      .select("id, nome, codigo_custodia, data_inicio, valor_investido, taxa, indexador, vencimento, modalidade, pagamento, produto_id, instituicao_id, emissor_id, categoria_id, preco_unitario, resgate_total")
       .eq("categoria_id", categoriaId)
       .eq("user_id", user.id)
       .order("nome")
