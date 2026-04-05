@@ -1210,6 +1210,10 @@ export default function CadastrarTransacaoPage() {
                   setValor("");
                   setData("");
                   setSaldoDisponivel(null);
+                  setResgateDateInput("");
+                  setResgateDate(undefined);
+                  setResgateDateError(null);
+                  setFecharPosicao(false);
                 }}
                 placeholder="Selecione o título em custódia"
                 options={custodiaItems.map((c) => ({
@@ -1220,153 +1224,189 @@ export default function CadastrarTransacaoPage() {
             </Field>
 
             {selectedCustodia && (
-              <Field label="Data de Transação" required>
-                <input
-                  type="date"
-                  value={data}
-                  onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); setSaldoDisponivel(null); }}
-                  className={`input-field max-w-[220px] ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                />
-              </Field>
-            )}
-
-            {selectedCustodia && data && /^\d{4}-\d{2}-\d{2}$/.test(data) && parseInt(data.slice(0, 4), 10) >= 1900 && (
               <>
-                {/* Row 1: Valor, Vencimento */}
-                <div className="grid grid-cols-2 gap-4">
-
-                  <Field label="Valor do Resgate (R$)" required>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        R$
-                      </span>
-                      <input
-                        type="text"
-                        value={valor}
-                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
-                        placeholder="0,00"
-                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                      />
-                    </div>
-                  </Field>
-
-                  <Field label="Vencimento">
-                    <input
-                      type="date"
-                      value={vencimento}
-                      disabled
-                      className="input-field opacity-60"
+                <Field label="Data de Transação" required>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="dd/mm/aaaa"
+                      value={resgateDateInput}
+                      className={cn("flex-1 max-w-[220px]", resgateDateError || validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : "")}
+                      onChange={(e) => { handleResgateDateInputChange(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
                     />
-                  </Field>
-                </div>
-
-                {/* Saldo disponível info */}
-                <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
-                  <p className="text-xs text-muted-foreground">
-                    Saldo disponível para resgate em{" "}
-                    {new Date(data + "T00:00:00").toLocaleDateString("pt-BR")}:
-                  </p>
-                  <p className="text-sm font-semibold text-foreground mt-0.5">
-                    {calculandoSaldo
-                      ? "Calculando..."
-                      : saldoDisponivel !== null
-                        ? fmtBrlDisplay(saldoDisponivel)
-                        : "—"
-                    }
-                  </p>
-                </div>
-
-                {/* Alert if valor > saldo */}
-                {valorResgateSuperaSaldo && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      O valor do resgate (R$ {valor}) excede o saldo disponível ({fmtBrlDisplay(saldoDisponivel)}).
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Row 2: Instituição, Emissor (readonly) */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Corretora">
-                    <input
-                      type="text"
-                      value={getInstituicaoNome(instituicaoId)}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
-
-                  <Field label="Emissor">
-                    <input
-                      type="text"
-                      value={getEmissorNome(emissorId)}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
-                </div>
-
-                {/* Row 3: Modalidade, (Indexador), Taxa, Pagamento (readonly) */}
-                <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
-                  <Field label="Modalidade">
-                    <input
-                      type="text"
-                      value={modalidade}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
-
-                  {isPosFixado && (
-                    <Field label="Indexador">
-                      <input
-                        type="text"
-                        value={indexador}
-                        disabled
-                        className="input-field opacity-60"
-                      />
-                    </Field>
+                    <Popover open={resgateCalendarOpen} onOpenChange={setResgateCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="icon" className="shrink-0">
+                          <CalendarIcon className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={resgateDate}
+                          onSelect={handleResgateCalendarSelect}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  {resgateDateError && (
+                    <p className="text-xs font-medium text-destructive mt-1">{resgateDateError}</p>
                   )}
+                </Field>
 
-                  <Field label="Taxa">
-                    <input
-                      type="text"
-                      value={taxa ? `${taxa}%` : "—"}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
+                {resgateDate && !resgateDateError && (
+                  <>
+                    {/* Row 1: Valor, Vencimento */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Valor do Resgate (R$)" required>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                            R$
+                          </span>
+                          <input
+                            type="text"
+                            value={valor}
+                            onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
+                            placeholder="0,00"
+                            className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                          />
+                        </div>
+                      </Field>
 
-                  <Field label="Pagamento">
-                    <input
-                      type="text"
-                      value={pagamento}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
-                </div>
+                      <Field label="Vencimento">
+                        <input
+                          type="text"
+                          value={vencimento ? new Date(vencimento + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+                    </div>
 
-                {/* Actions */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={submitting || valorResgateSuperaSaldo}
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
-                  >
-                    <PlusCircle size={16} />
-                    {submitting ? "Enviando..." : "Registrar Resgate"}
-                  </button>
-                </div>
+                    {/* Saldo disponível info */}
+                    <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
+                      <p className="text-xs text-muted-foreground">
+                        Saldo disponível para resgate em{" "}
+                        {resgateDateInput}:
+                      </p>
+                      <p className="text-sm font-semibold text-foreground mt-0.5">
+                        {calculandoSaldo
+                          ? "Calculando..."
+                          : saldoDisponivel !== null
+                            ? fmtBrlDisplay(saldoDisponivel)
+                            : "—"
+                        }
+                      </p>
+                    </div>
+
+                    {/* Fechar Posição checkbox */}
+                    {saldoDisponivel != null && saldoDisponivel > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="fechar-posicao-cadastrar"
+                          checked={fecharPosicao}
+                          onCheckedChange={(checked) => handleFecharPosicaoChange(!!checked)}
+                        />
+                        <label htmlFor="fechar-posicao-cadastrar" className="text-sm font-medium text-foreground cursor-pointer">
+                          Fechar Posição
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Alert if valor > saldo */}
+                    {valorResgateSuperaSaldo && (
+                      <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          O valor do resgate (R$ {valor}) excede o saldo disponível ({fmtBrlDisplay(saldoDisponivel)}).
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Row 2: Instituição, Emissor (readonly) */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Corretora">
+                        <input
+                          type="text"
+                          value={getInstituicaoNome(instituicaoId)}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+
+                      <Field label="Emissor">
+                        <input
+                          type="text"
+                          value={getEmissorNome(emissorId)}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+                    </div>
+
+                    {/* Row 3: Modalidade, (Indexador), Taxa, Pagamento (readonly) */}
+                    <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
+                      <Field label="Modalidade">
+                        <input
+                          type="text"
+                          value={modalidade}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+
+                      {isPosFixado && (
+                        <Field label="Indexador">
+                          <input
+                            type="text"
+                            value={indexador}
+                            disabled
+                            className="input-field opacity-60"
+                          />
+                        </Field>
+                      )}
+
+                      <Field label="Taxa">
+                        <input
+                          type="text"
+                          value={taxa ? `${taxa}%` : "—"}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+
+                      <Field label="Pagamento">
+                        <input
+                          type="text"
+                          value={pagamento}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={resetForm}
+                        className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={submitting || valorResgateSuperaSaldo}
+                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
+                      >
+                        <PlusCircle size={16} />
+                        {submitting ? "Enviando..." : "Registrar Resgate"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </>
