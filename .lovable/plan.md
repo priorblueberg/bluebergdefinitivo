@@ -1,42 +1,36 @@
 
+## Fix: Date input resets day/month when typing year in BoletaCustodiaDialog
 
-# Adicionar suporte a Poupança na página de Welcome e Cadastrar Transação
+### Problem
+When the user types the date in the native `<input type="date">`, the `onChange` fires on every keystroke. While the year is being typed (e.g., "202" — incomplete), the regex `^\d{4}-\d{2}-\d{2}$` fails, causing the `else` branch to execute: `setDate(undefined)`, which resets the controlled `value` to `""`, wiping out the day and month already entered.
 
-## Problema identificado
+### Solution
+Stop resetting state on intermediate/incomplete values. Only act when the value is a complete valid date OR when the field is fully cleared.
 
-O usuário está preso na página `/welcome` (WelcomeOnboardingPage), que **só permite cadastrar Renda Fixa** — a categoria é auto-selecionada como "Renda Fixa" sem oferecer opção de escolha (linha 94 do WelcomeOnboardingPage.tsx). Não há seletor de categoria visível.
+### Changes — `src/components/BoletaCustodiaDialog.tsx`
 
-Além disso, como o usuário não possui títulos cadastrados, ele não consegue acessar `/cadastrar-transacao` (a rota regular), onde o suporte a Poupança já foi implementado.
+Update the `onChange` handler (lines 364-377):
 
-## Plano de correção
+```typescript
+onChange={(e) => {
+  const val = e.target.value;
+  // Field fully cleared — reset state
+  if (!val) {
+    setDate(undefined);
+    setDateError(null);
+    setSaldoDisponivel(null);
+    setValorCotaDia(null);
+    setFecharPosicao(false);
+    setValor("");
+    return;
+  }
+  // Only process when we have a complete, valid date
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val) && parseInt(val.slice(0, 4), 10) >= 1900) {
+    const d = new Date(val + "T00:00:00");
+    handleDateSelect(d);
+  }
+  // Otherwise: do nothing — let the browser handle partial input natively
+}}
+```
 
-### 1. Adicionar seletor de categoria na WelcomeOnboardingPage
-
-**Arquivo:** `src/pages/WelcomeOnboardingPage.tsx`
-
-- Substituir o auto-select fixo de "Renda Fixa" por um dropdown de categorias (filtrado para "Renda Fixa" e "Poupança")
-- Quando o usuário selecionar "Poupança", exibir o formulário simplificado (apenas Data, Valor, Corretora) — mesma lógica que já existe em `CadastrarTransacaoPage`
-- Quando selecionar "Renda Fixa", manter o formulário atual
-
-### 2. Adaptar o formulário da WelcomeOnboardingPage para Poupança
-
-Quando categoria = "Poupança":
-- Ocultar campos: Modalidade, Indexador, Taxa, Pagamento de Juros, Preço de Emissão, Emissor, Vencimento
-- Manter visíveis: Data de Transação, Valor Inicial, Corretora (banco)
-- Permitir cadastro em qualquer dia (não validar dia útil)
-- Auto-selecionar o produto "Poupança"
-- No submit, criar o lote em `poupanca_lotes` via syncEngine (que já tem suporte)
-
-### 3. Ajustar o handleSubmit para Poupança
-
-- Remover validação de dia útil quando categoria for Poupança
-- Omitir campos não aplicáveis (modalidade, indexador, taxa, etc.) no insert de movimentação
-- Garantir que o `fullSyncAfterMovimentacao` funcione corretamente para Poupança (já implementado no syncEngine)
-
-### Detalhes técnicos
-
-**Arquivos a modificar:**
-- `src/pages/WelcomeOnboardingPage.tsx` — adicionar seletor de categoria, formulário condicional para Poupança, ajustar submit
-
-**Nenhum arquivo novo necessário** — toda a lógica de engine e sync para Poupança já existe.
-
+The key difference: remove the `else` branch that was clearing all state on every incomplete keystroke. Now partial input (e.g., typing "202" for the year) is simply ignored, preserving the day and month the user already entered.
