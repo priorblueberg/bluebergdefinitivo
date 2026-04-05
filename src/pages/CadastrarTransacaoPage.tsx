@@ -591,32 +591,21 @@ export default function CadastrarTransacaoPage() {
       return;
     }
 
-    // ── Resgate submission ── (moved up to validate before business day)
+    // ── Resgate submission ──
     if (isResgate && selectedCustodia) {
       const errors = new Set<string>();
-      if (!data) errors.add("data");
+      if (!resgateDate || !data) errors.add("data");
       if (!valor || parseCurrencyToNumber(valor) <= 0) errors.add("valor");
       if (errors.size > 0) {
         setValidationErrors(errors);
         toast.error("Preencha todos os campos obrigatórios.");
         return;
       }
+      if (resgateDateError) {
+        toast.error(resgateDateError);
+        return;
+      }
       setValidationErrors(new Set());
-
-      // Business day validation for resgate
-      const { data: diaUtil } = await supabase
-        .from("calendario_dias_uteis")
-        .select("dia_util")
-        .eq("data", data)
-        .single();
-      if (!diaUtil) {
-        toast.error("A data informada não foi encontrada no calendário.");
-        return;
-      }
-      if (!diaUtil.dia_util) {
-        toast.error("A Data de Transação deve ser um dia útil.");
-        return;
-      }
 
       const valorNum = parseCurrencyToNumber(valor);
       if (saldoDisponivel !== null && valorNum > saldoDisponivel) {
@@ -626,12 +615,13 @@ export default function CadastrarTransacaoPage() {
 
       setSubmitting(true);
       try {
+        const tipoMovimentacaoFinal = fecharPosicao ? "Resgate Total" : "Resgate";
         const fmtBR = (v: number) =>
           v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: selectedCustodia.categoria_id,
-          tipo_movimentacao: "Resgate",
+          tipo_movimentacao: tipoMovimentacaoFinal,
           data,
           produto_id: selectedCustodia.produto_id,
           valor: valorNum,
@@ -658,7 +648,7 @@ export default function CadastrarTransacaoPage() {
           .select("id")
           .eq("codigo_custodia", selectedCustodia.codigo_custodia)
           .eq("user_id", user.id)
-          .eq("tipo_movimentacao", "Resgate")
+          .eq("tipo_movimentacao", tipoMovimentacaoFinal)
           .order("created_at", { ascending: false })
           .limit(1);
 
