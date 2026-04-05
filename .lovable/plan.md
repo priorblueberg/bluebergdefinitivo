@@ -1,36 +1,61 @@
 
-## Fix: Date input resets day/month when typing year in BoletaCustodiaDialog
+Objetivo
 
-### Problem
-When the user types the date in the native `<input type="date">`, the `onChange` fires on every keystroke. While the year is being typed (e.g., "202" — incomplete), the regex `^\d{4}-\d{2}-\d{2}$` fails, causing the `else` branch to execute: `setDate(undefined)`, which resets the controlled `value` to `""`, wiping out the day and month already entered.
+Corrigir definitivamente a boleta de Resgate aberta em `/posicao-consolidada`, cobrindo regras de data, saldo disponível e o comportamento do check “Fechar Posição”.
 
-### Solution
-Stop resetting state on intermediate/incomplete values. Only act when the value is a complete valid date OR when the field is fully cleared.
+Plano
 
-### Changes — `src/components/BoletaCustodiaDialog.tsx`
+1. Trocar o campo de data do modal por uma entrada controlada de verdade.
+- Parar de usar o `<input type="date">` nativo dentro de `BoletaCustodiaDialog`.
+- Substituir por um campo mascarado `dd/mm/aaaa` com seletor de calendário Shadcn.
+- Limitar a digitação a 8 números / 10 caracteres formatados, garantindo ano com exatamente 4 dígitos.
+- Separar o “texto digitado” da `date` válida, para a edição parcial não apagar dia/mês e não deixar cálculo velho na tela.
+- Teclado e calendário passarão pela mesma rotina de parse, validação e cálculo.
 
-Update the `onChange` handler (lines 364-377):
+2. Aplicar as regras corretas no campo “Data da Transação”.
+- Se a data for anterior à `data_inicio` do ativo, mostrar alerta: “A data selecionada não pode ser anterior à aplicação inicial.”
+- Manter os bloqueios já existentes para:
+  - data futura
+  - data posterior ao vencimento
+  - dia não útil
+- Incluir a regra da faixa de resgate quando houver `resgate_total`: aceitar apenas datas de `data_inicio` até o dia anterior ao `resgate_total`.
+- Quando a data estiver parcial ou inválida, limpar `saldoDisponivel`, `valorCotaDia`, `fecharPosicao` e `valor`, sem apagar o que o usuário digitou.
 
-```typescript
-onChange={(e) => {
-  const val = e.target.value;
-  // Field fully cleared — reset state
-  if (!val) {
-    setDate(undefined);
-    setDateError(null);
-    setSaldoDisponivel(null);
-    setValorCotaDia(null);
-    setFecharPosicao(false);
-    setValor("");
-    return;
-  }
-  // Only process when we have a complete, valid date
-  if (/^\d{4}-\d{2}-\d{2}$/.test(val) && parseInt(val.slice(0, 4), 10) >= 1900) {
-    const d = new Date(val + "T00:00:00");
-    handleDateSelect(d);
-  }
-  // Otherwise: do nothing — let the browser handle partial input natively
-}}
-```
+3. Ajustar os dados enviados da Posição Consolidada para a boleta.
+- Em `PosicaoConsolidadaPage`, passar também `resgate_total` para `CustodiaRowForBoleta`.
+- Isso é necessário para o modal saber até onde o resgate manual pode ser permitido.
 
-The key difference: remove the `else` branch that was clearing all state on every incomplete keystroke. Now partial input (e.g., typing "202" for the year) is simply ignored, preserving the day and month the user already entered.
+4. Ajustar o comportamento do saldo e do fechamento de posição.
+- Só mostrar o bloco “Saldo disponível para resgate” quando a data estiver válida e dentro da faixa permitida.
+- Continuar usando o valor de `rowDia.liquido` (Líquido 1), como você definiu.
+- Só mostrar o check “Fechar Posição” quando houver saldo calculado maior que zero.
+- Ao marcar o check, preencher o campo `Valor` com o saldo disponível.
+- Se o usuário digitar exatamente o valor total disponível, marcar o check automaticamente.
+
+5. Revisar o submit do resgate.
+- Manter o bloqueio por `dateError`.
+- Garantir que nenhuma data fora da faixa válida siga para gravação.
+- Preservar o comportamento atual de gravar `Resgate Total` quando “Fechar Posição” estiver marcado.
+
+Arquivos envolvidos
+- `src/components/BoletaCustodiaDialog.tsx`
+- `src/pages/PosicaoConsolidadaPage.tsx`
+
+Detalhes técnicos
+- Novo estado de texto para a data, separado do estado `Date`.
+- Helper único para:
+  - aplicar máscara `dd/mm/aaaa`
+  - converter para ISO
+  - validar faixa da data
+  - disparar cálculo de saldo/cota
+- Uso do `Calendar` com `pointer-events-auto` dentro do modal.
+- Nenhuma mudança de banco será necessária.
+
+QA prevista
+- Digitar a data inteira pelo teclado sem perder dia/mês ao chegar no ano.
+- Confirmar que o ano não aceita mais de 4 dígitos.
+- Selecionar a mesma data pelo calendário e validar que o resultado é idêntico ao digitado.
+- Testar data anterior à aplicação inicial.
+- Testar data igual à aplicação inicial.
+- Testar data anterior ao `resgate_total`, igual ao `resgate_total` e posterior ao `resgate_total`.
+- Testar o auto-preenchimento e a auto-marcação do “Fechar Posição”.
