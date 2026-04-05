@@ -205,6 +205,11 @@ export default function CadastrarTransacaoPage() {
   const [selectedCustodiaId, setSelectedCustodiaId] = useState("");
   const [saldoDisponivel, setSaldoDisponivel] = useState<number | null>(null);
   const [calculandoSaldo, setCalculandoSaldo] = useState(false);
+  const [resgateDateInput, setResgateDateInput] = useState("");
+  const [resgateDateError, setResgateDateError] = useState<string | null>(null);
+  const [resgateDate, setResgateDate] = useState<Date | undefined>();
+  const [fecharPosicao, setFecharPosicao] = useState(false);
+  const [resgateCalendarOpen, setResgateCalendarOpen] = useState(false);
 
   // form state
   const [categoriaId, setCategoriaId] = useState("");
