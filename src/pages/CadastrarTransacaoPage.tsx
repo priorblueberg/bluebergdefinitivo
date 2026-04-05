@@ -1,12 +1,20 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, PlusCircle, AlertTriangle, HelpCircle } from "lucide-react";
+import { format, parse, isValid } from "date-fns";
+import { ArrowLeft, PlusCircle, AlertTriangle, HelpCircle, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
+import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -41,6 +49,30 @@ interface CustodiaItem {
   instituicao_id: string | null;
   emissor_id: string | null;
   categoria_id: string;
+  preco_unitario: number | null;
+  resgate_total: string | null;
+}
+
+/** Apply dd/mm/aaaa mask to raw input */
+function applyDateMask(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return digits.slice(0, 2) + "/" + digits.slice(2);
+  return digits.slice(0, 2) + "/" + digits.slice(2, 4) + "/" + digits.slice(4);
+}
+
+/** Parse dd/mm/yyyy to Date or null */
+function parseDateInput(masked: string): Date | null {
+  if (masked.length !== 10) return null;
+  const d = parse(masked, "dd/MM/yyyy", new Date());
+  if (!isValid(d)) return null;
+  const year = d.getFullYear();
+  if (year < 1900 || year > 2100) return null;
+  return d;
+}
+
+function numberToCurrency(num: number): string {
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const TIPOS_MOVIMENTACAO = [
@@ -154,7 +186,7 @@ function buildNomeAtivo(
     .join(" ");
 }
 
-import { calcSaldoPrefixado } from "@/lib/saldoCalculations";
+
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
@@ -173,6 +205,11 @@ export default function CadastrarTransacaoPage() {
   const [selectedCustodiaId, setSelectedCustodiaId] = useState("");
   const [saldoDisponivel, setSaldoDisponivel] = useState<number | null>(null);
   const [calculandoSaldo, setCalculandoSaldo] = useState(false);
+  const [resgateDateInput, setResgateDateInput] = useState("");
+  const [resgateDateError, setResgateDateError] = useState<string | null>(null);
+  const [resgateDate, setResgateDate] = useState<Date | undefined>();
+  const [fecharPosicao, setFecharPosicao] = useState(false);
+  const [resgateCalendarOpen, setResgateCalendarOpen] = useState(false);
 
   // form state
   const [categoriaId, setCategoriaId] = useState("");
@@ -271,7 +308,7 @@ export default function CadastrarTransacaoPage() {
     }
     supabase
       .from("custodia")
-      .select("id, nome, codigo_custodia, data_inicio, valor_investido, taxa, indexador, vencimento, modalidade, pagamento, produto_id, instituicao_id, emissor_id, categoria_id")
+      .select("id, nome, codigo_custodia, data_inicio, valor_investido, taxa, indexador, vencimento, modalidade, pagamento, produto_id, instituicao_id, emissor_id, categoria_id, preco_unitario, resgate_total")
       .eq("categoria_id", categoriaId)
       .eq("user_id", user.id)
       .order("nome")
@@ -293,44 +330,194 @@ export default function CadastrarTransacaoPage() {
     setVencimento(selectedCustodia.vencimento || "");
   }, [selectedCustodia]);
 
-  // Calculate saldo disponível for Resgate
+  // Auto-check fecharPosicao when valor matches saldoDisponivel
   useEffect(() => {
-    if (!isResgate || !selectedCustodia || !data || !user) {
-      setSaldoDisponivel(null);
+    if (!isResgate || saldoDisponivel == null || saldoDisponivel <= 0) return;
+    const valorNum = parseCurrencyToNumber(valor);
+    if (valorNum > 0 && Math.abs(valorNum - saldoDisponivel) < 0.01) {
+      if (!fecharPosicao) setFecharPosicao(true);
+    }
+  }, [valor, saldoDisponivel, isResgate]);
+
+  const handleFecharPosicaoChange = (checked: boolean) => {
+    setFecharPosicao(checked);
+    if (checked && saldoDisponivel != null && saldoDisponivel > 0) {
+      setValor(numberToCurrency(saldoDisponivel));
+    } else if (!checked) {
+      setValor("");
+    }
+  };
+
+  /** Clear resgate calculated fields without touching dateInput */
+  const clearResgateCalculated = () => {
+    setResgateDate(undefined);
+    setSaldoDisponivel(null);
+    setFecharPosicao(false);
+    setValor("");
+    setResgateDateError(null);
+  };
+
+  /** Validate and process a complete resgate date */
+  const processResgateDate = async (d: Date) => {
+    if (!selectedCustodia || !user) return;
+    setResgateDate(d);
+    setSaldoDisponivel(null);
+    setFecharPosicao(false);
+    setValor("");
+    setResgateDateError(null);
+
+    const dateISO = format(d, "yyyy-MM-dd");
+    setData(dateISO);
+
+    // Validate: not before data_inicio
+    const inicioDate = new Date(selectedCustodia.data_inicio + "T00:00:00");
+    if (d < inicioDate) {
+      setResgateDateError("A data selecionada não pode ser anterior à aplicação inicial.");
       return;
     }
 
-    let cancelled = false;
-    setCalculandoSaldo(true);
+    // Validate: not in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (d > today) {
+      setResgateDateError("A data não pode ser superior à data atual.");
+      return;
+    }
 
-    (async () => {
-      try {
-        if (selectedCustodia.modalidade === "Prefixado" && selectedCustodia.taxa) {
-          const saldo = await calcSaldoPrefixado(
-            selectedCustodia.valor_investido,
-            selectedCustodia.taxa,
-            selectedCustodia.data_inicio,
-            data,
-            selectedCustodia.codigo_custodia,
-            user.id,
-            selectedCustodia.pagamento,
-            selectedCustodia.vencimento
-          );
-          if (!cancelled) setSaldoDisponivel(saldo);
-        } else {
-          // For other modalidades, use valor_investido as approximation
-          if (!cancelled) setSaldoDisponivel(selectedCustodia.valor_investido);
-        }
-      } catch (err) {
-        console.error("Erro ao calcular saldo:", err);
-        if (!cancelled) setSaldoDisponivel(null);
-      } finally {
-        if (!cancelled) setCalculandoSaldo(false);
+    // Validate: not after vencimento
+    if (selectedCustodia.vencimento) {
+      const vencDate = new Date(selectedCustodia.vencimento + "T00:00:00");
+      if (d > vencDate) {
+        setResgateDateError("A data não pode ser posterior ao vencimento do título.");
+        return;
       }
-    })();
+    }
 
-    return () => { cancelled = true; };
-  }, [isResgate, selectedCustodia, data, user]);
+    // Validate: if resgate_total exists, date must be before it
+    if (selectedCustodia.resgate_total) {
+      const resgateDate = new Date(selectedCustodia.resgate_total + "T00:00:00");
+      if (d >= resgateDate) {
+        setResgateDateError("A data deve ser anterior à data do resgate total.");
+        return;
+      }
+    }
+
+    // Validate: business day
+    const { data: diaUtil } = await supabase
+      .from("calendario_dias_uteis")
+      .select("dia_util")
+      .eq("data", dateISO)
+      .maybeSingle();
+
+    if (!diaUtil || !diaUtil.dia_util) {
+      setResgateDateError("A data selecionada não é um dia útil.");
+      return;
+    }
+
+    // Calculate saldo using renda fixa engine
+    const isRendaFixaEngine = (selectedCustodia.modalidade === "Prefixado" || selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado") && selectedCustodia.taxa && selectedCustodia.preco_unitario;
+
+    if (isRendaFixaEngine) {
+      setCalculandoSaldo(true);
+      try {
+        const isPosFixadoCDI = (selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado") && selectedCustodia.indexador === "CDI";
+
+        const calQuery = supabase
+          .from("calendario_dias_uteis")
+          .select("data, dia_util")
+          .gte("data", selectedCustodia.data_inicio)
+          .lte("data", dateISO)
+          .order("data");
+        const movQuery = supabase
+          .from("movimentacoes")
+          .select("data, tipo_movimentacao, valor")
+          .eq("codigo_custodia", selectedCustodia.codigo_custodia)
+          .eq("user_id", user.id)
+          .order("data");
+        const custQuery = supabase
+          .from("custodia")
+          .select("resgate_total")
+          .eq("codigo_custodia", selectedCustodia.codigo_custodia)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        const cdiQuery = isPosFixadoCDI
+          ? supabase
+              .from("historico_cdi")
+              .select("data, taxa_anual")
+              .gte("data", selectedCustodia.data_inicio)
+              .lte("data", dateISO)
+              .order("data")
+          : null;
+
+        const [calRes, movRes, custRes, cdiRes] = await Promise.all([
+          calQuery, movQuery, custQuery, ...(cdiQuery ? [cdiQuery] : []),
+        ]);
+
+        const calendario = calRes.data || [];
+        const movimentacoes = (movRes.data || []).map((m: any) => ({
+          data: m.data,
+          tipo_movimentacao: m.tipo_movimentacao,
+          valor: Number(m.valor),
+        }));
+
+        const cdiRecords = isPosFixadoCDI && cdiRes
+          ? ((cdiRes as any).data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) }))
+          : undefined;
+
+        const rows = calcularRendaFixaDiario({
+          dataInicio: selectedCustodia.data_inicio,
+          dataCalculo: dateISO,
+          taxa: selectedCustodia.taxa!,
+          modalidade: selectedCustodia.modalidade!,
+          puInicial: selectedCustodia.preco_unitario!,
+          calendario,
+          movimentacoes,
+          dataResgateTotal: custRes.data?.resgate_total ?? null,
+          pagamento: selectedCustodia.pagamento,
+          vencimento: selectedCustodia.vencimento,
+          indexador: selectedCustodia.indexador,
+          cdiRecords,
+        });
+
+        const rowDia = rows.find((r) => r.data === dateISO);
+        if (rowDia) {
+          setSaldoDisponivel(rowDia.liquido);
+        }
+      } catch {
+        setSaldoDisponivel(null);
+      } finally {
+        setCalculandoSaldo(false);
+      }
+    } else {
+      setSaldoDisponivel(selectedCustodia.valor_investido);
+    }
+  };
+
+  /** Handle typed resgate date input with mask */
+  const handleResgateDateInputChange = (rawValue: string) => {
+    const masked = applyDateMask(rawValue);
+    setResgateDateInput(masked);
+    clearResgateCalculated();
+    setData("");
+
+    const parsed = parseDateInput(masked);
+    if (parsed) {
+      processResgateDate(parsed);
+    }
+  };
+
+  /** Handle resgate calendar selection */
+  const handleResgateCalendarSelect = (d: Date | undefined) => {
+    setResgateCalendarOpen(false);
+    if (!d) {
+      setResgateDateInput("");
+      clearResgateCalculated();
+      setData("");
+      return;
+    }
+    setResgateDateInput(format(d, "dd/MM/yyyy"));
+    processResgateDate(d);
+  };
 
   // Load edit data
   useEffect(() => {
@@ -388,6 +575,11 @@ export default function CadastrarTransacaoPage() {
     setVencimento("");
     setSelectedCustodiaId("");
     setSaldoDisponivel(null);
+    setResgateDateInput("");
+    setResgateDate(undefined);
+    setResgateDateError(null);
+    setFecharPosicao(false);
+    setResgateCalendarOpen(false);
     if (isEditing) {
       navigate("/movimentacoes");
     }
@@ -399,32 +591,21 @@ export default function CadastrarTransacaoPage() {
       return;
     }
 
-    // ── Resgate submission ── (moved up to validate before business day)
+    // ── Resgate submission ──
     if (isResgate && selectedCustodia) {
       const errors = new Set<string>();
-      if (!data) errors.add("data");
+      if (!resgateDate || !data) errors.add("data");
       if (!valor || parseCurrencyToNumber(valor) <= 0) errors.add("valor");
       if (errors.size > 0) {
         setValidationErrors(errors);
         toast.error("Preencha todos os campos obrigatórios.");
         return;
       }
+      if (resgateDateError) {
+        toast.error(resgateDateError);
+        return;
+      }
       setValidationErrors(new Set());
-
-      // Business day validation for resgate
-      const { data: diaUtil } = await supabase
-        .from("calendario_dias_uteis")
-        .select("dia_util")
-        .eq("data", data)
-        .single();
-      if (!diaUtil) {
-        toast.error("A data informada não foi encontrada no calendário.");
-        return;
-      }
-      if (!diaUtil.dia_util) {
-        toast.error("A Data de Transação deve ser um dia útil.");
-        return;
-      }
 
       const valorNum = parseCurrencyToNumber(valor);
       if (saldoDisponivel !== null && valorNum > saldoDisponivel) {
@@ -434,12 +615,13 @@ export default function CadastrarTransacaoPage() {
 
       setSubmitting(true);
       try {
+        const tipoMovimentacaoFinal = fecharPosicao ? "Resgate Total" : "Resgate";
         const fmtBR = (v: number) =>
           v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: selectedCustodia.categoria_id,
-          tipo_movimentacao: "Resgate",
+          tipo_movimentacao: tipoMovimentacaoFinal,
           data,
           produto_id: selectedCustodia.produto_id,
           valor: valorNum,
@@ -466,7 +648,7 @@ export default function CadastrarTransacaoPage() {
           .select("id")
           .eq("codigo_custodia", selectedCustodia.codigo_custodia)
           .eq("user_id", user.id)
-          .eq("tipo_movimentacao", "Resgate")
+          .eq("tipo_movimentacao", tipoMovimentacaoFinal)
           .order("created_at", { ascending: false })
           .limit(1);
 
@@ -1028,6 +1210,10 @@ export default function CadastrarTransacaoPage() {
                   setValor("");
                   setData("");
                   setSaldoDisponivel(null);
+                  setResgateDateInput("");
+                  setResgateDate(undefined);
+                  setResgateDateError(null);
+                  setFecharPosicao(false);
                 }}
                 placeholder="Selecione o título em custódia"
                 options={custodiaItems.map((c) => ({
@@ -1038,153 +1224,189 @@ export default function CadastrarTransacaoPage() {
             </Field>
 
             {selectedCustodia && (
-              <Field label="Data de Transação" required>
-                <input
-                  type="date"
-                  value={data}
-                  onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); setSaldoDisponivel(null); }}
-                  className={`input-field max-w-[220px] ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                />
-              </Field>
-            )}
-
-            {selectedCustodia && data && /^\d{4}-\d{2}-\d{2}$/.test(data) && parseInt(data.slice(0, 4), 10) >= 1900 && (
               <>
-                {/* Row 1: Valor, Vencimento */}
-                <div className="grid grid-cols-2 gap-4">
-
-                  <Field label="Valor do Resgate (R$)" required>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        R$
-                      </span>
-                      <input
-                        type="text"
-                        value={valor}
-                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
-                        placeholder="0,00"
-                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                      />
-                    </div>
-                  </Field>
-
-                  <Field label="Vencimento">
-                    <input
-                      type="date"
-                      value={vencimento}
-                      disabled
-                      className="input-field opacity-60"
+                <Field label="Data de Transação" required>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="dd/mm/aaaa"
+                      value={resgateDateInput}
+                      className={cn("flex-1 max-w-[220px]", resgateDateError || validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : "")}
+                      onChange={(e) => { handleResgateDateInputChange(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
                     />
-                  </Field>
-                </div>
-
-                {/* Saldo disponível info */}
-                <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
-                  <p className="text-xs text-muted-foreground">
-                    Saldo disponível para resgate em{" "}
-                    {new Date(data + "T00:00:00").toLocaleDateString("pt-BR")}:
-                  </p>
-                  <p className="text-sm font-semibold text-foreground mt-0.5">
-                    {calculandoSaldo
-                      ? "Calculando..."
-                      : saldoDisponivel !== null
-                        ? fmtBrlDisplay(saldoDisponivel)
-                        : "—"
-                    }
-                  </p>
-                </div>
-
-                {/* Alert if valor > saldo */}
-                {valorResgateSuperaSaldo && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      O valor do resgate (R$ {valor}) excede o saldo disponível ({fmtBrlDisplay(saldoDisponivel)}).
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Row 2: Instituição, Emissor (readonly) */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Corretora">
-                    <input
-                      type="text"
-                      value={getInstituicaoNome(instituicaoId)}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
-
-                  <Field label="Emissor">
-                    <input
-                      type="text"
-                      value={getEmissorNome(emissorId)}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
-                </div>
-
-                {/* Row 3: Modalidade, (Indexador), Taxa, Pagamento (readonly) */}
-                <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
-                  <Field label="Modalidade">
-                    <input
-                      type="text"
-                      value={modalidade}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
-
-                  {isPosFixado && (
-                    <Field label="Indexador">
-                      <input
-                        type="text"
-                        value={indexador}
-                        disabled
-                        className="input-field opacity-60"
-                      />
-                    </Field>
+                    <Popover open={resgateCalendarOpen} onOpenChange={setResgateCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="icon" className="shrink-0">
+                          <CalendarIcon className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={resgateDate}
+                          onSelect={handleResgateCalendarSelect}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  {resgateDateError && (
+                    <p className="text-xs font-medium text-destructive mt-1">{resgateDateError}</p>
                   )}
+                </Field>
 
-                  <Field label="Taxa">
-                    <input
-                      type="text"
-                      value={taxa ? `${taxa}%` : "—"}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
+                {resgateDate && !resgateDateError && (
+                  <>
+                    {/* Row 1: Valor, Vencimento */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Valor do Resgate (R$)" required>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                            R$
+                          </span>
+                          <input
+                            type="text"
+                            value={valor}
+                            onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
+                            placeholder="0,00"
+                            className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                          />
+                        </div>
+                      </Field>
 
-                  <Field label="Pagamento">
-                    <input
-                      type="text"
-                      value={pagamento}
-                      disabled
-                      className="input-field opacity-60"
-                    />
-                  </Field>
-                </div>
+                      <Field label="Vencimento">
+                        <input
+                          type="text"
+                          value={vencimento ? new Date(vencimento + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+                    </div>
 
-                {/* Actions */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={submitting || valorResgateSuperaSaldo}
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
-                  >
-                    <PlusCircle size={16} />
-                    {submitting ? "Enviando..." : "Registrar Resgate"}
-                  </button>
-                </div>
+                    {/* Saldo disponível info */}
+                    <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
+                      <p className="text-xs text-muted-foreground">
+                        Saldo disponível para resgate em{" "}
+                        {resgateDateInput}:
+                      </p>
+                      <p className="text-sm font-semibold text-foreground mt-0.5">
+                        {calculandoSaldo
+                          ? "Calculando..."
+                          : saldoDisponivel !== null
+                            ? fmtBrlDisplay(saldoDisponivel)
+                            : "—"
+                        }
+                      </p>
+                    </div>
+
+                    {/* Fechar Posição checkbox */}
+                    {saldoDisponivel != null && saldoDisponivel > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="fechar-posicao-cadastrar"
+                          checked={fecharPosicao}
+                          onCheckedChange={(checked) => handleFecharPosicaoChange(!!checked)}
+                        />
+                        <label htmlFor="fechar-posicao-cadastrar" className="text-sm font-medium text-foreground cursor-pointer">
+                          Fechar Posição
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Alert if valor > saldo */}
+                    {valorResgateSuperaSaldo && (
+                      <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          O valor do resgate (R$ {valor}) excede o saldo disponível ({fmtBrlDisplay(saldoDisponivel)}).
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Row 2: Instituição, Emissor (readonly) */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Corretora">
+                        <input
+                          type="text"
+                          value={getInstituicaoNome(instituicaoId)}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+
+                      <Field label="Emissor">
+                        <input
+                          type="text"
+                          value={getEmissorNome(emissorId)}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+                    </div>
+
+                    {/* Row 3: Modalidade, (Indexador), Taxa, Pagamento (readonly) */}
+                    <div className={`grid gap-4 ${isPosFixado ? "grid-cols-4" : "grid-cols-3"}`}>
+                      <Field label="Modalidade">
+                        <input
+                          type="text"
+                          value={modalidade}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+
+                      {isPosFixado && (
+                        <Field label="Indexador">
+                          <input
+                            type="text"
+                            value={indexador}
+                            disabled
+                            className="input-field opacity-60"
+                          />
+                        </Field>
+                      )}
+
+                      <Field label="Taxa">
+                        <input
+                          type="text"
+                          value={taxa ? `${taxa}%` : "—"}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+
+                      <Field label="Pagamento">
+                        <input
+                          type="text"
+                          value={pagamento}
+                          disabled
+                          className="input-field opacity-60"
+                        />
+                      </Field>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={resetForm}
+                        className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={submitting || valorResgateSuperaSaldo}
+                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
+                      >
+                        <PlusCircle size={16} />
+                        {submitting ? "Enviando..." : "Registrar Resgate"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </>
