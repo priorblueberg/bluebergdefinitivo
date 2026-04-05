@@ -304,6 +304,7 @@ export default function PosicaoConsolidadaPage() {
       vencimento: p.vencimento,
       preco_unitario: p.preco_unitario,
       valor_investido: p.valor_investido,
+      resgate_total: p.resgate_total,
     });
     setDialogTipo(tipo);
     setDialogOpen(true);
