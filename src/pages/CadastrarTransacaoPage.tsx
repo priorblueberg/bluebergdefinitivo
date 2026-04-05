@@ -49,6 +49,30 @@ interface CustodiaItem {
   instituicao_id: string | null;
   emissor_id: string | null;
   categoria_id: string;
+  preco_unitario: number | null;
+  resgate_total: string | null;
+}
+
+/** Apply dd/mm/aaaa mask to raw input */
+function applyDateMask(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return digits.slice(0, 2) + "/" + digits.slice(2);
+  return digits.slice(0, 2) + "/" + digits.slice(2, 4) + "/" + digits.slice(4);
+}
+
+/** Parse dd/mm/yyyy to Date or null */
+function parseDateInput(masked: string): Date | null {
+  if (masked.length !== 10) return null;
+  const d = parse(masked, "dd/MM/yyyy", new Date());
+  if (!isValid(d)) return null;
+  const year = d.getFullYear();
+  if (year < 1900 || year > 2100) return null;
+  return d;
+}
+
+function numberToCurrency(num: number): string {
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const TIPOS_MOVIMENTACAO = [
