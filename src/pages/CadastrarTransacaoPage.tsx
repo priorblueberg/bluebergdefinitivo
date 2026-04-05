@@ -575,6 +575,11 @@ export default function CadastrarTransacaoPage() {
     setVencimento("");
     setSelectedCustodiaId("");
     setSaldoDisponivel(null);
+    setResgateDateInput("");
+    setResgateDate(undefined);
+    setResgateDateError(null);
+    setFecharPosicao(false);
+    setResgateCalendarOpen(false);
     if (isEditing) {
       navigate("/movimentacoes");
     }
