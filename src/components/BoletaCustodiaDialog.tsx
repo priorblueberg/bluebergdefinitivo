@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { AlertTriangle } from "lucide-react";
+import { format, parse, isValid } from "date-fns";
+import { AlertTriangle, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
@@ -16,6 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export interface CustodiaRowForBoleta {
   id: string;
@@ -37,6 +40,7 @@ export interface CustodiaRowForBoleta {
   vencimento: string | null;
   preco_unitario: number | null;
   valor_investido: number;
+  resgate_total?: string | null;
 }
 
 interface Props {
@@ -65,6 +69,24 @@ function numberToCurrency(num: number): string {
   return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** Apply dd/mm/aaaa mask to raw input */
+function applyDateMask(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return digits.slice(0, 2) + "/" + digits.slice(2);
+  return digits.slice(0, 2) + "/" + digits.slice(2, 4) + "/" + digits.slice(4);
+}
+
+/** Parse dd/mm/yyyy to Date or null */
+function parseDateInput(masked: string): Date | null {
+  if (masked.length !== 10) return null;
+  const d = parse(masked, "dd/MM/yyyy", new Date());
+  if (!isValid(d)) return null;
+  const year = d.getFullYear();
+  if (year < 1900 || year > 2100) return null;
+  return d;
+}
+
 export default function BoletaCustodiaDialog({
   open,
   onClose,
@@ -74,6 +96,7 @@ export default function BoletaCustodiaDialog({
   dataReferenciaISO,
   onSuccess,
 }: Props) {
+  const [dateInput, setDateInput] = useState("");
   const [date, setDate] = useState<Date | undefined>();
   const [valor, setValor] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -83,6 +106,7 @@ export default function BoletaCustodiaDialog({
   const [loadingCota, setLoadingCota] = useState(false);
   const [fecharPosicao, setFecharPosicao] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const fmtReadonly = (v: string | null | undefined) => v ?? "—";
   const fmtTaxa = (v: number | null) =>
@@ -108,18 +132,35 @@ export default function BoletaCustodiaDialog({
     }
   };
 
-  const handleDateSelect = async (d: Date | undefined) => {
+  /** Clear calculated fields without touching dateInput */
+  const clearCalculated = () => {
+    setDate(undefined);
+    setValorCotaDia(null);
+    setSaldoDisponivel(null);
+    setFecharPosicao(false);
+    setValor("");
+    setDateError(null);
+  };
+
+  /** Validate and process a complete date */
+  const processDate = async (d: Date) => {
     setDate(d);
     setValorCotaDia(null);
     setSaldoDisponivel(null);
     setFecharPosicao(false);
     setValor("");
     setDateError(null);
-    if (!d) return;
 
     const dateISO = format(d, "yyyy-MM-dd");
 
-    // Validate: not in the future (> today)
+    // Validate: not before data_inicio
+    const inicioDate = new Date(row.data_inicio + "T00:00:00");
+    if (d < inicioDate) {
+      setDateError("A data selecionada não pode ser anterior à aplicação inicial.");
+      return;
+    }
+
+    // Validate: not in the future
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (d > today) {
@@ -132,6 +173,15 @@ export default function BoletaCustodiaDialog({
       const vencDate = new Date(row.vencimento + "T00:00:00");
       if (d > vencDate) {
         setDateError("A data não pode ser posterior ao vencimento do título.");
+        return;
+      }
+    }
+
+    // Validate: if resgate_total exists, date must be before it
+    if (tipo === "Resgate" && row.resgate_total) {
+      const resgateDate = new Date(row.resgate_total + "T00:00:00");
+      if (d >= resgateDate) {
+        setDateError("A data deve ser anterior à data do resgate total.");
         return;
       }
     }
@@ -230,6 +280,33 @@ export default function BoletaCustodiaDialog({
     }
   };
 
+  /** Handle typed date input with mask */
+  const handleDateInputChange = (rawValue: string) => {
+    const masked = applyDateMask(rawValue);
+    setDateInput(masked);
+
+    // Clear calculated data whenever input changes
+    clearCalculated();
+
+    // Only process when we have a complete date
+    const parsed = parseDateInput(masked);
+    if (parsed) {
+      processDate(parsed);
+    }
+  };
+
+  /** Handle calendar selection */
+  const handleCalendarSelect = (d: Date | undefined) => {
+    setCalendarOpen(false);
+    if (!d) {
+      setDateInput("");
+      clearCalculated();
+      return;
+    }
+    setDateInput(format(d, "dd/MM/yyyy"));
+    processDate(d);
+  };
+
   const handleSubmit = async () => {
     if (!date) {
       toast.error("Selecione a data da operação.");
@@ -246,11 +323,6 @@ export default function BoletaCustodiaDialog({
     }
 
     const dateISO = format(date, "yyyy-MM-dd");
-
-    if (tipo === "Resgate" && saldoDisponivel != null && valorNum > saldoDisponivel) {
-      toast.error("Valor excede o saldo disponível para resgate.");
-      return;
-    }
 
     if (tipo === "Resgate" && saldoDisponivel != null && valorNum > saldoDisponivel) {
       toast.error("Valor excede o saldo disponível para resgate.");
@@ -313,12 +385,14 @@ export default function BoletaCustodiaDialog({
   };
 
   const handleClose = () => {
+    setDateInput("");
     setDate(undefined);
     setValor("");
     setSaldoDisponivel(null);
     setValorCotaDia(null);
     setFecharPosicao(false);
     setDateError(null);
+    setCalendarOpen(false);
     onClose();
   };
 
@@ -357,27 +431,30 @@ export default function BoletaCustodiaDialog({
 
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-foreground">Data da Transação *</label>
-          <Input
-            type="date"
-            value={date ? format(date, "yyyy-MM-dd") : ""}
-            className={dateError ? "border-destructive ring-1 ring-destructive" : ""}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (!val) {
-                setDate(undefined);
-                setDateError(null);
-                setSaldoDisponivel(null);
-                setValorCotaDia(null);
-                setFecharPosicao(false);
-                setValor("");
-                return;
-              }
-              if (/^\d{4}-\d{2}-\d{2}$/.test(val) && parseInt(val.slice(0, 4), 10) >= 1900) {
-                const d = new Date(val + "T00:00:00");
-                handleDateSelect(d);
-              }
-            }}
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="dd/mm/aaaa"
+              value={dateInput}
+              className={cn("flex-1", dateError ? "border-destructive ring-1 ring-destructive" : "")}
+              onChange={(e) => handleDateInputChange(e.target.value)}
+            />
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="shrink-0">
+                  <CalendarIcon className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={handleCalendarSelect}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           {dateError && (
             <p className="text-xs font-medium text-destructive">{dateError}</p>
           )}
