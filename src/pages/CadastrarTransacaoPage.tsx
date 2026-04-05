@@ -186,7 +186,7 @@ function buildNomeAtivo(
     .join(" ");
 }
 
-import { calcSaldoPrefixado } from "@/lib/saldoCalculations";
+
 
 export default function CadastrarTransacaoPage() {
   const { user } = useAuth();
