@@ -330,44 +330,194 @@ export default function CadastrarTransacaoPage() {
     setVencimento(selectedCustodia.vencimento || "");
   }, [selectedCustodia]);
 
-  // Calculate saldo disponível for Resgate
+  // Auto-check fecharPosicao when valor matches saldoDisponivel
   useEffect(() => {
-    if (!isResgate || !selectedCustodia || !data || !user) {
-      setSaldoDisponivel(null);
+    if (!isResgate || saldoDisponivel == null || saldoDisponivel <= 0) return;
+    const valorNum = parseCurrencyToNumber(valor);
+    if (valorNum > 0 && Math.abs(valorNum - saldoDisponivel) < 0.01) {
+      if (!fecharPosicao) setFecharPosicao(true);
+    }
+  }, [valor, saldoDisponivel, isResgate]);
+
+  const handleFecharPosicaoChange = (checked: boolean) => {
+    setFecharPosicao(checked);
+    if (checked && saldoDisponivel != null && saldoDisponivel > 0) {
+      setValor(numberToCurrency(saldoDisponivel));
+    } else if (!checked) {
+      setValor("");
+    }
+  };
+
+  /** Clear resgate calculated fields without touching dateInput */
+  const clearResgateCalculated = () => {
+    setResgateDate(undefined);
+    setSaldoDisponivel(null);
+    setFecharPosicao(false);
+    setValor("");
+    setResgateDateError(null);
+  };
+
+  /** Validate and process a complete resgate date */
+  const processResgateDate = async (d: Date) => {
+    if (!selectedCustodia || !user) return;
+    setResgateDate(d);
+    setSaldoDisponivel(null);
+    setFecharPosicao(false);
+    setValor("");
+    setResgateDateError(null);
+
+    const dateISO = format(d, "yyyy-MM-dd");
+    setData(dateISO);
+
+    // Validate: not before data_inicio
+    const inicioDate = new Date(selectedCustodia.data_inicio + "T00:00:00");
+    if (d < inicioDate) {
+      setResgateDateError("A data selecionada não pode ser anterior à aplicação inicial.");
       return;
     }
 
-    let cancelled = false;
-    setCalculandoSaldo(true);
+    // Validate: not in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (d > today) {
+      setResgateDateError("A data não pode ser superior à data atual.");
+      return;
+    }
 
-    (async () => {
-      try {
-        if (selectedCustodia.modalidade === "Prefixado" && selectedCustodia.taxa) {
-          const saldo = await calcSaldoPrefixado(
-            selectedCustodia.valor_investido,
-            selectedCustodia.taxa,
-            selectedCustodia.data_inicio,
-            data,
-            selectedCustodia.codigo_custodia,
-            user.id,
-            selectedCustodia.pagamento,
-            selectedCustodia.vencimento
-          );
-          if (!cancelled) setSaldoDisponivel(saldo);
-        } else {
-          // For other modalidades, use valor_investido as approximation
-          if (!cancelled) setSaldoDisponivel(selectedCustodia.valor_investido);
-        }
-      } catch (err) {
-        console.error("Erro ao calcular saldo:", err);
-        if (!cancelled) setSaldoDisponivel(null);
-      } finally {
-        if (!cancelled) setCalculandoSaldo(false);
+    // Validate: not after vencimento
+    if (selectedCustodia.vencimento) {
+      const vencDate = new Date(selectedCustodia.vencimento + "T00:00:00");
+      if (d > vencDate) {
+        setResgateDateError("A data não pode ser posterior ao vencimento do título.");
+        return;
       }
-    })();
+    }
 
-    return () => { cancelled = true; };
-  }, [isResgate, selectedCustodia, data, user]);
+    // Validate: if resgate_total exists, date must be before it
+    if (selectedCustodia.resgate_total) {
+      const resgateDate = new Date(selectedCustodia.resgate_total + "T00:00:00");
+      if (d >= resgateDate) {
+        setResgateDateError("A data deve ser anterior à data do resgate total.");
+        return;
+      }
+    }
+
+    // Validate: business day
+    const { data: diaUtil } = await supabase
+      .from("calendario_dias_uteis")
+      .select("dia_util")
+      .eq("data", dateISO)
+      .maybeSingle();
+
+    if (!diaUtil || !diaUtil.dia_util) {
+      setResgateDateError("A data selecionada não é um dia útil.");
+      return;
+    }
+
+    // Calculate saldo using renda fixa engine
+    const isRendaFixaEngine = (selectedCustodia.modalidade === "Prefixado" || selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado") && selectedCustodia.taxa && selectedCustodia.preco_unitario;
+
+    if (isRendaFixaEngine) {
+      setCalculandoSaldo(true);
+      try {
+        const isPosFixadoCDI = (selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado") && selectedCustodia.indexador === "CDI";
+
+        const calQuery = supabase
+          .from("calendario_dias_uteis")
+          .select("data, dia_util")
+          .gte("data", selectedCustodia.data_inicio)
+          .lte("data", dateISO)
+          .order("data");
+        const movQuery = supabase
+          .from("movimentacoes")
+          .select("data, tipo_movimentacao, valor")
+          .eq("codigo_custodia", selectedCustodia.codigo_custodia)
+          .eq("user_id", user.id)
+          .order("data");
+        const custQuery = supabase
+          .from("custodia")
+          .select("resgate_total")
+          .eq("codigo_custodia", selectedCustodia.codigo_custodia)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        const cdiQuery = isPosFixadoCDI
+          ? supabase
+              .from("historico_cdi")
+              .select("data, taxa_anual")
+              .gte("data", selectedCustodia.data_inicio)
+              .lte("data", dateISO)
+              .order("data")
+          : null;
+
+        const [calRes, movRes, custRes, cdiRes] = await Promise.all([
+          calQuery, movQuery, custQuery, ...(cdiQuery ? [cdiQuery] : []),
+        ]);
+
+        const calendario = calRes.data || [];
+        const movimentacoes = (movRes.data || []).map((m: any) => ({
+          data: m.data,
+          tipo_movimentacao: m.tipo_movimentacao,
+          valor: Number(m.valor),
+        }));
+
+        const cdiRecords = isPosFixadoCDI && cdiRes
+          ? ((cdiRes as any).data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) }))
+          : undefined;
+
+        const rows = calcularRendaFixaDiario({
+          dataInicio: selectedCustodia.data_inicio,
+          dataCalculo: dateISO,
+          taxa: selectedCustodia.taxa!,
+          modalidade: selectedCustodia.modalidade!,
+          puInicial: selectedCustodia.preco_unitario!,
+          calendario,
+          movimentacoes,
+          dataResgateTotal: custRes.data?.resgate_total ?? null,
+          pagamento: selectedCustodia.pagamento,
+          vencimento: selectedCustodia.vencimento,
+          indexador: selectedCustodia.indexador,
+          cdiRecords,
+        });
+
+        const rowDia = rows.find((r) => r.data === dateISO);
+        if (rowDia) {
+          setSaldoDisponivel(rowDia.liquido);
+        }
+      } catch {
+        setSaldoDisponivel(null);
+      } finally {
+        setCalculandoSaldo(false);
+      }
+    } else {
+      setSaldoDisponivel(selectedCustodia.valor_investido);
+    }
+  };
+
+  /** Handle typed resgate date input with mask */
+  const handleResgateDateInputChange = (rawValue: string) => {
+    const masked = applyDateMask(rawValue);
+    setResgateDateInput(masked);
+    clearResgateCalculated();
+    setData("");
+
+    const parsed = parseDateInput(masked);
+    if (parsed) {
+      processResgateDate(parsed);
+    }
+  };
+
+  /** Handle resgate calendar selection */
+  const handleResgateCalendarSelect = (d: Date | undefined) => {
+    setResgateCalendarOpen(false);
+    if (!d) {
+      setResgateDateInput("");
+      clearResgateCalculated();
+      setData("");
+      return;
+    }
+    setResgateDateInput(format(d, "dd/MM/yyyy"));
+    processResgateDate(d);
+  };
 
   // Load edit data
   useEffect(() => {
