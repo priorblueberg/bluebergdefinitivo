@@ -109,6 +109,7 @@ export default function CarteiraRendaFixaPage() {
   const [ibovespaData, setIbovespaData] = useState<{ data: string; pontos: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; estrategia: string | null; emissor_nome: string; analysisProduct: AnalysisCustodiaProduct }[]>([]);
+  const [allCustodiaForCategoria, setAllCustodiaForCategoria] = useState<{ categoria_nome: string; valor_investido: number; custodia_no_dia: number | null }[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
 
@@ -129,6 +130,15 @@ export default function CarteiraRendaFixaPage() {
           .eq("user_id", user.id),
       ]);
 
+      // Store all custodia for category allocation (active, no resgate_total)
+      setAllCustodiaForCategoria((custodiaData || [])
+        .filter((r: any) => !r.resgate_total)
+        .map((r: any) => ({
+          categoria_nome: r.categorias?.nome || "Outros",
+          valor_investido: Number(r.valor_investido),
+          custodia_no_dia: r.custodia_no_dia != null ? Number(r.custodia_no_dia) : null,
+        }))
+      );
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
         .filter((r: any) => r.categorias?.nome === "Renda Fixa")
         .map((r: any) => ({
@@ -420,6 +430,22 @@ export default function CarteiraRendaFixaPage() {
     };
   }, [productList]);
 
+  // Category allocation (RF vs other categories)
+  const categoriaAllocation = useMemo(() => {
+    if (allCustodiaForCategoria.length === 0) return [];
+    const map = new Map<string, number>();
+    for (const c of allCustodiaForCategoria) {
+      const val = c.custodia_no_dia != null ? c.custodia_no_dia : c.valor_investido;
+      map.set(c.categoria_nome, (map.get(c.categoria_nome) || 0) + val);
+    }
+    const total = Array.from(map.values()).reduce((s, v) => s + v, 0);
+    if (total === 0) return [];
+    return Array.from(map.entries()).map(([name, value]) => ({
+      name,
+      value: parseFloat(((value / total) * 100).toFixed(1)),
+    }));
+  }, [allCustodiaForCategoria]);
+
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
@@ -595,49 +621,7 @@ export default function CarteiraRendaFixaPage() {
           {/* Detail Table */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
 
-          {/* Allocation Charts */}
-          {(allocationData.estrategia.length > 0 || allocationData.custodiante.length > 0 || allocationData.emissor.length > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { title: "Alocação por Estratégia", data: allocationData.estrategia },
-                { title: "Alocação por Custodiante", data: allocationData.custodiante },
-                { title: "Alocação por Emissor", data: allocationData.emissor },
-              ].map((chart) => (
-                <div key={chart.title} className="rounded-md border border-border bg-card p-4">
-                  <h3 className="text-xs font-semibold text-foreground mb-2">{chart.title}</h3>
-                  {chart.data.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-8">Sem dados</p>
-                  ) : (
-                    <div className="h-52">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={chart.data}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={70}
-                            innerRadius={30}
-                            paddingAngle={2}
-                            label={({ name, value }) => `${name}: ${value}%`}
-                            labelLine={{ strokeWidth: 0.5 }}
-                            style={{ fontSize: 9 }}
-                          >
-                            {chart.data.map((_, idx) => (
-                              <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip content={<PieTooltip />} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
+          
           {/* Posição Consolidada */}
           {productList.length > 0 && (
             <div className="space-y-1">
@@ -675,6 +659,52 @@ export default function CarteiraRendaFixaPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Allocation Charts - always visible */}
+      {!loading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { title: "Alocação por Estratégia", data: allocationData.estrategia },
+            { title: "Alocação por Custodiante", data: allocationData.custodiante },
+            { title: "Alocação por Emissor", data: allocationData.emissor },
+            { title: "Alocação por Categoria", data: categoriaAllocation },
+          ].map((chart) => (
+            <div key={chart.title} className="rounded-md border border-border bg-card p-4">
+              <h3 className="text-xs font-semibold text-foreground mb-2">{chart.title}</h3>
+              {chart.data.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-8">
+                  Sem títulos de Renda Fixa em custódia para cálculo de alocação
+                </p>
+              ) : (
+                <div className="h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={chart.data}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={70}
+                        innerRadius={30}
+                        paddingAngle={2}
+                        label={({ name, value }) => `${name}: ${value}%`}
+                        labelLine={{ strokeWidth: 0.5 }}
+                        style={{ fontSize: 9 }}
+                      >
+                        {chart.data.map((_, idx) => (
+                          <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<PieTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
