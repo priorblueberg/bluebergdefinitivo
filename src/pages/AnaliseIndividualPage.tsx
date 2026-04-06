@@ -265,7 +265,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           <p className="text-muted-foreground text-sm">Data de consulta anterior ao início do investimento</p>
         </div>
       ) : (
-        <div className={!isEmCustodia ? "opacity-60" : ""}>
+        <>
           {/* Summary cards at data_calculo */}
           {detailRows.length > 0 && (() => {
             const topRow = detailRows[0];
@@ -440,7 +440,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           {/* Detail tables — one per year */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel={tituloLabel} />
 
-        </div>
+        </>
       )}
     </div>
   );
