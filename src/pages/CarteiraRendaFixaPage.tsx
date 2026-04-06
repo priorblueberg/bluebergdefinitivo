@@ -109,6 +109,7 @@ export default function CarteiraRendaFixaPage() {
   const [ibovespaData, setIbovespaData] = useState<{ data: string; pontos: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; estrategia: string | null; emissor_nome: string; analysisProduct: AnalysisCustodiaProduct }[]>([]);
+  const [allCustodiaForCategoria, setAllCustodiaForCategoria] = useState<{ categoria_nome: string; valor_investido: number; custodia_no_dia: number | null }[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
 
