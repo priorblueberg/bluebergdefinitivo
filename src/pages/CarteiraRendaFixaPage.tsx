@@ -713,7 +713,7 @@ export default function CarteiraRendaFixaPage() {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
 
     </div>

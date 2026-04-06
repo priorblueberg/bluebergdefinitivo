@@ -440,7 +440,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           {/* Detail tables — one per year */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel={tituloLabel} />
 
-        </>
+        </div>
       )}
     </div>
   );
