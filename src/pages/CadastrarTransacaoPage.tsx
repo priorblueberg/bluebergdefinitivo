@@ -420,7 +420,7 @@ export default function CadastrarTransacaoPage() {
     if (isRendaFixaEngine) {
       setCalculandoSaldo(true);
       try {
-        const isPosFixadoCDI = (selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado") && selectedCustodia.indexador === "CDI";
+        const isPosFixadoCDI = ((selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado") && selectedCustodia.indexador === "CDI") || (selectedCustodia.modalidade === "Mista" && selectedCustodia.indexador === "CDI");
 
         const calQuery = supabase
           .from("calendario_dias_uteis")

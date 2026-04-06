@@ -204,7 +204,7 @@ export default function BoletaCustodiaDialog({
       setLoadingCota(true);
       if (tipo === "Resgate") setLoadingSaldo(true);
       try {
-        const isPosFixadoCDI = (row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.indexador === "CDI";
+        const isPosFixadoCDI = ((row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.indexador === "CDI") || (row.modalidade === "Mista" && row.indexador === "CDI");
 
         const calQuery = supabase
             .from("calendario_dias_uteis")
