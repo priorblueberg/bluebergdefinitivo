@@ -393,8 +393,8 @@ export default function PosicaoConsolidadaPage() {
                     </TableCell>
                     <TableCell className="font-medium">{row.nome}</TableCell>
                     <TableCell>{fmtBrl(row.valorAtualizado)}</TableCell>
-                    <TableCell className={row.ganhoFinanceiro >= 0 ? "text-emerald-600" : "text-destructive"}>{fmtBrl(row.ganhoFinanceiro)}</TableCell>
-                    <TableCell className={row.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{row.rentabilidade.toFixed(2)}%</TableCell>
+                    <TableCell>{fmtBrl(row.ganhoFinanceiro)}</TableCell>
+                    <TableCell>{row.rentabilidade.toFixed(2)}%</TableCell>
                     <TableCell>{row.custodiante}</TableCell>
                     <TableCell className="text-right font-medium">{pctPortfolio.toFixed(2)}%</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -413,8 +413,8 @@ export default function PosicaoConsolidadaPage() {
                 <TableCell />
                 <TableCell>Total</TableCell>
                 <TableCell>{fmtBrl(totalValor)}</TableCell>
-                <TableCell className="text-emerald-600">{fmtBrl(totalGanho)}</TableCell>
-                <TableCell className={carteiraRentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{carteiraRentabilidade.toFixed(2)}%</TableCell>
+                <TableCell>{fmtBrl(totalGanho)}</TableCell>
+                <TableCell>{carteiraRentabilidade.toFixed(2)}%</TableCell>
                 <TableCell />
                 <TableCell className="text-right">100,00%</TableCell>
                 <TableCell />
