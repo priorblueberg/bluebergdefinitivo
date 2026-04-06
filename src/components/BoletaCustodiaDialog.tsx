@@ -198,13 +198,13 @@ export default function BoletaCustodiaDialog({
       return;
     }
 
-    const isRendaFixaEngine = (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.taxa && row.preco_unitario;
+    const isRendaFixaEngine = (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado" || row.modalidade === "Mista") && row.taxa && row.preco_unitario;
 
     if (isRendaFixaEngine) {
       setLoadingCota(true);
       if (tipo === "Resgate") setLoadingSaldo(true);
       try {
-        const isPosFixadoCDI = (row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.indexador === "CDI";
+        const isPosFixadoCDI = ((row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.indexador === "CDI") || (row.modalidade === "Mista" && row.indexador === "CDI");
 
         const calQuery = supabase
             .from("calendario_dias_uteis")
