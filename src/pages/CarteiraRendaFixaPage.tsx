@@ -467,7 +467,7 @@ export default function CarteiraRendaFixaPage() {
     carteiraInfo.status === "Ativa" ? (
       <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">Ativa</Badge>
     ) : carteiraInfo.status === "Encerrada" ? (
-      <Badge variant="destructive">Encerrada</Badge>
+      <Badge variant="secondary" className="bg-muted text-muted-foreground">Encerrada</Badge>
     ) : (
       <Badge variant="secondary">Não Iniciada</Badge>
     )
