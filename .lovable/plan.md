@@ -1,32 +1,49 @@
 
 
-## Correção: CDB Pós Fixado CDI+ não calcula saldo de resgate corretamente
+## Plano: Tabela de Rentabilidade com expansivel
 
-### Problema
-Quando um ativo é cadastrado como "Pós Fixado" + "CDI+", ele é salvo no banco com modalidade `"Mista"` e indexador `"CDI"`. Porém, tanto em `BoletaCustodiaDialog.tsx` quanto em `CadastrarTransacaoPage.tsx`, a variável `isRendaFixaEngine` só verifica `"Prefixado"`, `"Pos Fixado"` e `"Pós Fixado"` — **não inclui `"Mista"`**. Como resultado, o engine de renda fixa nunca roda para esse ativo, e o saldo disponível não é calculado (ou mostra o valor investido sem juros).
+### Como funciona hoje
+O componente `RentabilidadeDetailTable` renderiza todas as tabelas anuais empilhadas (uma por ano), todas visíveis de uma vez. Os dados já vêm ordenados do ano mais recente para o mais antigo.
 
-### Solução
-Incluir `"Mista"` na condição `isRendaFixaEngine` e garantir que o fetch de CDI também seja disparado para ativos com modalidade `"Mista"` e indexador `"CDI"`.
+### Como ficará
 
-### Alterações
+```text
+┌─────────────────────────────────────────────────────┐
+│ Tabela de Rentabilidade — 2024                      │
+│ Rentabilidade mensal e acumulada                    │
+│ ┌─────┬─────┬─────┬───┬─────┬────────┐             │
+│ │ 2024│ JAN │ FEV │...│ DEZ │ No Ano │             │
+│ ├─────┼─────┼─────┼───┼─────┼────────┤             │
+│ │Patr.│ R$  │ R$  │...│ R$  │   —    │             │
+│ │Ganho│ R$  │ R$  │...│ R$  │  R$    │             │
+│ │Rent.│ 1.2%│ 0.8%│...│  —  │  8.5%  │             │
+│ │CDI  │ 0.9%│ 0.7%│...│  —  │  7.2%  │             │
+│ └─────┴─────┴─────┴───┴─────┴────────┘             │
+└─────────────────────────────────────────────────────┘
 
-**1. `src/components/BoletaCustodiaDialog.tsx` (~linha 201)**
-- Alterar a condição de:
-  ```
-  (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado")
-  ```
-  para:
-  ```
-  (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado" || row.modalidade === "Mista")
-  ```
-- Alterar a condição `isPosFixadoCDI` (~linha 216) para incluir `"Mista"`:
-  ```
-  const isPosFixadoCDI = ((row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado") && row.indexador === "CDI") || (row.modalidade === "Mista" && row.indexador === "CDI");
-  ```
+┌─────────────────────────────────────────────────────┐
+│ ▶ Anos anteriores                                   │
+│   (clique para expandir)                            │
+│                                                     │
+│   Quando expandido:                                 │
+│   ▼ Anos anteriores                                 │
+│   ┌─────────────────────────────────────────┐       │
+│   │ Tabela de Rentabilidade — 2023          │       │
+│   │ ...                                     │       │
+│   └─────────────────────────────────────────┘       │
+│   ┌─────────────────────────────────────────┐       │
+│   │ Tabela de Rentabilidade — 2022          │       │
+│   │ ...                                     │       │
+│   └─────────────────────────────────────────┘       │
+└─────────────────────────────────────────────────────┘
+```
 
-**2. `src/pages/CadastrarTransacaoPage.tsx` (~linha 418)**
-- Mesma alteração em `isRendaFixaEngine`: adicionar `|| selectedCustodia.modalidade === "Mista"`.
-- Mesma alteração em `isPosFixadoCDI` (~linha 423): incluir condição para `"Mista"`.
+### Alteração (1 arquivo)
 
-Nenhuma alteração de banco necessária.
+**`src/components/RentabilidadeDetailTable.tsx`**
+- Separar `rows[0]` (ano mais recente) dos demais (`rows.slice(1)`).
+- Renderizar o primeiro ano normalmente (sempre visível).
+- Se houver mais anos, envolver os restantes em um `Collapsible` (já existente em `@/components/ui/collapsible`) com um trigger "Anos anteriores" com ícone chevron.
+- O collapsible inicia fechado por padrão.
+- Nenhuma alteração nas páginas consumidoras (`CarteiraRendaFixaPage` e `AnaliseIndividualPage`), pois a mudança é interna ao componente.
 
