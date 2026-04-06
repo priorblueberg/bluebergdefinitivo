@@ -125,23 +125,22 @@ function formatValorInicial(value: string): string {
 }
 
 function formatTaxaInput(value: string): string {
-  // Same logic as valor: digits fill before comma, comma enables decimals
   let cleaned = value.replace(/[^\d,]/g, "");
   const parts = cleaned.split(",");
-  
+
   if (parts.length > 2) {
     cleaned = parts[0] + "," + parts.slice(1).join("");
+    return formatTaxaInput(cleaned);
   }
-  
+
   if (parts.length === 1) {
+    // No comma yet – just show integer digits, let user type comma when ready
     const intDigits = parts[0].replace(/^0+(?=\d)/, "") || "";
-    if (!intDigits) return "";
-    return intDigits + ",00";
+    return intDigits;
   }
-  
-  let decPart = parts[1].slice(0, 2);
-  decPart = decPart.padEnd(2, "0");
+
   const intPart = parts[0].replace(/^0+(?=\d)/, "") || "0";
+  const decPart = parts[1].slice(0, 2);
   return intPart + "," + decPart;
 }
 
