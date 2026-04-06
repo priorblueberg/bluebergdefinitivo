@@ -9,7 +9,8 @@ import { calcularPoupancaDiario, type PoupancaLote } from "@/lib/poupancaEngine"
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, CircleCheck, CircleX } from "lucide-react";
+import { Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
