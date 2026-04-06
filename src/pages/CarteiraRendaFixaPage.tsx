@@ -512,7 +512,7 @@ export default function CarteiraRendaFixaPage() {
           Nenhum dado disponível para o período selecionado.
         </div>
       ) : (
-        <>
+        <div className={carteiraInfo?.status === "Encerrada" ? "opacity-60" : ""}>
           {/* Summary Cards */}
           {(() => {
             let patrimonioValue: number | null = null;
