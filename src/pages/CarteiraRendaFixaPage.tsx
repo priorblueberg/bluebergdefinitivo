@@ -430,6 +430,22 @@ export default function CarteiraRendaFixaPage() {
     };
   }, [productList]);
 
+  // Category allocation (RF vs other categories)
+  const categoriaAllocation = useMemo(() => {
+    if (allCustodiaForCategoria.length === 0) return [];
+    const map = new Map<string, number>();
+    for (const c of allCustodiaForCategoria) {
+      const val = c.custodia_no_dia != null ? c.custodia_no_dia : c.valor_investido;
+      map.set(c.categoria_nome, (map.get(c.categoria_nome) || 0) + val);
+    }
+    const total = Array.from(map.values()).reduce((s, v) => s + v, 0);
+    if (total === 0) return [];
+    return Array.from(map.entries()).map(([name, value]) => ({
+      name,
+      value: parseFloat(((value / total) * 100).toFixed(1)),
+    }));
+  }, [allCustodiaForCategoria]);
+
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
 
