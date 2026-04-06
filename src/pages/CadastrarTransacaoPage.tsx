@@ -415,7 +415,7 @@ export default function CadastrarTransacaoPage() {
     }
 
     // Calculate saldo using renda fixa engine
-    const isRendaFixaEngine = (selectedCustodia.modalidade === "Prefixado" || selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado") && selectedCustodia.taxa && selectedCustodia.preco_unitario;
+    const isRendaFixaEngine = (selectedCustodia.modalidade === "Prefixado" || selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado" || selectedCustodia.modalidade === "Mista") && selectedCustodia.taxa && selectedCustodia.preco_unitario;
 
     if (isRendaFixaEngine) {
       setCalculandoSaldo(true);
