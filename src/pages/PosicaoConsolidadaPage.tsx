@@ -393,8 +393,8 @@ export default function PosicaoConsolidadaPage() {
                     </TableCell>
                     <TableCell className="font-medium">{row.nome}</TableCell>
                     <TableCell>{fmtBrl(row.valorAtualizado)}</TableCell>
-                    <TableCell className={row.ganhoFinanceiro >= 0 ? "text-emerald-600" : "text-destructive"}>{fmtBrl(row.ganhoFinanceiro)}</TableCell>
-                    <TableCell className={row.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}>{row.rentabilidade.toFixed(2)}%</TableCell>
+                    <TableCell>{fmtBrl(row.ganhoFinanceiro)}</TableCell>
+                    <TableCell>{row.rentabilidade.toFixed(2)}%</TableCell>
                     <TableCell>{row.custodiante}</TableCell>
                     <TableCell className="text-right font-medium">{pctPortfolio.toFixed(2)}%</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
