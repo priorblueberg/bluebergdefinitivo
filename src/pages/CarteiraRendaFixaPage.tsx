@@ -432,19 +432,24 @@ export default function CarteiraRendaFixaPage() {
 
   // Category allocation (RF vs other categories)
   const categoriaAllocation = useMemo(() => {
-    if (allCustodiaForCategoria.length === 0) return [];
-    const map = new Map<string, number>();
+    // Use productList for RF value (calculated), allCustodiaForCategoria for other categories
+    const rfTotal = productList.filter(p => p.ativo && p.valorAtualizado > 0).reduce((s, p) => s + p.valorAtualizado, 0);
+    const otherMap = new Map<string, number>();
     for (const c of allCustodiaForCategoria) {
+      if (c.categoria_nome === "Renda Fixa") continue;
       const val = c.custodia_no_dia != null ? c.custodia_no_dia : c.valor_investido;
-      map.set(c.categoria_nome, (map.get(c.categoria_nome) || 0) + val);
+      otherMap.set(c.categoria_nome, (otherMap.get(c.categoria_nome) || 0) + val);
     }
-    const total = Array.from(map.values()).reduce((s, v) => s + v, 0);
+    const entries: [string, number][] = [];
+    if (rfTotal > 0) entries.push(["Renda Fixa", rfTotal]);
+    for (const [k, v] of otherMap) entries.push([k, v]);
+    const total = entries.reduce((s, [, v]) => s + v, 0);
     if (total === 0) return [];
-    return Array.from(map.entries()).map(([name, value]) => ({
+    return entries.map(([name, value]) => ({
       name,
       value: parseFloat(((value / total) * 100).toFixed(1)),
     }));
-  }, [allCustodiaForCategoria]);
+  }, [productList, allCustodiaForCategoria]);
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
