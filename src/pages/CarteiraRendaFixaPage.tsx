@@ -621,7 +621,7 @@ export default function CarteiraRendaFixaPage() {
           {/* Detail Table */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
 
-          {/* Posição Consolidada moved here, allocation charts moved outside showContent */}
+          
           {/* Posição Consolidada */}
           {productList.length > 0 && (
             <div className="space-y-1">
