@@ -621,49 +621,7 @@ export default function CarteiraRendaFixaPage() {
           {/* Detail Table */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
 
-          {/* Allocation Charts */}
-          {(allocationData.estrategia.length > 0 || allocationData.custodiante.length > 0 || allocationData.emissor.length > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { title: "Alocação por Estratégia", data: allocationData.estrategia },
-                { title: "Alocação por Custodiante", data: allocationData.custodiante },
-                { title: "Alocação por Emissor", data: allocationData.emissor },
-              ].map((chart) => (
-                <div key={chart.title} className="rounded-md border border-border bg-card p-4">
-                  <h3 className="text-xs font-semibold text-foreground mb-2">{chart.title}</h3>
-                  {chart.data.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-8">Sem dados</p>
-                  ) : (
-                    <div className="h-52">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={chart.data}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={70}
-                            innerRadius={30}
-                            paddingAngle={2}
-                            label={({ name, value }) => `${name}: ${value}%`}
-                            labelLine={{ strokeWidth: 0.5 }}
-                            style={{ fontSize: 9 }}
-                          >
-                            {chart.data.map((_, idx) => (
-                              <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip content={<PieTooltip />} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
+          {/* Posição Consolidada moved here, allocation charts moved outside showContent */}
           {/* Posição Consolidada */}
           {productList.length > 0 && (
             <div className="space-y-1">
