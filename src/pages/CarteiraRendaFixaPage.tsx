@@ -130,6 +130,15 @@ export default function CarteiraRendaFixaPage() {
           .eq("user_id", user.id),
       ]);
 
+      // Store all custodia for category allocation (active, no resgate_total)
+      setAllCustodiaForCategoria((custodiaData || [])
+        .filter((r: any) => !r.resgate_total)
+        .map((r: any) => ({
+          categoria_nome: r.categorias?.nome || "Outros",
+          valor_investido: Number(r.valor_investido),
+          custodia_no_dia: r.custodia_no_dia != null ? Number(r.custodia_no_dia) : null,
+        }))
+      );
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
         .filter((r: any) => r.categorias?.nome === "Renda Fixa")
         .map((r: any) => ({
