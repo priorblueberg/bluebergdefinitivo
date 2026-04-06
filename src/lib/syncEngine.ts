@@ -529,6 +529,16 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     .eq("user_id", mov.user_id!)
     .limit(1);
 
+  // Derive estrategia from modalidade + indexador
+  const derivedEstrategia = (() => {
+    const mod = aplicacaoInicial.modalidade;
+    const idx = aplicacaoInicial.indexador;
+    if (mod === "Prefixado") return "Prefixado";
+    if ((mod === "Pos Fixado" || mod === "Pós Fixado") && idx === "CDI") return "Pós Fixado CDI";
+    if (mod === "Mista" && idx === "CDI") return "Pós Fixado CDI + Taxa";
+    return null;
+  })();
+
   const custodiaData = {
     codigo_custodia: mov.codigo_custodia,
     data_inicio: aplicacaoInicial.data,
@@ -553,6 +563,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
     pu_inicial: aplicacaoInicial.preco_unitario,
+    estrategia: derivedEstrategia,
   };
 
   if (existing && existing.length > 0) {
