@@ -432,19 +432,24 @@ export default function CarteiraRendaFixaPage() {
 
   // Category allocation (RF vs other categories)
   const categoriaAllocation = useMemo(() => {
-    if (allCustodiaForCategoria.length === 0) return [];
-    const map = new Map<string, number>();
+    // Use productList for RF value (calculated), allCustodiaForCategoria for other categories
+    const rfTotal = productList.filter(p => p.ativo && p.valorAtualizado > 0).reduce((s, p) => s + p.valorAtualizado, 0);
+    const otherMap = new Map<string, number>();
     for (const c of allCustodiaForCategoria) {
+      if (c.categoria_nome === "Renda Fixa") continue;
       const val = c.custodia_no_dia != null ? c.custodia_no_dia : c.valor_investido;
-      map.set(c.categoria_nome, (map.get(c.categoria_nome) || 0) + val);
+      otherMap.set(c.categoria_nome, (otherMap.get(c.categoria_nome) || 0) + val);
     }
-    const total = Array.from(map.values()).reduce((s, v) => s + v, 0);
+    const entries: [string, number][] = [];
+    if (rfTotal > 0) entries.push(["Renda Fixa", rfTotal]);
+    for (const [k, v] of otherMap) entries.push([k, v]);
+    const total = entries.reduce((s, [, v]) => s + v, 0);
     if (total === 0) return [];
-    return Array.from(map.entries()).map(([name, value]) => ({
+    return entries.map(([name, value]) => ({
       name,
       value: parseFloat(((value / total) * 100).toFixed(1)),
     }));
-  }, [allCustodiaForCategoria]);
+  }, [productList, allCustodiaForCategoria]);
 
   const fmtDate = (d: string | null) =>
     d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
@@ -621,7 +626,50 @@ export default function CarteiraRendaFixaPage() {
           {/* Detail Table */}
           <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
 
-          
+          {/* Allocation Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { title: "Alocação por Estratégia", data: allocationData.estrategia },
+              { title: "Alocação por Custodiante", data: allocationData.custodiante },
+              { title: "Alocação por Emissor", data: allocationData.emissor },
+              { title: "Alocação por Categoria", data: categoriaAllocation },
+            ].map((chart) => (
+              <div key={chart.title} className="rounded-md border border-border bg-card p-4">
+                <h3 className="text-xs font-semibold text-foreground mb-2">{chart.title}</h3>
+                {chart.data.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-8">
+                    Sem títulos de Renda Fixa em custódia para cálculo de alocação
+                  </p>
+                ) : (
+                  <div className="h-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chart.data}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={70}
+                          innerRadius={30}
+                          paddingAngle={2}
+                          label={({ name, value }) => `${name}: ${value}%`}
+                          labelLine={{ strokeWidth: 0.5 }}
+                          style={{ fontSize: 9 }}
+                        >
+                          {chart.data.map((_, idx) => (
+                            <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<PieTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
           {/* Posição Consolidada */}
           {productList.length > 0 && (
             <div className="space-y-1">
@@ -661,51 +709,6 @@ export default function CarteiraRendaFixaPage() {
         </>
       )}
 
-      {/* Allocation Charts - always visible */}
-      {!loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { title: "Alocação por Estratégia", data: allocationData.estrategia },
-            { title: "Alocação por Custodiante", data: allocationData.custodiante },
-            { title: "Alocação por Emissor", data: allocationData.emissor },
-            { title: "Alocação por Categoria", data: categoriaAllocation },
-          ].map((chart) => (
-            <div key={chart.title} className="rounded-md border border-border bg-card p-4">
-              <h3 className="text-xs font-semibold text-foreground mb-2">{chart.title}</h3>
-              {chart.data.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-8">
-                  Sem títulos de Renda Fixa em custódia para cálculo de alocação
-                </p>
-              ) : (
-                <div className="h-52">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chart.data}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={70}
-                        innerRadius={30}
-                        paddingAngle={2}
-                        label={({ name, value }) => `${name}: ${value}%`}
-                        labelLine={{ strokeWidth: 0.5 }}
-                        style={{ fontSize: 9 }}
-                      >
-                        {chart.data.map((_, idx) => (
-                          <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<PieTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
