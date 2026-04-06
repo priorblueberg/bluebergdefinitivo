@@ -265,16 +265,20 @@ export default function CarteiraRendaFixaPage() {
       const pList = rfProducts.map((product, idx) => {
         const rows = allProdRows[idx];
         const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
-        const isEncerrado = product.resgate_total ? product.resgate_total <= dataReferenciaISO : product.vencimento ? product.vencimento <= dataReferenciaISO : false;
+        const isEncerradoNaDataCalculo = product.resgate_total
+          ? product.resgate_total <= dataCalculo
+          : product.vencimento
+            ? product.vencimento <= dataCalculo
+            : false;
         const usePeriodic = product.pagamento && product.pagamento !== "No Vencimento";
         const rentPct = lastRow ? ((usePeriodic ? lastRow.rentAcumulada2 : lastRow.rentabilidadeAcumuladaPct) * 100) : 0;
         return {
           nome: product.nome || product.produto_nome,
-          valorAtualizado: isEncerrado ? 0 : (lastRow?.liquido ?? 0),
+          valorAtualizado: isEncerradoNaDataCalculo ? 0 : (lastRow?.liquido ?? 0),
           ganhoFinanceiro: lastRow?.ganhoAcumulado ?? 0,
           rentabilidade: rentPct,
           custodiante: product.instituicao_nome,
-          ativo: !isEncerrado,
+          ativo: !isEncerradoNaDataCalculo,
           estrategia: product.estrategia,
           emissor_nome: product.emissor_nome,
           analysisProduct: {
