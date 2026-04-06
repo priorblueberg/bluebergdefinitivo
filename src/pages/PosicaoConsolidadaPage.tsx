@@ -9,7 +9,8 @@ import { calcularPoupancaDiario, type PoupancaLote } from "@/lib/poupancaEngine"
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, CircleCheck, CircleX } from "lucide-react";
+import { Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -383,7 +384,12 @@ export default function PosicaoConsolidadaPage() {
                 return (
                   <TableRow key={i} className="cursor-pointer" onClick={() => setDetalheRow(row)}>
                     <TableCell>
-                      {row.ativo ? <CircleCheck className="h-4 w-4 text-emerald-500" /> : <CircleX className="h-4 w-4 text-muted-foreground" />}
+                      <Badge
+                        variant={row.ativo ? "default" : "secondary"}
+                        className={row.ativo ? "bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] px-2 py-0.5" : "bg-muted text-muted-foreground text-[10px] px-2 py-0.5"}
+                      >
+                        {row.ativo ? "Em custódia" : "Liquidado"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="font-medium">{row.nome}</TableCell>
                     <TableCell>{fmtBrl(row.valorAtualizado)}</TableCell>

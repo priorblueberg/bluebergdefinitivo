@@ -243,20 +243,19 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
             <h1 className="text-lg font-semibold text-foreground">
               {product.nome || product.produto_nome}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate((() => {
-                const candidates = [dataReferenciaISO];
-                if (product.resgate_total) candidates.push(product.resgate_total);
-                if (product.vencimento) candidates.push(product.vencimento);
-                return candidates.sort()[0];
-              })())}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-xs text-muted-foreground">Status em {fmtDateShort(dataReferencia)}</span>
-            <Badge variant={isEmCustodia ? "default" : "secondary"} className={isEmCustodia ? "bg-emerald-600 hover:bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}>
-              {isBeforeStart ? "Não iniciado" : isEmCustodia ? "Em custódia" : "Liquidado"}
-            </Badge>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <p className="text-sm text-muted-foreground">
+                Período de Análise: {fmtDate(product.data_inicio)} a {fmtDate((() => {
+                  const candidates = [dataReferenciaISO];
+                  if (product.resgate_total) candidates.push(product.resgate_total);
+                  if (product.vencimento) candidates.push(product.vencimento);
+                  return candidates.sort()[0];
+                })())}
+              </p>
+              <Badge variant={isEmCustodia ? "default" : "secondary"} className={isEmCustodia ? "bg-emerald-600 hover:bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}>
+                {isBeforeStart ? "Não iniciado" : isEmCustodia ? "Em custódia" : "Liquidado"}
+              </Badge>
+            </div>
           </div>
         </div>
       </div>

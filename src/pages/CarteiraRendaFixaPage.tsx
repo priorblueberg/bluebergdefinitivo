@@ -482,19 +482,19 @@ export default function CarteiraRendaFixaPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-foreground">Renda Fixa</h1>
-          {statusBadge}
-        </div>
+        <h1 className="text-lg font-semibold text-foreground">Renda Fixa</h1>
         {carteiraInfo && (
           carteiraInfo.status === "Não Iniciada" ? (
             <p className="text-sm text-muted-foreground mt-1">
               Data selecionada anterior ao início dos seus investimentos em Renda Fixa
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground mt-1">
-              Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
-            </p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <p className="text-sm text-muted-foreground">
+                Período de Análise: De {fmtDate(carteiraInfo.data_inicio)} a {fmtDate(carteiraInfo.data_calculo)}
+              </p>
+              {statusBadge}
+            </div>
           )
         )}
       </div>
