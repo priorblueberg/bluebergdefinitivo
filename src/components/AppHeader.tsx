@@ -171,33 +171,13 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
               </button>
             </div>
             <button
-              onClick={() => applyDate(subDays(dataReferencia, 1))}
-              className="rounded-md border border-border p-1 text-muted-foreground hover:text-primary hover:border-primary bg-background"
+              onClick={handleApply}
+              disabled={isStagedSameAsApplied}
+              className="rounded-md border border-primary px-3 py-1 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground bg-background disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ transition: "all 120ms linear" }}
-              title="Dia anterior"
+              title="Aplicar data de referência"
             >
-              <ChevronLeft size={14} strokeWidth={1.5} />
-            </button>
-            <button
-              onClick={() => {
-                const next = addDays(dataReferencia, 1);
-                if (next <= maxDate) applyDate(next);
-              }}
-              disabled={dataReferencia >= maxDate}
-              className="rounded-md border border-border p-1 text-muted-foreground hover:text-primary hover:border-primary bg-background disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ transition: "all 120ms linear" }}
-              title="Próximo dia"
-            >
-              <ChevronRight size={14} strokeWidth={1.5} />
-            </button>
-            <button
-              onClick={() => applyDate(maxDate)}
-              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-primary hover:border-primary bg-background"
-              style={{ transition: "all 120ms linear" }}
-              title="Desde o início (data padrão)"
-            >
-              <RotateCcw size={12} strokeWidth={1.5} />
-              <span>Desde o início</span>
+              Aplicar
             </button>
           </div>
 
