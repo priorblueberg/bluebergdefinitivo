@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
+    let initialLoadDone = false;
 
     const hydrateUserState = async (nextUser: User | null, refreshProfileData = true) => {
       if (!isMounted) return;
@@ -60,10 +61,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (!refreshProfileData) return;
 
-      setLoading(true);
+      // Only show loading spinner on initial load; subsequent auth events
+      // (e.g. tab regain focus) must NOT unmount the tree.
+      if (!initialLoadDone) {
+        setLoading(true);
+      }
       await loadProfile(nextUser.id);
       if (isMounted) {
         setLoading(false);
+        initialLoadDone = true;
       }
     };
 
@@ -76,6 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
+        // After initial load, silently refresh profile without flipping loading
         void hydrateUserState(sessionUser);
       }
     );
