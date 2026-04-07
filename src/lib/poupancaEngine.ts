@@ -174,7 +174,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
       // Credit yield on anniversary date regardless of business day
       if (isAniversario(date, lote.diaAniversario)) {
-        const rend = calcRendimentoMensal(lote.valorAtual, selicHoje);
+        const trHoje = trMap.get(date) ?? 0;
+        const rend = calcRendimentoMensal(lote.valorAtual, selicHoje, trHoje);
         lote.valorAtual += rend;
         lote.rendimentoAcumulado += rend;
         lote.ultimoAniversario = date;
