@@ -33,6 +33,7 @@ export interface PoupancaEngineInput {
   lotes: PoupancaLote[];
   selicRecords: { data: string; taxa_anual: number }[];
   trRecords?: { data: string; taxa_mensal: number }[];
+  poupancaRendimentoRecords?: { data: string; rendimento_mensal: number }[];
   dataResgateTotal?: string | null;
 }
 
