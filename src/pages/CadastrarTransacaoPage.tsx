@@ -239,7 +239,7 @@ export default function CadastrarTransacaoPage() {
   const isAplicacao = tipoMovimentacao === "Aplicação";
   const selectedCustodia = custodiaItems.find((c) => c.id === selectedCustodiaId);
 
-  // Load categorias on mount
+  // Load categorias on mount — only Renda Fixa (Poupança is now a product within RF)
   useEffect(() => {
     supabase
       .from("categorias")
@@ -248,7 +248,7 @@ export default function CadastrarTransacaoPage() {
       .order("nome")
       .then(({ data }) => {
         if (data) {
-          const allowed = data.filter((c: Categoria) => c.nome === "Renda Fixa" || c.nome === "Poupança");
+          const allowed = data.filter((c: Categoria) => c.nome === "Renda Fixa");
           setCategorias(allowed);
           if (allowed.length === 1 && !editId) {
             setCategoriaId(allowed[0].id);
