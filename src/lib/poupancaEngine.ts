@@ -128,13 +128,25 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     .map(l => ({
       id: l.id,
       dataAplicacao: l.data_aplicacao,
-      diaAniversario: l.dia_aniversario,
-      valorPrincipal: l.valor_principal,
-      valorAtual: l.valor_principal, // Start from principal, will accumulate
+      diaAniversario: Number(l.dia_aniversario),
+      valorPrincipal: Number(l.valor_principal),
+      valorAtual: Number(l.valor_principal), // Start from principal, will accumulate
       rendimentoAcumulado: 0,
       ultimoAniversario: null,
       status: "ativo",
     }));
+
+  // Build a set of business days for quick lookup
+  const diaUtilSet = new Set<string>();
+  for (const c of sortedCal) {
+    if (c.dia_util) diaUtilSet.add(c.data);
+  }
+
+  // Track pending anniversaries per lote (month key -> true)
+  const pendingAniversario = new Map<string, Set<string>>();
+  for (const lote of loteStates) {
+    pendingAniversario.set(lote.id, new Set());
+  }
 
   const rows: DailyRow[] = [];
   let rentAcum2 = 0;
@@ -159,15 +171,35 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     let rendimentoDia = 0;
     const activeLotes = activeLotesOnDate(date);
 
-    if (diaUtil) {
-      for (const lote of activeLotes) {
-        if (isAniversario(date, lote.diaAniversario) && date > lote.dataAplicacao) {
+    for (const lote of activeLotes) {
+      if (date <= lote.dataAplicacao) continue;
+
+      const monthKey = date.slice(0, 7); // "YYYY-MM"
+      const pending = pendingAniversario.get(lote.id)!;
+
+      // Check if today is the anniversary date for this month
+      if (isAniversario(date, lote.diaAniversario)) {
+        if (diaUtil) {
+          // Anniversary falls on a business day — credit now
+          const rend = calcRendimentoMensal(lote.valorAtual, selicHoje);
+          lote.valorAtual += rend;
+          lote.rendimentoAcumulado += rend;
+          lote.ultimoAniversario = date;
+          rendimentoDia += rend;
+        } else {
+          // Anniversary falls on non-business day — defer to next business day
+          pending.add(monthKey);
+        }
+      } else if (diaUtil && pending.size > 0) {
+        // This is a business day and there are pending anniversaries — credit them all
+        for (const _mk of pending) {
           const rend = calcRendimentoMensal(lote.valorAtual, selicHoje);
           lote.valorAtual += rend;
           lote.rendimentoAcumulado += rend;
           lote.ultimoAniversario = date;
           rendimentoDia += rend;
         }
+        pending.clear();
       }
     }
 

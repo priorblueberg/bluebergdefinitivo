@@ -115,7 +115,13 @@ export default function CalculadoraPage() {
             dataCalculo: dataFim,
             calendario: (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util })),
             movimentacoes: (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
-            lotes: ((lotesRes.data || []) as PoupancaLote[]),
+            lotes: ((lotesRes.data || []) as any[]).map((l: any) => ({
+              ...l,
+              dia_aniversario: Number(l.dia_aniversario),
+              valor_principal: Number(l.valor_principal),
+              valor_atual: Number(l.valor_atual),
+              rendimento_acumulado: Number(l.rendimento_acumulado),
+            })) as PoupancaLote[],
             selicRecords: (selicRes.data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) })),
             dataResgateTotal: product.resgate_total,
           });
