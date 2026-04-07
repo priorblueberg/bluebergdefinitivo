@@ -99,31 +99,27 @@ function getDateMinus(dateStr: string, days: number): string {
 }
 
 
+// Module-level cache
+let _cartRFCachedVersion: number | null = null;
+let _cartRFCached: { carteiraInfo: CarteiraInfo | null; carteiraRows: CarteiraRFRow[]; allProductRows: DailyRow[][]; cdiRecords: CdiRecord[]; ibovespaData: { data: string; pontos: number }[]; productList: any[]; allCustodiaForCategoria: any[] } | null = null;
+
 export default function CarteiraRendaFixaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO } = useDataReferencia();
-  const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
-  const [carteiraRows, setCarteiraRows] = useState<CarteiraRFRow[]>([]);
-  const [allProductRows, setAllProductRows] = useState<DailyRow[][]>([]);
-  const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
-  const [ibovespaData, setIbovespaData] = useState<{ data: string; pontos: number }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; estrategia: string | null; emissor_nome: string; analysisProduct: AnalysisCustodiaProduct }[]>([]);
-  const [allCustodiaForCategoria, setAllCustodiaForCategoria] = useState<{ categoria_nome: string; valor_investido: number; custodia_no_dia: number | null }[]>([]);
+  const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(_cartRFCached?.carteiraInfo ?? null);
+  const [carteiraRows, setCarteiraRows] = useState<CarteiraRFRow[]>(_cartRFCached?.carteiraRows ?? []);
+  const [allProductRows, setAllProductRows] = useState<DailyRow[][]>(_cartRFCached?.allProductRows ?? []);
+  const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>(_cartRFCached?.cdiRecords ?? []);
+  const [ibovespaData, setIbovespaData] = useState<{ data: string; pontos: number }[]>(_cartRFCached?.ibovespaData ?? []);
+  const [loading, setLoading] = useState(_cartRFCachedVersion === null);
+  const [productList, setProductList] = useState<{ nome: string; valorAtualizado: number; ganhoFinanceiro: number; rentabilidade: number; custodiante: string; ativo: boolean; estrategia: string | null; emissor_nome: string; analysisProduct: AnalysisCustodiaProduct }[]>(_cartRFCached?.productList ?? []);
+  const [allCustodiaForCategoria, setAllCustodiaForCategoria] = useState<{ categoria_nome: string; valor_investido: number; custodia_no_dia: number | null }[]>(_cartRFCached?.allCustodiaForCategoria ?? []);
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
 
-  const initialVersionRef = useRef(appliedVersion);
-  const hasMountedRef = useRef(false);
-
   useEffect(() => {
     if (!user) return;
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-    } else if (appliedVersion === initialVersionRef.current) {
-      return; // No change since last calculation
-    }
-    initialVersionRef.current = appliedVersion;
+    if (_cartRFCachedVersion === appliedVersion && _cartRFCached) return;
     (async () => {
       setLoading(true);
       const [{ data: cartData }, { data: custodiaData }] = await Promise.all([
