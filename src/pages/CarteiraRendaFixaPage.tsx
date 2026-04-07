@@ -317,6 +317,8 @@ export default function CarteiraRendaFixaPage() {
       });
 
       setCarteiraRows(result);
+      _cartRFCachedVersion = appliedVersion;
+      _cartRFCached = { carteiraInfo: carteiraInfo, carteiraRows: result, allProductRows: allProdRows, cdiRecords: cdiRecords, ibovespaData: ibovespaData, productList: pList, allCustodiaForCategoria: allCustodiaForCategoria };
       setLoading(false);
     })();
   }, [user, appliedVersion]);
