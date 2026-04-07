@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
@@ -63,10 +63,15 @@ interface CarteiraInfo {
   data_calculo: string | null;
 }
 
+// Module-level cache
+let _custCachedVersion: number | null = null;
+let _custCachedRows: CustodiaRow[] = [];
+let _custCachedCarteira: CarteiraInfo | null = null;
+
 export default function CustodiaPage() {
-  const [rows, setRows] = useState<CustodiaRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
+  const [rows, setRows] = useState<CustodiaRow[]>(_custCachedRows);
+  const [loading, setLoading] = useState(_custCachedVersion === null);
+  const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(_custCachedCarteira);
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const { user } = useAuth();
 
@@ -84,12 +89,14 @@ export default function CustodiaPage() {
       .maybeSingle();
 
     if (carteiraData) {
-      setCarteiraInfo({
+      const info = {
         nome_carteira: carteiraData.nome_carteira,
         status: carteiraData.status,
         data_inicio: carteiraData.data_inicio,
         data_calculo: carteiraData.data_calculo,
-      });
+      };
+      setCarteiraInfo(info);
+      _custCachedCarteira = info;
     }
 
     const { data, error } = await supabase
@@ -107,8 +114,7 @@ export default function CustodiaPage() {
       .order("codigo_custodia", { ascending: true });
 
     if (!error && data) {
-      setRows(
-        data.map((r: any) => ({
+      const mapped = data.map((r: any) => ({
           id: r.id,
           codigo_custodia: r.codigo_custodia,
           data_inicio: r.data_inicio,
@@ -142,25 +148,17 @@ export default function CustodiaPage() {
           sigla_tesouro: r.sigla_tesouro,
           custodia_no_dia: r.custodia_no_dia,
           estrategia: r.estrategia,
-        }))
-      );
+        }));
+      setRows(mapped);
+      _custCachedRows = mapped;
     }
+    _custCachedVersion = appliedVersion;
     setLoading(false);
   };
 
-  const initialVersionRef = useRef(appliedVersion);
-  const hasMountedRef = useRef(false);
-
   useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      fetchData();
-      return;
-    }
-    if (appliedVersion !== initialVersionRef.current) {
-      initialVersionRef.current = appliedVersion;
-      fetchData();
-    }
+    if (_custCachedVersion === appliedVersion && _custCachedRows.length > 0) return;
+    fetchData();
   }, [appliedVersion]);
 
   const openBoleta = (row: CustodiaRow, tipo: "Aplicação" | "Resgate") => {

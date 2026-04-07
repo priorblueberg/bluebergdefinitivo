@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,11 +59,16 @@ interface PosicaoRow {
   product: CustodiaProduct;
 }
 
+// Module-level cache to persist across navigation
+let _cachedVersion: number | null = null;
+let _cachedRows: PosicaoRow[] = [];
+let _cachedRentabilidade = 0;
+
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
-  const [rows, setRows] = useState<PosicaoRow[]>([]);
-  const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(0);
+  const [rows, setRows] = useState<PosicaoRow[]>(_cachedRows);
+  const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -74,22 +79,11 @@ export default function PosicaoConsolidadaPage() {
   const [deleteRow, setDeleteRow] = useState<PosicaoRow | null>(null);
   const [detalheRow, setDetalheRow] = useState<PosicaoRow | null>(null);
 
-  const initialVersionRef = useRef(appliedVersion);
-  const hasMountedRef = useRef(false);
-
   useEffect(() => {
     if (!user) return;
-    // On first mount, always calculate to show data
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      calculate();
-      return;
-    }
-    // After mount, only recalculate if appliedVersion actually changed
-    if (appliedVersion !== initialVersionRef.current) {
-      initialVersionRef.current = appliedVersion;
-      calculate();
-    }
+    // Only recalculate if appliedVersion changed since last calculation
+    if (_cachedVersion === appliedVersion && _cachedRows.length > 0) return;
+    calculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, appliedVersion]);
 
@@ -101,7 +95,7 @@ export default function PosicaoConsolidadaPage() {
         .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
         .eq("user_id", user!.id);
 
-      if (!products || products.length === 0) { setRows([]); setLoading(false); return; }
+      if (!products || products.length === 0) { setRows([]); _cachedRows = []; _cachedVersion = appliedVersion; setLoading(false); return; }
 
       const mapped: CustodiaProduct[] = products.map((r: any) => ({
         id: r.id,
@@ -289,12 +283,17 @@ export default function PosicaoConsolidadaPage() {
           dataCalculo: dataReferenciaISO,
         });
         const lastCarteira = carteiraRows.length > 0 ? carteiraRows[carteiraRows.length - 1] : null;
-        setCarteiraRentabilidade(lastCarteira ? lastCarteira.rentAcumuladaPct * 100 : 0);
+        const rentVal = lastCarteira ? lastCarteira.rentAcumuladaPct * 100 : 0;
+        setCarteiraRentabilidade(rentVal);
+        _cachedRentabilidade = rentVal;
       } else {
         setCarteiraRentabilidade(0);
+        _cachedRentabilidade = 0;
       }
 
       setRows(posicaoRows);
+      _cachedRows = posicaoRows;
+      _cachedVersion = appliedVersion;
     } catch (err) {
       console.error("Erro ao calcular posição consolidada:", err);
     } finally {
