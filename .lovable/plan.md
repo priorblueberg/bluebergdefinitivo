@@ -1,31 +1,32 @@
 
 
-## Plano: Gerar documento .docx das Regras de Negócio
+## Plano: Gerar documento .docx com regras de negócio do Controle de Carteiras
 
 ### Objetivo
-Converter o conteúdo completo de `docs/Blueberg_Regras_de_Negocio.md` em um arquivo `.docx` formatado, sem imagens.
+Criar um arquivo Word (.docx) contendo a seção 14 do documento de regras de negócio — "Controle de Carteiras (Admin)" — extraída de `docs/Blueberg_Regras_de_Negocio.md`.
 
 ### Abordagem
-Usar a biblioteca `docx` (docx-js) via Node.js para gerar o documento programaticamente, seguindo o skill disponível.
+Usar a mesma estratégia já implementada: página temporária `/gerar-docx` com a biblioteca `docx` para gerar e baixar o arquivo no navegador. Atualizar o conteúdo da página `GenerateDocxPage.tsx` para focar apenas na seção de Controle de Carteiras.
+
+### Conteúdo do documento
+- Título: "Blueberg — Regras de Negócio: Controle de Carteiras"
+- Seção 14.1: Visão Geral (rota, acesso, descrição)
+- Seção 14.2: Tabela de Colunas (Nome da Carteira, Data Início, Data Limite, Resgate Total, Data Cálculo, Status)
 
 ### Passos
 
-1. **Ler o conteúdo** de `docs/Blueberg_Regras_de_Negocio.md` para extrair todos os 18 capítulos
-2. **Instalar dependência**: `npm install -g docx`
-3. **Criar script Node.js** em `/tmp/generate_docx.js` que:
-   - Estrutura o documento com estilos (Heading1, Heading2, body text, bullets)
-   - Inclui todos os 18 capítulos do documento de regras de negócio
-   - Formata tabelas, listas e seções adequadamente
-   - Gera o arquivo em `/home/lovable/Blueberg_Regras_de_Negocio.docx`
-4. **Validar** o documento gerado
-5. **Converter para imagem** para QA visual
+1. **Atualizar `GenerateDocxPage.tsx`** para gerar o documento focado no Controle de Carteiras, com:
+   - Heading 1 para o título principal
+   - Heading 2 para cada subseção (14.1, 14.2)
+   - Parágrafos descritivos
+   - Tabela formatada com as 6 colunas e suas descrições
+   - Nome do arquivo: `Blueberg_Controle_de_Carteiras.docx`
+
+2. **Testar** acessando `/gerar-docx` e clicando no botão de download
 
 ### Detalhes técnicos
 - Fonte: Arial 12pt
-- Headings formatados com hierarquia (H1, H2)
-- Listas usando `LevelFormat.BULLET` (não unicode)
+- Tabela com header sombreado e bordas
 - Página A4 com margens de 1 polegada
-
-### Entrega
-Arquivo `.docx` em `/home/lovable/` (storage temporário, pois `/mnt/documents` está indisponível)
+- Reutiliza dependências `docx` e `file-saver` já instaladas
 
