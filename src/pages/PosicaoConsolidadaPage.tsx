@@ -67,6 +67,7 @@ let _cachedRentabilidade = 0;
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
+  const { poupancaFifo } = useUserSettings();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>(_cachedRows);
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
