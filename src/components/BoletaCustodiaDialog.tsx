@@ -186,16 +186,19 @@ export default function BoletaCustodiaDialog({
       }
     }
 
-    // Validate: business day
-    const { data: diaUtil } = await supabase
-      .from("calendario_dias_uteis")
-      .select("dia_util")
-      .eq("data", dateISO)
-      .maybeSingle();
+    // Validate: business day (skip for Poupança)
+    const isPoupancaProduct = row.modalidade === "Poupança";
+    if (!isPoupancaProduct) {
+      const { data: diaUtil } = await supabase
+        .from("calendario_dias_uteis")
+        .select("dia_util")
+        .eq("data", dateISO)
+        .maybeSingle();
 
-    if (!diaUtil || !diaUtil.dia_util) {
-      setDateError("A data selecionada não é um dia útil.");
-      return;
+      if (!diaUtil || !diaUtil.dia_util) {
+        setDateError("A data selecionada não é um dia útil.");
+        return;
+      }
     }
 
     const isRendaFixaEngine = (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado" || row.modalidade === "Mista") && row.taxa && row.preco_unitario;
