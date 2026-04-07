@@ -157,7 +157,7 @@ export default function CustodiaPage() {
   };
 
   useEffect(() => {
-    if (_custCachedVersion === appliedVersion && _custCachedRows.length > 0) return;
+    if (_custCachedVersion === appliedVersion) return;
     fetchData();
   }, [appliedVersion]);
 
