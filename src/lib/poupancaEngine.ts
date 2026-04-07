@@ -230,6 +230,33 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     totalAplicacoes += mov.aplicacoes;
     totalResgates += mov.resgates;
 
+    // Process resgates: reduce lote values proportionally (FIFO within the single lote)
+    if (mov.resgates > 0) {
+      let restante = mov.resgates;
+      // Sort active lotes by application date (FIFO)
+      const sortedActive = [...activeLotes].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
+      for (const lote of sortedActive) {
+        if (restante <= 0.01) break;
+        if (lote.valorAtual <= 0.01) continue;
+
+        if (restante >= lote.valorAtual - 0.01) {
+          // Consume entire lote
+          restante -= lote.valorAtual;
+          lote.valorAtual = 0;
+          lote.valorPrincipal = 0;
+          lote.rendimentoAcumulado = 0;
+          lote.status = "resgatado";
+        } else {
+          // Partial consumption — reduce proportionally
+          const proporcao = restante / lote.valorAtual;
+          lote.valorPrincipal -= lote.valorPrincipal * proporcao;
+          lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
+          lote.valorAtual -= restante;
+          restante = 0;
+        }
+      }
+    }
+
     // Calculate totals
     const liquido = activeLotes.reduce((sum, l) => sum + l.valorAtual, 0);
     const valorInvestido = activeLotes.reduce((sum, l) => sum + l.valorPrincipal, 0);
