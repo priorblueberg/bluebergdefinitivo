@@ -96,7 +96,7 @@ export default function MovimentacoesPage() {
   };
 
   useEffect(() => {
-    if (_movCachedVersion === appliedVersion && _movCachedRows.length > 0) return;
+    if (_movCachedVersion === appliedVersion) return;
     fetchData();
   }, [appliedVersion]);
 

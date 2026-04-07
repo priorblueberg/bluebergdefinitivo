@@ -82,7 +82,7 @@ export default function PosicaoConsolidadaPage() {
   useEffect(() => {
     if (!user) return;
     // Only recalculate if appliedVersion changed since last calculation
-    if (_cachedVersion === appliedVersion && _cachedRows.length > 0) return;
+    if (_cachedVersion === appliedVersion) return;
     calculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, appliedVersion]);

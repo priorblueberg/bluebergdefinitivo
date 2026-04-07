@@ -119,7 +119,7 @@ export default function CarteiraRendaFixaPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (_cartRFCachedVersion === appliedVersion && _cartRFCached) return;
+    if (_cartRFCachedVersion === appliedVersion) return;
     (async () => {
       setLoading(true);
       const [{ data: cartData }, { data: custodiaData }] = await Promise.all([
