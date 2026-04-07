@@ -292,14 +292,14 @@ export default function MovimentacoesPage() {
                   <TableCell className="whitespace-nowrap">{r.nome_ativo ?? "—"}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.tipo_movimentacao}</TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {isPagamentoJuros(r.tipo_movimentacao)
+                    {isPagamentoJuros(r.tipo_movimentacao) || isPoupancaMov(r)
                       ? "—"
                       : r.quantidade != null
                         ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 7, maximumFractionDigits: 7 })
                         : "—"}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {isPagamentoJuros(r.tipo_movimentacao)
+                    {isPagamentoJuros(r.tipo_movimentacao) || isPoupancaMov(r)
                       ? "—"
                       : r.preco_unitario != null
                         ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
