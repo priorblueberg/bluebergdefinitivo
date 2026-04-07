@@ -277,6 +277,11 @@ export default function BoletaCustodiaDialog({
         setLoadingCota(false);
         setLoadingSaldo(false);
       }
+    } else {
+      // Non-engine products (e.g. Poupança): use valor_investido as saldo
+      if (tipo === "Resgate") {
+        setSaldoDisponivel(row.valor_investido);
+      }
     }
   };
 
