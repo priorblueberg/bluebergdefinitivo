@@ -59,11 +59,16 @@ interface PosicaoRow {
   product: CustodiaProduct;
 }
 
+// Module-level cache to persist across navigation
+let _cachedVersion: number | null = null;
+let _cachedRows: PosicaoRow[] = [];
+let _cachedRentabilidade = 0;
+
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
-  const [rows, setRows] = useState<PosicaoRow[]>([]);
-  const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(0);
+  const [rows, setRows] = useState<PosicaoRow[]>(_cachedRows);
+  const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -74,22 +79,11 @@ export default function PosicaoConsolidadaPage() {
   const [deleteRow, setDeleteRow] = useState<PosicaoRow | null>(null);
   const [detalheRow, setDetalheRow] = useState<PosicaoRow | null>(null);
 
-  const initialVersionRef = useRef(appliedVersion);
-  const hasMountedRef = useRef(false);
-
   useEffect(() => {
     if (!user) return;
-    // On first mount, always calculate to show data
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      calculate();
-      return;
-    }
-    // After mount, only recalculate if appliedVersion actually changed
-    if (appliedVersion !== initialVersionRef.current) {
-      initialVersionRef.current = appliedVersion;
-      calculate();
-    }
+    // Only recalculate if appliedVersion changed since last calculation
+    if (_cachedVersion === appliedVersion && _cachedRows.length > 0) return;
+    calculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, appliedVersion]);
 
