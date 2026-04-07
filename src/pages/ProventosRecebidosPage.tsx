@@ -57,12 +57,12 @@ export default function ProventosRecebidosPage() {
         return;
       }
 
-      // Separate renda fixa with periodic payment and poupança
+      // Separate renda fixa with periodic payment and poupança (by modalidade)
       const withPayment = custodias.filter(
         (c: any) => c.pagamento && c.pagamento !== "No Vencimento" && c.modalidade === "Prefixado"
       );
       const poupancaProducts = custodias.filter(
-        (c: any) => c.categorias?.nome === "Poupança"
+        (c: any) => c.modalidade === "Poupança"
       );
 
       if (withPayment.length === 0 && poupancaProducts.length === 0) {

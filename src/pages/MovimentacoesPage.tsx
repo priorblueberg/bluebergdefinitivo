@@ -33,6 +33,7 @@ interface Movimentacao {
   valor: number | null;
   origem: string;
   codigo_custodia: number | null;
+  modalidade: string | null;
 }
 
 type SortField = keyof Movimentacao;
@@ -68,7 +69,7 @@ export default function MovimentacoesPage() {
       .select(`
         id, created_at, data, tipo_movimentacao,
         pagamento, nome_ativo, quantidade, preco_unitario,
-        valor, origem, codigo_custodia,
+        valor, origem, codigo_custodia, modalidade,
         instituicoes(nome)
       `)
       .order("data", { ascending: false });
@@ -87,6 +88,7 @@ export default function MovimentacoesPage() {
           valor: r.valor ?? null,
           origem: r.origem ?? "manual",
           codigo_custodia: r.codigo_custodia ?? null,
+          modalidade: r.modalidade ?? null,
         }));
       setRows(mapped);
       _movCachedRows = mapped;
@@ -220,6 +222,7 @@ export default function MovimentacoesPage() {
   const colSpan = COLUMNS.length + 1;
 
   const isPagamentoJuros = (tipo: string) => tipo === "Pagamento de Juros";
+  const isPoupancaMov = (r: Movimentacao) => r.modalidade === "Poupança";
 
   return (
     <div className="space-y-6">
@@ -289,14 +292,14 @@ export default function MovimentacoesPage() {
                   <TableCell className="whitespace-nowrap">{r.nome_ativo ?? "—"}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.tipo_movimentacao}</TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {isPagamentoJuros(r.tipo_movimentacao)
+                    {isPagamentoJuros(r.tipo_movimentacao) || isPoupancaMov(r)
                       ? "—"
                       : r.quantidade != null
                         ? r.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 7, maximumFractionDigits: 7 })
                         : "—"}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {isPagamentoJuros(r.tipo_movimentacao)
+                    {isPagamentoJuros(r.tipo_movimentacao) || isPoupancaMov(r)
                       ? "—"
                       : r.preco_unitario != null
                         ? r.preco_unitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })

@@ -230,15 +230,16 @@ export default function CadastrarTransacaoPage() {
 
   // Derived
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
+  const produtoSelecionado = produtos.find((p) => p.id === produtoId);
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
-  const isPoupanca = categoriaSelecionada?.nome === "Poupança";
+  const isPoupanca = produtoSelecionado?.nome === "Poupança";
   const isPosFixado = modalidade === "Pós Fixado";
   const isEditing = !!editId;
   const isResgate = tipoMovimentacao === "Resgate";
   const isAplicacao = tipoMovimentacao === "Aplicação";
   const selectedCustodia = custodiaItems.find((c) => c.id === selectedCustodiaId);
 
-  // Load categorias on mount
+  // Load categorias on mount — only Renda Fixa (Poupança is now a product within RF)
   useEffect(() => {
     supabase
       .from("categorias")
@@ -247,7 +248,7 @@ export default function CadastrarTransacaoPage() {
       .order("nome")
       .then(({ data }) => {
         if (data) {
-          const allowed = data.filter((c: Categoria) => c.nome === "Renda Fixa" || c.nome === "Poupança");
+          const allowed = data.filter((c: Categoria) => c.nome === "Renda Fixa");
           setCategorias(allowed);
           if (allowed.length === 1 && !editId) {
             setCategoriaId(allowed[0].id);
@@ -401,16 +402,19 @@ export default function CadastrarTransacaoPage() {
       }
     }
 
-    // Validate: business day
-    const { data: diaUtil } = await supabase
-      .from("calendario_dias_uteis")
-      .select("dia_util")
-      .eq("data", dateISO)
-      .maybeSingle();
+    // Validate: business day (skip for Poupança)
+    const isPoupancaResgate = selectedCustodia.modalidade === "Poupança";
+    if (!isPoupancaResgate) {
+      const { data: diaUtil } = await supabase
+        .from("calendario_dias_uteis")
+        .select("dia_util")
+        .eq("data", dateISO)
+        .maybeSingle();
 
-    if (!diaUtil || !diaUtil.dia_util) {
-      setResgateDateError("A data selecionada não é um dia útil.");
-      return;
+      if (!diaUtil || !diaUtil.dia_util) {
+        setResgateDateError("A data selecionada não é um dia útil.");
+        return;
+      }
     }
 
     // Calculate saldo using renda fixa engine
@@ -553,7 +557,7 @@ export default function CadastrarTransacaoPage() {
   }, [editId, editLoaded, categorias]);
 
   // Step visibility
-  const showTipoMovimentacao = !!categoriaId && (isRendaFixa || isPoupanca);
+  const showTipoMovimentacao = !!categoriaId && isRendaFixa;
   const showAplicacaoFields = showTipoMovimentacao && !!produtoId && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate));
   const showResgateFields = showTipoMovimentacao && isResgate && !isEditing;
   const showPoupancaFields = isPoupanca && isAplicacao;
@@ -926,7 +930,7 @@ export default function CadastrarTransacaoPage() {
         </div>
 
         {/* ── Aplicação Flow ── */}
-        {(isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && isRendaFixa && (
+        {(isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && isRendaFixa && !isPoupanca && (
           <>
             {/* Produto selector */}
             <Field label="Produto" required>
@@ -1124,8 +1128,8 @@ export default function CadastrarTransacaoPage() {
           </>
         )}
 
-        {/* ── Poupança Aplicação Flow ── */}
-        {isPoupanca && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && (
+        {/* ── Poupança Aplicação Flow (product-based) ── */}
+        {isPoupanca && isRendaFixa && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && (
           <>
             {/* Produto auto-selected, no selector needed */}
 

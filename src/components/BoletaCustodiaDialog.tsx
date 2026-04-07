@@ -186,16 +186,19 @@ export default function BoletaCustodiaDialog({
       }
     }
 
-    // Validate: business day
-    const { data: diaUtil } = await supabase
-      .from("calendario_dias_uteis")
-      .select("dia_util")
-      .eq("data", dateISO)
-      .maybeSingle();
+    // Validate: business day (skip for Poupança)
+    const isPoupancaProduct = row.modalidade === "Poupança";
+    if (!isPoupancaProduct) {
+      const { data: diaUtil } = await supabase
+        .from("calendario_dias_uteis")
+        .select("dia_util")
+        .eq("data", dateISO)
+        .maybeSingle();
 
-    if (!diaUtil || !diaUtil.dia_util) {
-      setDateError("A data selecionada não é um dia útil.");
-      return;
+      if (!diaUtil || !diaUtil.dia_util) {
+        setDateError("A data selecionada não é um dia útil.");
+        return;
+      }
     }
 
     const isRendaFixaEngine = (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado" || row.modalidade === "Mista") && row.taxa && row.preco_unitario;
@@ -337,11 +340,12 @@ export default function BoletaCustodiaDialog({
     setSubmitting(true);
     try {
       const tipoMovimentacao = fecharPosicao ? "Resgate Total" : tipo;
-      const pu = valorCotaDia ?? row.preco_unitario;
-      const quantidade = pu && pu > 0 ? valorNum / pu : null;
+      const isPoupancaProduct = row.modalidade === "Poupança";
+      const pu = isPoupancaProduct ? null : (valorCotaDia ?? row.preco_unitario);
+      const quantidade = isPoupancaProduct ? null : (pu && pu > 0 ? valorNum / pu : null);
 
       let valorExtrato: string;
-      if (pu && quantidade) {
+      if (!isPoupancaProduct && pu && quantidade) {
         const fmtVal = valorNum.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const fmtPU = pu.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const fmtQtd = quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 6, maximumFractionDigits: 6 });

@@ -146,7 +146,7 @@ export default function CarteiraRendaFixaPage() {
         }))
       );
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
-        .filter((r: any) => r.categorias?.nome === "Renda Fixa" || r.categorias?.nome === "Poupança")
+        .filter((r: any) => r.categorias?.nome === "Renda Fixa")
         .map((r: any) => ({
           id: r.id,
           codigo_custodia: r.codigo_custodia,
@@ -206,7 +206,7 @@ export default function CarteiraRendaFixaPage() {
         return end > max ? end : max;
       }, dataCalculo);
 
-      const poupancaProds = rfProducts.filter(p => p.categoria_nome === "Poupança");
+      const poupancaProds = rfProducts.filter(p => p.modalidade === "Poupança");
       const poupancaCodigos = poupancaProds.map(p => p.codigo_custodia);
 
       const [calRes, cdiRes, ibovRes, selicRes, trRes, poupRendRes] = await Promise.all([
@@ -266,7 +266,7 @@ export default function CarteiraRendaFixaPage() {
       const prodRowProducts: CustodiaProduct[] = []; // parallel array to track which product each row set belongs to
 
       // Renda Fixa products
-      for (const product of rfProducts.filter(p => p.categoria_nome === "Renda Fixa")) {
+      for (const product of rfProducts.filter(p => p.modalidade !== "Poupança")) {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
         allProdRows.push(calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
