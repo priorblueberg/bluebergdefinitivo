@@ -1125,8 +1125,8 @@ export default function CadastrarTransacaoPage() {
           </>
         )}
 
-        {/* ── Poupança Aplicação Flow ── */}
-        {isPoupanca && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && (
+        {/* ── Poupança Aplicação Flow (product-based) ── */}
+        {isPoupanca && isRendaFixa && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && (
           <>
             {/* Produto auto-selected, no selector needed */}
 
