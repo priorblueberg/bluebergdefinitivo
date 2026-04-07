@@ -33,6 +33,7 @@ export interface PoupancaEngineInput {
   lotes: PoupancaLote[];
   selicRecords: { data: string; taxa_anual: number }[];
   trRecords?: { data: string; taxa_mensal: number }[];
+  poupancaRendimentoRecords?: { data: string; rendimento_mensal: number }[];
   dataResgateTotal?: string | null;
 }
 
@@ -109,15 +110,23 @@ function isAniversario(dataISO: string, diaAniversario: number): boolean {
  * com o engine de renda fixa para integração com a carteira.
  */
 export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, calendario, movimentacoes, lotes, selicRecords, trRecords, dataResgateTotal } = input;
+  const { dataInicio, dataCalculo, calendario, movimentacoes, lotes, selicRecords, trRecords, poupancaRendimentoRecords, dataResgateTotal } = input;
 
-  // Build Selic map
+  // Build poupança rendimento map (série 195 BCB — preferred source)
+  const poupRendMap = new Map<string, number>();
+  if (poupancaRendimentoRecords) {
+    for (const r of poupancaRendimentoRecords) {
+      poupRendMap.set(r.data, r.rendimento_mensal);
+    }
+  }
+
+  // Build Selic map (fallback when série 195 not available)
   const selicMap = new Map<string, number>();
   for (const r of selicRecords) {
     selicMap.set(r.data, r.taxa_anual);
   }
 
-  // Build TR map
+  // Build TR map (fallback when série 195 not available)
   const trMap = new Map<string, number>();
   if (trRecords) {
     for (const r of trRecords) {
@@ -180,9 +189,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     const date = cal.data;
     const diaUtil = cal.dia_util;
 
-    // Get current Selic
-    const selicHoje = selicMap.get(date) ?? lastSelic;
-    if (selicMap.has(date)) lastSelic = selicHoje;
+    // Track latest Selic for fallback
+    if (selicMap.has(date)) lastSelic = selicMap.get(date)!;
 
     // Calculate rendimento for lotes that have anniversary today
     let rendimentoDia = 0;
@@ -193,11 +201,22 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
       // Credit yield on anniversary date regardless of business day
       if (isAniversario(date, lote.diaAniversario)) {
-        // TR data-base = dia do aniversário do mês anterior
+        // Preferred: use série 195 (rendimento direto da poupança do BCB)
         const dataBaseTR = getDataBaseTR(date, lote.diaAniversario);
-        const trDataBase = trMap.get(dataBaseTR) ?? 0;
-        const rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
-        // Arredondar para centavos (2 casas) a cada crédito, igual ao Gorila
+        const serie195 = poupRendMap.get(dataBaseTR);
+
+        let rendBruto: number;
+        if (serie195 !== undefined) {
+          // Série 195 já inclui 0.5% + TR compostos com precisão oficial
+          rendBruto = lote.valorAtual * (serie195 / 100);
+        } else {
+          // Fallback: calcular a partir de Selic + TR
+          const selicHoje = selicMap.get(date) ?? lastSelic;
+          const trDataBase = trMap.get(dataBaseTR) ?? 0;
+          rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
+        }
+
+        // Arredondar para centavos (2 casas) a cada crédito
         const rend = Math.round(rendBruto * 100) / 100;
         lote.valorAtual += rend;
         lote.rendimentoAcumulado += rend;

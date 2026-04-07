@@ -144,7 +144,7 @@ export default function PosicaoConsolidadaPage() {
       const allCodigos = allCalcProducts.map((p) => p.codigo_custodia);
       const poupancaCodigos = poupancaProducts.map((p) => p.codigo_custodia);
 
-      const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes] = await Promise.all([
+      const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         allCodigos.length > 0
@@ -159,6 +159,9 @@ export default function PosicaoConsolidadaPage() {
         poupancaCodigos.length > 0
           ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
       ]);
 
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
@@ -167,6 +170,7 @@ export default function PosicaoConsolidadaPage() {
       for (const c of cdiRecords) cdiMap.set(c.data, c.taxa_anual);
       const selicRecords = ((selicRes as any).data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) }));
       const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
+      const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
 
       const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
       for (const m of ((movRes as any).data || [])) {
@@ -244,6 +248,7 @@ export default function PosicaoConsolidadaPage() {
           lotes,
           selicRecords,
           trRecords,
+          poupancaRendimentoRecords,
           dataResgateTotal: product.resgate_total,
         });
 

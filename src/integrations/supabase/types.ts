@@ -297,6 +297,21 @@ export type Database = {
         }
         Relationships: []
       }
+      historico_poupanca_rendimento: {
+        Row: {
+          data: string
+          rendimento_mensal: number
+        }
+        Insert: {
+          data: string
+          rendimento_mensal: number
+        }
+        Update: {
+          data?: string
+          rendimento_mensal?: number
+        }
+        Relationships: []
+      }
       historico_selic: {
         Row: {
           data: string

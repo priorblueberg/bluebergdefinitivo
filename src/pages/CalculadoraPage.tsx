@@ -99,7 +99,7 @@ export default function CalculadoraPage() {
 
         if (isPoupanca) {
           // Poupança calculation
-          const [calRes, movRes, selicRes, lotesRes, trRes] = await Promise.all([
+          const [calRes, movRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
             supabase.from("calendario_dias_uteis").select("data, dia_util")
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
             supabase.from("movimentacoes").select("data, tipo_movimentacao, valor")
@@ -109,6 +109,8 @@ export default function CalculadoraPage() {
             supabase.from("poupanca_lotes").select("*")
               .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).eq("status", "ativo"),
             supabase.from("historico_tr").select("data, taxa_mensal")
+              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+            supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal")
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
           ]);
 
@@ -126,6 +128,7 @@ export default function CalculadoraPage() {
             })) as PoupancaLote[],
             selicRecords: (selicRes.data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) })),
             trRecords: (trRes.data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) })),
+            poupancaRendimentoRecords: (poupRendRes.data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) })),
             dataResgateTotal: product.resgate_total,
           });
           setRows(result);

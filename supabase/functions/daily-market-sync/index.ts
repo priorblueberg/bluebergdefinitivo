@@ -320,7 +320,69 @@ Deno.serve(async (req) => {
       console.error("TR error:", e);
     }
 
-    // ── 5. Calendário Dias Úteis ─────────────────────────────────────
+    // ── 5. Poupança Rendimento (Série 195) ─────────────────────────
+    try {
+      const { data: maxPoup } = await supabase
+        .from("historico_poupanca_rendimento")
+        .select("data")
+        .order("data", { ascending: false })
+        .limit(1)
+        .single();
+
+      const startPoup = maxPoup
+        ? addDays(new Date(maxPoup.data + "T12:00:00"), 1)
+        : new Date(2024, 0, 1);
+
+      const yesterdayPoup = new Date();
+      yesterdayPoup.setDate(yesterdayPoup.getDate() - 1);
+
+      if (startPoup <= yesterdayPoup) {
+        const fmt = (d: Date) =>
+          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+
+        const bcbPoupUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.195/dados?formato=json&dataInicial=${fmt(startPoup)}&dataFinal=${fmt(yesterdayPoup)}`;
+        console.log("Fetching Poupança rendimento from BCB:", bcbPoupUrl);
+
+        const poupResp = await fetch(bcbPoupUrl);
+        if (!poupResp.ok) throw new Error(`BCB Poupança API error ${poupResp.status}`);
+
+        const poupData: { data: string; valor: string }[] = await poupResp.json();
+
+        if (poupData.length > 0) {
+          const byDate = new Map<string, number>();
+          for (const r of poupData) {
+            const [dd, mm, yyyy] = r.data.split("/");
+            byDate.set(`${yyyy}-${mm}-${dd}`, parseFloat(r.valor));
+          }
+
+          const poupRows = Array.from(byDate.entries()).map(([data, rendimento_mensal]) => ({
+            data,
+            rendimento_mensal,
+          }));
+
+          const batchSize = 500;
+          let inserted = 0;
+          for (let i = 0; i < poupRows.length; i += batchSize) {
+            const batch = poupRows.slice(i, i + batchSize);
+            const { error } = await supabase
+              .from("historico_poupanca_rendimento")
+              .upsert(batch, { onConflict: "data" });
+            if (error) throw new Error(`Poupança insert: ${error.message}`);
+            inserted += batch.length;
+          }
+          results.poupanca_rendimento = `Upserted ${inserted} Poupança rendimento records`;
+        } else {
+          results.poupanca_rendimento = "No new Poupança rendimento data";
+        }
+      } else {
+        results.poupanca_rendimento = "Poupança rendimento already up to date";
+      }
+    } catch (e) {
+      results.poupanca_rendimento = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("Poupança rendimento error:", e);
+    }
+
+    // ── 6. Calendário Dias Úteis ─────────────────────────────────────
     try {
       // Get max date in calendar
       const { data: maxCal } = await supabase
