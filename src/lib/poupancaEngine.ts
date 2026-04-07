@@ -51,14 +51,15 @@ interface LoteState {
  * Calcula o rendimento mensal da poupança com base na Selic vigente.
  * TR = 0 no MVP.
  */
-function calcRendimentoMensal(valorAtual: number, selicAnual: number): number {
+function calcRendimentoMensal(valorAtual: number, selicAnual: number, trMensal: number): number {
+  const tr = trMensal / 100; // Convert from % to decimal
   if (selicAnual > 8.5) {
-    // 0.5% ao mês
-    return valorAtual * 0.005;
+    // 0.5% ao mês + TR
+    return valorAtual * (0.005 + tr);
   } else {
-    // 70% da Selic mensal
+    // 70% da Selic mensal + TR
     const fatorMensal = Math.pow(1 + selicAnual / 100, 1 / 12);
-    return valorAtual * (fatorMensal - 1) * 0.70;
+    return valorAtual * ((fatorMensal - 1) * 0.70 + tr);
   }
 }
 
