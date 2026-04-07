@@ -150,6 +150,7 @@ export default function CustodiaPage() {
         }))
       );
     }
+    _custCachedRows = rows.length > 0 ? rows : _custCachedRows;
     setLoading(false);
   };
 
