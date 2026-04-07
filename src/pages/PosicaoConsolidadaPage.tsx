@@ -62,7 +62,6 @@ interface PosicaoRow {
 
 // Module-level cache to persist across navigation
 let _cachedVersion: number | null = null;
-let _cachedFifo: boolean | null = null;
 let _cachedRows: PosicaoRow[] = [];
 let _cachedRentabilidade = 0;
 
