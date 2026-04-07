@@ -88,6 +88,7 @@ export default function MovimentacoesPage() {
           valor: r.valor ?? null,
           origem: r.origem ?? "manual",
           codigo_custodia: r.codigo_custodia ?? null,
+          modalidade: r.modalidade ?? null,
         }));
       setRows(mapped);
       _movCachedRows = mapped;
