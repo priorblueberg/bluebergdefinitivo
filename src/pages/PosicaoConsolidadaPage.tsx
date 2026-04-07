@@ -233,106 +233,132 @@ export default function PosicaoConsolidadaPage() {
         }
       }
 
-      // Poupança products — each lote is treated as an independent "certificate"
+      // Poupança products — FIFO (single row) or per-certificate
       for (const product of poupancaProducts) {
         const lotes = lotesByCodigo.get(product.codigo_custodia) || [];
         const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
 
         if (lotes.length === 0) continue;
 
-        // Sort lotes by application date (FIFO order)
         const sortedLotes = [...lotes].sort((a, b) => a.data_aplicacao.localeCompare(b.data_aplicacao));
 
-        // Find original principals from movimentações
-        const originalPrincipals = new Map<string, number>();
-        for (const lote of sortedLotes) {
-          const originalApp = allMovsForProduct.find(
-            (m) =>
-              (m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação") &&
-              m.data === lote.data_aplicacao
-          );
-          originalPrincipals.set(lote.id, originalApp ? originalApp.valor : Number(lote.valor_principal));
-        }
-
-        // Distribute resgates across lotes using FIFO
-        // We need to pre-compute how much resgate each lote absorbs
-        const resgateMovs = allMovsForProduct
-          .filter((m) => m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate Total")
-          .sort((a, b) => a.data.localeCompare(b.data));
-
-        // Track cumulative resgate per lote: Map<loteId, {data, valor}[]>
-        const resgatesPorLote = new Map<string, { data: string; tipo_movimentacao: string; valor: number }[]>();
-        for (const lote of sortedLotes) resgatesPorLote.set(lote.id, []);
-
-        // For FIFO distribution, we need to know each lote's "capacity" at resgate time
-        // Since we can't run the full engine here, we use the original principal as approximation
-        // (the engine will compute exact yields and handle the reduction)
-        const loteCapacity = new Map<string, number>();
-        for (const lote of sortedLotes) {
-          loteCapacity.set(lote.id, originalPrincipals.get(lote.id) || 0);
-        }
-
-        for (const resgate of resgateMovs) {
-          let restante = resgate.valor;
-          for (const lote of sortedLotes) {
-            if (restante <= 0.01) break;
-            const cap = loteCapacity.get(lote.id) || 0;
-            if (cap <= 0.01) continue;
-
-            const consumido = Math.min(restante, cap);
-            resgatesPorLote.get(lote.id)!.push({
-              data: resgate.data,
-              tipo_movimentacao: resgate.tipo_movimentacao,
-              valor: consumido,
-            });
-            loteCapacity.set(lote.id, cap - consumido);
-            restante -= consumido;
-          }
-        }
-
-        for (const lote of sortedLotes) {
-          const originalPrincipal = originalPrincipals.get(lote.id) || Number(lote.valor_principal);
-
-          // Build movimentações: original application + distributed resgates
-          const movsForEngine: { data: string; tipo_movimentacao: string; valor: number }[] = [
-            { data: lote.data_aplicacao, tipo_movimentacao: "Aplicação Inicial", valor: originalPrincipal },
-            ...(resgatesPorLote.get(lote.id) || []),
-          ];
-
-          // Use original principal as the lote starting value
-          const loteForEngine: PoupancaLote = {
-            ...lote,
-            valor_principal: originalPrincipal,
-            valor_atual: originalPrincipal,
-          };
+        if (poupancaFifo) {
+          // FIFO mode: all lotes fed into engine as a single row "Poupança"
+          const lotesForEngine: PoupancaLote[] = sortedLotes.map((l) => ({
+            ...l,
+            valor_principal: Number(l.valor_principal),
+            valor_atual: Number(l.valor_principal),
+          }));
 
           const engineRows = calcularPoupancaDiario({
-            dataInicio: lote.data_aplicacao,
+            dataInicio: sortedLotes[0].data_aplicacao,
             dataCalculo: dataReferenciaISO,
             calendario,
-            movimentacoes: movsForEngine,
-            lotes: [loteForEngine],
+            movimentacoes: allMovsForProduct,
+            lotes: lotesForEngine,
             selicRecords,
             trRecords,
             poupancaRendimentoRecords,
-            dataResgateTotal: null,
+            dataResgateTotal: product.resgate_total,
           });
 
           allProductRows.push(engineRows);
 
           const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
           if (lastRow) {
-            const fmtDataAplicacao = new Date(lote.data_aplicacao + "T12:00:00").toLocaleDateString("pt-BR");
-            const isLoteEncerrado = lastRow.liquido < 0.01;
+            const isEncerrado = lastRow.liquido < 0.01;
             posicaoRows.push({
-              nome: `${product.nome || "Poupança"} - ${fmtDataAplicacao}`,
+              nome: product.nome || "Poupança",
               valorAtualizado: lastRow.liquido,
               ganhoFinanceiro: lastRow.ganhoAcumulado,
               rentabilidade: lastRow.rentabilidadeAcumuladaPct * 100,
               custodiante: product.instituicao_nome,
-              ativo: !isLoteEncerrado,
+              ativo: !isEncerrado,
               product,
             });
+          }
+        } else {
+          // Certificate mode: each lote is an independent row
+          const originalPrincipals = new Map<string, number>();
+          for (const lote of sortedLotes) {
+            const originalApp = allMovsForProduct.find(
+              (m) =>
+                (m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação") &&
+                m.data === lote.data_aplicacao
+            );
+            originalPrincipals.set(lote.id, originalApp ? originalApp.valor : Number(lote.valor_principal));
+          }
+
+          const resgateMovs = allMovsForProduct
+            .filter((m) => m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate Total")
+            .sort((a, b) => a.data.localeCompare(b.data));
+
+          const resgatesPorLote = new Map<string, { data: string; tipo_movimentacao: string; valor: number }[]>();
+          for (const lote of sortedLotes) resgatesPorLote.set(lote.id, []);
+
+          const loteCapacity = new Map<string, number>();
+          for (const lote of sortedLotes) {
+            loteCapacity.set(lote.id, originalPrincipals.get(lote.id) || 0);
+          }
+
+          for (const resgate of resgateMovs) {
+            let restante = resgate.valor;
+            for (const lote of sortedLotes) {
+              if (restante <= 0.01) break;
+              const cap = loteCapacity.get(lote.id) || 0;
+              if (cap <= 0.01) continue;
+              const consumido = Math.min(restante, cap);
+              resgatesPorLote.get(lote.id)!.push({
+                data: resgate.data,
+                tipo_movimentacao: resgate.tipo_movimentacao,
+                valor: consumido,
+              });
+              loteCapacity.set(lote.id, cap - consumido);
+              restante -= consumido;
+            }
+          }
+
+          for (const lote of sortedLotes) {
+            const originalPrincipal = originalPrincipals.get(lote.id) || Number(lote.valor_principal);
+            const movsForEngine: { data: string; tipo_movimentacao: string; valor: number }[] = [
+              { data: lote.data_aplicacao, tipo_movimentacao: "Aplicação Inicial", valor: originalPrincipal },
+              ...(resgatesPorLote.get(lote.id) || []),
+            ];
+
+            const loteForEngine: PoupancaLote = {
+              ...lote,
+              valor_principal: originalPrincipal,
+              valor_atual: originalPrincipal,
+            };
+
+            const engineRows = calcularPoupancaDiario({
+              dataInicio: lote.data_aplicacao,
+              dataCalculo: dataReferenciaISO,
+              calendario,
+              movimentacoes: movsForEngine,
+              lotes: [loteForEngine],
+              selicRecords,
+              trRecords,
+              poupancaRendimentoRecords,
+              dataResgateTotal: null,
+            });
+
+            allProductRows.push(engineRows);
+
+            const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
+            if (lastRow) {
+              const fmtDataAplicacao = new Date(lote.data_aplicacao + "T12:00:00").toLocaleDateString("pt-BR");
+              const isLoteEncerrado = lastRow.liquido < 0.01;
+              posicaoRows.push({
+                nome: `${product.nome || "Poupança"} - ${fmtDataAplicacao}`,
+                valorAtualizado: lastRow.liquido,
+                ganhoFinanceiro: lastRow.ganhoAcumulado,
+                rentabilidade: lastRow.rentabilidadeAcumuladaPct * 100,
+                custodiante: product.instituicao_nome,
+                ativo: !isLoteEncerrado,
+                product,
+              });
+            }
           }
         }
       }
