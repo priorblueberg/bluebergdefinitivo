@@ -219,32 +219,24 @@ export default function PosicaoConsolidadaPage() {
 
       // Poupança products — FIFO (single row) or per-certificate
       for (const product of poupancaProducts) {
-        const lotes = lotesByCodigo.get(product.codigo_custodia) || [];
         const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
+        const lotesForEngine = buildPoupancaLotesFromMovs(allMovsForProduct);
 
-        if (lotes.length === 0) continue;
+        if (lotesForEngine.length === 0) continue;
 
-        const sortedLotes = [...lotes].sort((a, b) => a.data_aplicacao.localeCompare(b.data_aplicacao));
+        const engineRows = calcularPoupancaDiario({
+          dataInicio: lotesForEngine[0].data_aplicacao,
+          dataCalculo: dataReferenciaISO,
+          calendario,
+          movimentacoes: allMovsForProduct,
+          lotes: lotesForEngine,
+          selicRecords,
+          trRecords,
+          poupancaRendimentoRecords,
+          dataResgateTotal: product.resgate_total,
+        });
 
         {
-          // FIFO mode: all lotes fed into engine as a single row "Poupança"
-          const lotesForEngine: PoupancaLote[] = sortedLotes.map((l) => ({
-            ...l,
-            valor_principal: Number(l.valor_principal),
-            valor_atual: Number(l.valor_principal),
-          }));
-
-          const engineRows = calcularPoupancaDiario({
-            dataInicio: sortedLotes[0].data_aplicacao,
-            dataCalculo: dataReferenciaISO,
-            calendario,
-            movimentacoes: allMovsForProduct,
-            lotes: lotesForEngine,
-            selicRecords,
-            trRecords,
-            poupancaRendimentoRecords,
-            dataResgateTotal: product.resgate_total,
-          });
 
           allProductRows.push(engineRows);
 
