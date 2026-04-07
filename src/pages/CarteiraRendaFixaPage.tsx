@@ -318,7 +318,7 @@ export default function CarteiraRendaFixaPage() {
 
       setCarteiraRows(result);
       _cartRFCachedVersion = appliedVersion;
-      _cartRFCached = { carteiraInfo: carteiraInfo, carteiraRows: result, allProductRows: allProdRows, cdiRecords: cdiRecords, ibovespaData: ibovespaData, productList: pList, allCustodiaForCategoria: allCustodiaForCategoria };
+      _cartRFCached = { carteiraInfo: info, carteiraRows: result, allProductRows: allProdRows, cdiRecords: mergedCdi, ibovespaData: ibovRaw, productList: pList, allCustodiaForCategoria: (custodiaData || []).filter((r: any) => !r.resgate_total).map((r: any) => ({ categoria_nome: r.categorias?.nome || "Outros", valor_investido: Number(r.valor_investido), custodia_no_dia: r.custodia_no_dia != null ? Number(r.custodia_no_dia) : null })) };
       setLoading(false);
     })();
   }, [user, appliedVersion]);
