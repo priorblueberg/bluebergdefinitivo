@@ -222,6 +222,7 @@ export default function MovimentacoesPage() {
   const colSpan = COLUMNS.length + 1;
 
   const isPagamentoJuros = (tipo: string) => tipo === "Pagamento de Juros";
+  const isPoupancaMov = (r: Movimentacao) => r.modalidade === "Poupança";
 
   return (
     <div className="space-y-6">
