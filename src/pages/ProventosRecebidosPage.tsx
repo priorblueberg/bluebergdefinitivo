@@ -145,34 +145,13 @@ export default function ProventosRecebidosPage() {
       const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
       const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
 
-      const lotesByCodigo = new Map<number, PoupancaLote[]>();
-      for (const l of ((lotesRes as any).data || [])) {
-        const code = Number(l.codigo_custodia);
-        if (!lotesByCodigo.has(code)) lotesByCodigo.set(code, []);
-        lotesByCodigo.get(code)!.push({
-          ...l,
-          dia_aniversario: Number(l.dia_aniversario),
-          valor_principal: Number(l.valor_principal),
-          valor_atual: Number(l.valor_atual),
-          rendimento_acumulado: Number(l.rendimento_acumulado),
-          codigo_custodia: code,
-        } as PoupancaLote);
-      }
-
       for (const prod of poupancaProducts) {
-        const lotes = lotesByCodigo.get((prod as any).codigo_custodia) || [];
-        if (lotes.length === 0) continue;
-        const sortedLotes = [...lotes].sort((a, b) => a.data_aplicacao.localeCompare(b.data_aplicacao));
         const allMovs = movByCodigo.get((prod as any).codigo_custodia) || [];
-
-        const lotesForEngine: PoupancaLote[] = sortedLotes.map((l) => ({
-          ...l,
-          valor_principal: Number(l.valor_principal),
-          valor_atual: Number(l.valor_principal),
-        }));
+        const lotesForEngine = buildPoupancaLotesFromMovs(allMovs);
+        if (lotesForEngine.length === 0) continue;
 
         const engineRows = calcularPoupancaDiario({
-          dataInicio: sortedLotes[0].data_aplicacao,
+          dataInicio: lotesForEngine[0].data_aplicacao,
           dataCalculo: dataReferenciaISO,
           calendario,
           movimentacoes: allMovs,
