@@ -397,7 +397,7 @@ export { default as CarteiraAnaliseIndividual } from "./AnaliseIndividualPage";
 export { default as Movimentacoes } from "./MovimentacoesPage";
 export { default as ProventosRecebidos } from "./ProventosRecebidosPage";
 export { default as CadastrarTransacao } from "./CadastrarTransacaoPage";
-export const Configuracoes = () => <PageStub title="Configurações" />;
+export { default as Configuracoes } from "./ConfiguracoesPage";
 export const Usuario = () => <PageStub title="Usuário" />;
 export { default as Admin } from "./AdminPage";
 export { default as Custodia } from "./CustodiaPage";

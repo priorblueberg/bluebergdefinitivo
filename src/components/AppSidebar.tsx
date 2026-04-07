@@ -30,7 +30,7 @@ const menuItems: MenuItem[] = [
   { title: "Controle de Carteiras", url: "/controle-carteiras", icon: Briefcase, adminOnly: true },
   { title: "Proventos Recebidos", url: "/proventos", icon: DollarSign },
   
-  { title: "Configurações", url: "/configuracoes", icon: Settings, adminOnly: true },
+  { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Admin", url: "/admin", icon: Shield, adminOnly: true },
   { title: "Calculadora", url: "/calculadora", icon: Calculator, adminOnly: true },
 ];
