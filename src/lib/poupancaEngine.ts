@@ -49,18 +49,37 @@ interface LoteState {
 
 /**
  * Calcula o rendimento mensal da poupança com base na Selic vigente.
- * TR = 0 no MVP.
+ * Fórmula oficial: (1 + remunBase) × (1 + TR) - 1
+ * remunBase = 0.5% se Selic > 8.5%, senão 70% da Selic mensal.
  */
 function calcRendimentoMensal(valorAtual: number, selicAnual: number, trMensal: number): number {
   const tr = trMensal / 100; // Convert from % to decimal
+  let remunBase: number;
   if (selicAnual > 8.5) {
-    // 0.5% ao mês + TR
-    return valorAtual * (0.005 + tr);
+    remunBase = 0.005; // 0.5% ao mês
   } else {
-    // 70% da Selic mensal + TR
+    // 70% da Selic mensal
     const fatorMensal = Math.pow(1 + selicAnual / 100, 1 / 12);
-    return valorAtual * ((fatorMensal - 1) * 0.70 + tr);
+    remunBase = (fatorMensal - 1) * 0.70;
   }
+  // Composição: (1 + remunBase) × (1 + TR) - 1
+  return valorAtual * ((1 + remunBase) * (1 + tr) - 1);
+}
+
+/**
+ * Retorna a data-base da TR para o aniversário: dia do aniversário do mês anterior.
+ * Ex: aniversário em 04/04/2024 → data-base = 04/03/2024.
+ */
+function getDataBaseTR(aniversarioISO: string, diaAniversario: number): string {
+  const [y, m] = aniversarioISO.split("-").map(Number);
+  // Mês anterior (0-indexed for getAniversarioNoMes)
+  let prevMonth = m - 2; // m is 1-indexed, we need 0-indexed minus 1
+  let prevYear = y;
+  if (prevMonth < 0) {
+    prevMonth = 11;
+    prevYear -= 1;
+  }
+  return getAniversarioNoMes(prevYear, prevMonth, diaAniversario);
 }
 
 /**
