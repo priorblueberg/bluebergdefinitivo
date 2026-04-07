@@ -239,24 +239,39 @@ export default function PosicaoConsolidadaPage() {
         if (lotes.length === 0) continue;
 
         for (const lote of lotes) {
-          // Build a single-lote movimentação set: only the application for this lote
-          const loteMovs = allMovsForProduct.filter(
+          // Find the original application value from movimentações
+          const originalApp = allMovsForProduct.find(
             (m) =>
               (m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação") &&
-              m.data === lote.data_aplicacao &&
-              Math.abs(m.valor - Number(lote.valor_principal)) < 0.02
+              m.data === lote.data_aplicacao
           );
-          // If no exact match found, create a synthetic application movimentação
-          const movsForEngine = loteMovs.length > 0
-            ? [{ data: lote.data_aplicacao, tipo_movimentacao: "Aplicação Inicial", valor: Number(lote.valor_principal) }]
-            : [{ data: lote.data_aplicacao, tipo_movimentacao: "Aplicação Inicial", valor: Number(lote.valor_principal) }];
+          const originalPrincipal = originalApp ? originalApp.valor : Number(lote.valor_principal);
+
+          // Build movimentações: original application + any resgates for this lote
+          const movsForEngine: { data: string; tipo_movimentacao: string; valor: number }[] = [
+            { data: lote.data_aplicacao, tipo_movimentacao: "Aplicação Inicial", valor: originalPrincipal },
+          ];
+
+          // Include resgate movimentações — for FIFO, resgates are attributed to the oldest lote first
+          // For now, pass all resgates and let the engine handle FIFO internally
+          const resgateMovs = allMovsForProduct.filter(
+            (m) => m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate Total"
+          );
+          movsForEngine.push(...resgateMovs);
+
+          // Use original principal as the lote starting value (before any DB-side reductions)
+          const loteForEngine: PoupancaLote = {
+            ...lote,
+            valor_principal: originalPrincipal,
+            valor_atual: originalPrincipal,
+          };
 
           const engineRows = calcularPoupancaDiario({
             dataInicio: lote.data_aplicacao,
             dataCalculo: dataReferenciaISO,
             calendario,
             movimentacoes: movsForEngine,
-            lotes: [lote],
+            lotes: [loteForEngine],
             selicRecords,
             trRecords,
             poupancaRendimentoRecords,
