@@ -55,6 +55,8 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
   const applyDate = async (date: Date) => {
     if (!user) return;
     const clamped = clampDate(date);
+    // Skip if the date is the same as already set
+    if (format(clamped, "yyyy-MM-dd") === format(dataReferencia, "yyyy-MM-dd")) return;
     setDataReferencia(clamped);
     setInputValue(format(clamped, "dd/MM/yyyy"));
     setIsRecalculating(true);
