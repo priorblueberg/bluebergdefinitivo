@@ -126,8 +126,8 @@ export default function ConfiguracoesPage() {
             </div>
             <Switch
               checked={poupancaFifo}
-              onCheckedChange={setPoupancaFifo}
-              disabled={loading}
+              onCheckedChange={handleToggleFifo}
+              disabled={loading || toggling}
             />
           </div>
         </CardContent>
