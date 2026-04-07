@@ -196,7 +196,9 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         // TR data-base = dia do aniversário do mês anterior
         const dataBaseTR = getDataBaseTR(date, lote.diaAniversario);
         const trDataBase = trMap.get(dataBaseTR) ?? 0;
-        const rend = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
+        const rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
+        // Arredondar para centavos (2 casas) a cada crédito, igual ao Gorila
+        const rend = Math.round(rendBruto * 100) / 100;
         lote.valorAtual += rend;
         lote.rendimentoAcumulado += rend;
         lote.ultimoAniversario = date;
