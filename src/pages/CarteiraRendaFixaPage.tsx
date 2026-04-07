@@ -266,7 +266,7 @@ export default function CarteiraRendaFixaPage() {
       const prodRowProducts: CustodiaProduct[] = []; // parallel array to track which product each row set belongs to
 
       // Renda Fixa products
-      for (const product of rfProducts.filter(p => p.categoria_nome === "Renda Fixa")) {
+      for (const product of rfProducts.filter(p => p.modalidade !== "Poupança")) {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
         allProdRows.push(calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
