@@ -110,15 +110,23 @@ function isAniversario(dataISO: string, diaAniversario: number): boolean {
  * com o engine de renda fixa para integração com a carteira.
  */
 export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, calendario, movimentacoes, lotes, selicRecords, trRecords, dataResgateTotal } = input;
+  const { dataInicio, dataCalculo, calendario, movimentacoes, lotes, selicRecords, trRecords, poupancaRendimentoRecords, dataResgateTotal } = input;
 
-  // Build Selic map
+  // Build poupança rendimento map (série 195 BCB — preferred source)
+  const poupRendMap = new Map<string, number>();
+  if (poupancaRendimentoRecords) {
+    for (const r of poupancaRendimentoRecords) {
+      poupRendMap.set(r.data, r.rendimento_mensal);
+    }
+  }
+
+  // Build Selic map (fallback when série 195 not available)
   const selicMap = new Map<string, number>();
   for (const r of selicRecords) {
     selicMap.set(r.data, r.taxa_anual);
   }
 
-  // Build TR map
+  // Build TR map (fallback when série 195 not available)
   const trMap = new Map<string, number>();
   if (trRecords) {
     for (const r of trRecords) {
