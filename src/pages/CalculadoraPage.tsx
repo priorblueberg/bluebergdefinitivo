@@ -106,8 +106,7 @@ export default function CalculadoraPage() {
               .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).order("data"),
             supabase.from("historico_selic").select("data, taxa_anual")
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
-            supabase.from("poupanca_lotes").select("*")
-              .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).eq("status", "ativo"),
+            Promise.resolve({ data: [] }), // lotes now built from movimentações
             supabase.from("historico_tr").select("data, taxa_mensal")
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
             supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal")
