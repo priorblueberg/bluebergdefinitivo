@@ -128,6 +128,7 @@ export default function CalculadoraPage() {
             })) as PoupancaLote[],
             selicRecords: (selicRes.data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) })),
             trRecords: (trRes.data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) })),
+            poupancaRendimentoRecords: (poupRendRes.data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) })),
             dataResgateTotal: product.resgate_total,
           });
           setRows(result);
