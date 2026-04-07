@@ -202,11 +202,22 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
       // Credit yield on anniversary date regardless of business day
       if (isAniversario(date, lote.diaAniversario)) {
-        // TR data-base = dia do aniversário do mês anterior
+        // Preferred: use série 195 (rendimento direto da poupança do BCB)
         const dataBaseTR = getDataBaseTR(date, lote.diaAniversario);
-        const trDataBase = trMap.get(dataBaseTR) ?? 0;
-        const rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
-        // Arredondar para centavos (2 casas) a cada crédito, igual ao Gorila
+        const serie195 = poupRendMap.get(dataBaseTR);
+
+        let rendBruto: number;
+        if (serie195 !== undefined) {
+          // Série 195 já inclui 0.5% + TR compostos com precisão oficial
+          rendBruto = lote.valorAtual * (serie195 / 100);
+        } else {
+          // Fallback: calcular a partir de Selic + TR
+          const selicHoje = selicMap.get(date) ?? lastSelic;
+          const trDataBase = trMap.get(dataBaseTR) ?? 0;
+          rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
+        }
+
+        // Arredondar para centavos (2 casas) a cada crédito
         const rend = Math.round(rendBruto * 100) / 100;
         lote.valorAtual += rend;
         lote.rendimentoAcumulado += rend;
