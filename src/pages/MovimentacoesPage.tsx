@@ -68,7 +68,7 @@ export default function MovimentacoesPage() {
       .select(`
         id, created_at, data, tipo_movimentacao,
         pagamento, nome_ativo, quantidade, preco_unitario,
-        valor, origem, codigo_custodia,
+        valor, origem, codigo_custodia, modalidade,
         instituicoes(nome)
       `)
       .order("data", { ascending: false });
