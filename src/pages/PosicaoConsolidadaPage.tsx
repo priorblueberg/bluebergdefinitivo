@@ -248,6 +248,7 @@ export default function PosicaoConsolidadaPage() {
           lotes,
           selicRecords,
           trRecords,
+          poupancaRendimentoRecords,
           dataResgateTotal: product.resgate_total,
         });
 
