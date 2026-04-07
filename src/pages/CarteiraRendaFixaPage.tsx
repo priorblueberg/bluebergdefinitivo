@@ -310,7 +310,7 @@ export default function CarteiraRendaFixaPage() {
 
       setAllProductRows(allProdRows);
 
-      const pList = rfProducts.map((product, idx) => {
+      const pList = prodRowProducts.map((product, idx) => {
         const rows = allProdRows[idx];
         const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
         const isEncerradoNaDataCalculo = product.resgate_total
