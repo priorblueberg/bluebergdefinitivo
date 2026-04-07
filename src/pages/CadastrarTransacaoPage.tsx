@@ -402,16 +402,19 @@ export default function CadastrarTransacaoPage() {
       }
     }
 
-    // Validate: business day
-    const { data: diaUtil } = await supabase
-      .from("calendario_dias_uteis")
-      .select("dia_util")
-      .eq("data", dateISO)
-      .maybeSingle();
+    // Validate: business day (skip for Poupança)
+    const isPoupancaResgate = selectedCustodia.modalidade === "Poupança";
+    if (!isPoupancaResgate) {
+      const { data: diaUtil } = await supabase
+        .from("calendario_dias_uteis")
+        .select("dia_util")
+        .eq("data", dateISO)
+        .maybeSingle();
 
-    if (!diaUtil || !diaUtil.dia_util) {
-      setResgateDateError("A data selecionada não é um dia útil.");
-      return;
+      if (!diaUtil || !diaUtil.dia_util) {
+        setResgateDateError("A data selecionada não é um dia útil.");
+        return;
+      }
     }
 
     // Calculate saldo using renda fixa engine
