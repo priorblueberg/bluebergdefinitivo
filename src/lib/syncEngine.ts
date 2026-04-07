@@ -533,8 +533,8 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, null);
   }
 
-  // Compute data_limite (skip for Poupança — no vencimento)
-  const dataLimite = isPoupanca ? null : (isRendaFixa ? aplicacaoInicial.vencimento : null);
+  // Compute data_limite — Poupança gets a far-future date so the portfolio stays active
+  const dataLimite = isPoupanca ? "2040-12-31" : (isRendaFixa ? aplicacaoInicial.vencimento : null);
 
   // Compute data_calculo
   const dataCalculo = computeDataCalculo(refDate, resgateTotal, dataLimite);
