@@ -19,7 +19,27 @@ import {
 export default function ConfiguracoesPage() {
   const { user } = useAuth();
   const { poupancaFifo, setPoupancaFifo, loading } = useUserSettings();
+  const { dataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  const handleToggleFifo = async (value: boolean) => {
+    if (!user || toggling) return;
+    setToggling(true);
+    setIsRecalculating(true);
+    try {
+      await setPoupancaFifo(value);
+      await recalculateAllForDataReferencia(user.id, format(dataReferencia, "yyyy-MM-dd"));
+      applyDataReferencia();
+      toast.success("Modelo de poupança atualizado com sucesso");
+    } catch (err) {
+      console.error("Erro ao recalcular após alteração do modelo", err);
+      toast.error("Erro ao recalcular");
+    } finally {
+      setIsRecalculating(false);
+      setToggling(false);
+    }
+  };
 
   const handleReset = async () => {
     if (!user) return;
