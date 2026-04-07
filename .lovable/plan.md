@@ -1,59 +1,70 @@
 
 
-## Plan: Settings Page with FIFO Toggle + Reset Movimentações
+## Plan: Poupança — FIFO Obrigatório, Exibição Consolidada e Proventos
 
-### Overview
-1. Create a proper `ConfiguracoesPage` replacing the stub
-2. Add a FIFO toggle switch persisted in a new `user_settings` table
-3. Expose a `useUserSettings` hook for reading the preference
-4. Branch the Poupança logic in `PosicaoConsolidadaPage` based on the FIFO setting
-5. Move "Resetar Movimentações" (formerly "Limpar Base de Dados") into the settings page
-6. Remove/simplify the Admin page accordingly
+### Resumo das Mudanças
+Remover o toggle FIFO (agora obrigatório), simplificar a exibição para sempre consolidada, integrar rendimentos de poupança na página de Proventos, e ajustar a boleta para salvar Banco como Instituição **e** Emissor.
 
-### Database
+---
 
-**New table: `user_settings`**
-```sql
-CREATE TABLE public.user_settings (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL UNIQUE,
-  poupanca_fifo boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
--- RLS: users can CRUD their own row
-```
-
-Default `poupanca_fifo = true` (FIFO mode on by default — matches bank behavior).
-
-### New Files
-
-**`src/hooks/useUserSettings.ts`**
-- Fetches/upserts user settings from `user_settings`
-- Exposes `{ poupancaFifo, setPoupancaFifo, loading }`
-- On toggle, upserts the row in the database
+### 1. Remover toggle FIFO e useUserSettings
 
 **`src/pages/ConfiguracoesPage.tsx`**
-- Section "Poupança": label "Poupança com resgate no modelo FIFO (First In, First Out)" with a `Switch` component
-- Tooltip (using the UI Tooltip component) with the exact text provided
-- Section "Dados": "Redefinir Movimentações" — the destructive purge action moved from AdminPage, renamed
-- Clean card-based layout matching existing admin page style
+- Remover todo o card "Poupança" com o toggle FIFO
+- Manter apenas o card "Redefinir Movimentações"
+- Remover imports de `useUserSettings`, `Switch`, `Tooltip`, `HelpCircle`, `recalculateAllForDataReferencia`, `format`
 
-### Modified Files
-
-**`src/pages/AppPages.tsx`**
-- Replace `Configuracoes` stub with `export { default as Configuracoes } from "./ConfiguracoesPage"`
+**`src/hooks/useUserSettings.ts`**
+- Deletar o arquivo (não é mais necessário)
 
 **`src/pages/PosicaoConsolidadaPage.tsx`**
-- Import `useUserSettings`
-- Read `poupancaFifo` flag
-- When `poupancaFifo === true`: consolidate all lotes into a single engine call, display one row "Poupança" (current FIFO logic from the engine, all lotes together)
-- When `poupancaFifo === false`: keep current certificate-per-lote logic (each lote = separate row "Poupança - DD/MM/AAAA")
+- Remover import de `useUserSettings`
+- Remover variável `_cachedFifo` e referências
+- Remover o bloco `else` (certificate mode, linhas 280-363)
+- Manter apenas o bloco FIFO (linhas 245-279) como lógica padrão, sem condicional
+- Remover `poupancaFifo` e `settingsLoading` do useEffect e da lógica de cache
 
-**`src/pages/AdminPage.tsx`**
-- Remove the "Limpar Base de Dados" section (moved to settings)
-- Keep any remaining admin-only tools
+### 2. Boleta: Banco = Instituição + Emissor
 
-**`src/components/AppSidebar.tsx`**
-- Remove `adminOnly` from Configurações so all users can access it
+**`src/pages/CadastrarTransacaoPage.tsx`**
+- Na linha 810, alterar `emissor_id: isPoupanca ? null : emissorId || null` para `emissor_id: isPoupanca ? instituicaoId : emissorId || null` (usar o mesmo ID da instituição como emissor quando é Poupança, visto que os emissores são os bancos)
+- Nota: isso requer que o banco selecionado exista na tabela `emissores`. Alternativa mais segura: salvar `emissor_id` com o valor da `instituicao_id`, porém as tabelas `instituicoes` e `emissores` são independentes. O correto é:
+  - Ao salvar Poupança, buscar na tabela `emissores` um registro com o mesmo nome do banco selecionado
+  - Se existir, usar esse `emissor_id`; se não, deixar null (comportamento atual)
+
+**Abordagem simplificada**: Na boleta Poupança, ao selecionar o Banco (instituição), buscar automaticamente na tabela `emissores` o registro com mesmo nome e preencher `emissor_id`.
+
+### 3. Proventos: Incluir rendimentos de Poupança
+
+**`src/pages/ProventosRecebidosPage.tsx`**
+- Atualmente filtra apenas `pagamento !== "No Vencimento" && modalidade === "Prefixado"` — exclui Poupança
+- Adicionar bloco para processar custódias de Poupança:
+  - Buscar `poupanca_lotes`, `historico_selic`, `historico_tr`, `historico_poupanca_rendimento`
+  - Rodar `calcularPoupancaDiario` consolidando todos os lotes
+  - Iterar nos `DailyRow[]` e, para cada dia com `ganhoDiario > 0.01`, gerar um `ProventoRow` com tipo "Rendimento"
+- Resultado: cada aniversário aparece como linha na tabela de proventos
+
+### 4. Limpeza de dependências
+
+**Migração de banco**: Nenhuma. A tabela `user_settings` pode permanecer (não causa dano), mas a coluna `poupanca_fifo` deixa de ser utilizada.
+
+**`src/integrations/supabase/types.ts`**: Não editar (auto-gerado).
+
+---
+
+### Arquivos Modificados
+
+| Arquivo | Ação |
+|---------|------|
+| `src/hooks/useUserSettings.ts` | Deletar |
+| `src/pages/ConfiguracoesPage.tsx` | Remover card FIFO, simplificar |
+| `src/pages/PosicaoConsolidadaPage.tsx` | Remover lógica certificate, FIFO fixo |
+| `src/pages/ProventosRecebidosPage.tsx` | Adicionar rendimentos Poupança |
+| `src/pages/CadastrarTransacaoPage.tsx` | Emissor = banco para Poupança |
+
+### Detalhes Técnicos
+
+**Proventos — lógica de detecção de aniversário**: O engine já calcula `ganhoDiario` corretamente (só > 0 em dias de aniversário). Basta filtrar `row.ganhoDiario > 0.01` para gerar os registros de provento.
+
+**Posição Consolidada — simplificação**: O bloco FIFO existente (linhas 245-279) já funciona corretamente. Apenas remover o `if (poupancaFifo)` e o `else` correspondente.
 
