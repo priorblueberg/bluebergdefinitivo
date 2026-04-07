@@ -785,12 +785,19 @@ export async function syncCarteiraGeral(userId: string, dataReferencia?: string)
 
   // Compute resgate_total across all custodia
   const resgateDates: string[] = [];
+  let hasActiveWithoutResgate = false;
   for (const row of allCustodia) {
     const rt = await computeResgateTotal(row.codigo_custodia, userId, row.vencimento);
-    if (rt) resgateDates.push(rt);
+    if (rt) {
+      resgateDates.push(rt);
+    } else {
+      hasActiveWithoutResgate = true;
+    }
   }
   let resgateTotal: string | null = null;
-  if (resgateDates.length > 0) {
+  if (hasActiveWithoutResgate) {
+    resgateTotal = null;
+  } else if (resgateDates.length > 0) {
     resgateDates.sort();
     resgateTotal = resgateDates[resgateDates.length - 1];
   }
