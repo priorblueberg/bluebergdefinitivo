@@ -263,6 +263,7 @@ export default function CarteiraRendaFixaPage() {
       }
 
       const allProdRows: DailyRow[][] = [];
+      const prodRowProducts: CustodiaProduct[] = []; // parallel array to track which product each row set belongs to
 
       // Renda Fixa products
       for (const product of rfProducts.filter(p => p.categoria_nome === "Renda Fixa")) {
@@ -284,6 +285,7 @@ export default function CarteiraRendaFixaPage() {
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
         }));
+        prodRowProducts.push(product);
       }
 
       // Poupança products
@@ -303,6 +305,7 @@ export default function CarteiraRendaFixaPage() {
           poupancaRendimentoRecords,
           dataResgateTotal: product.resgate_total,
         }));
+        prodRowProducts.push(product);
       }
 
       setAllProductRows(allProdRows);
