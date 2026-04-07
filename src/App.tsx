@@ -81,6 +81,7 @@ const App = () => (
             
             <Route path="/planos" element={<PlanosPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/gerar-docx" element={<GenerateDocxPage />} />
 
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>
