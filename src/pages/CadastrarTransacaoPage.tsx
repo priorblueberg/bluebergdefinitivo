@@ -230,8 +230,9 @@ export default function CadastrarTransacaoPage() {
 
   // Derived
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
+  const produtoSelecionado = produtos.find((p) => p.id === produtoId);
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
-  const isPoupanca = categoriaSelecionada?.nome === "Poupança";
+  const isPoupanca = produtoSelecionado?.nome === "Poupança";
   const isPosFixado = modalidade === "Pós Fixado";
   const isEditing = !!editId;
   const isResgate = tipoMovimentacao === "Resgate";
