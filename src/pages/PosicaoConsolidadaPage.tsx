@@ -84,10 +84,10 @@ export default function PosicaoConsolidadaPage() {
   useEffect(() => {
     if (!user) return;
     // Only recalculate if appliedVersion changed since last calculation
-    if (_cachedVersion === appliedVersion) return;
+    if (_cachedVersion === appliedVersion && _cachedFifo === poupancaFifo) return;
     calculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, appliedVersion]);
+  }, [user, appliedVersion, poupancaFifo]);
 
   async function calculate() {
     setLoading(true);
