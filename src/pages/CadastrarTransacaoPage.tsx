@@ -807,7 +807,7 @@ export default function CadastrarTransacaoPage() {
           valor: valorNum,
           preco_unitario: isPoupanca ? null : puNum,
           instituicao_id: instituicaoId,
-          emissor_id: isPoupanca ? null : emissorId || null,
+          emissor_id: isPoupanca ? (instituicaoId || null) : emissorId || null,
           modalidade: modalidadeToSave,
           taxa: isPoupanca ? null : taxaNum,
           pagamento: isPoupanca ? "Mensal" : pagamento,
