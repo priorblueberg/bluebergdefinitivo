@@ -171,19 +171,7 @@ export default function PosicaoConsolidadaPage() {
         movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
       }
 
-      const lotesByCodigo = new Map<number, PoupancaLote[]>();
-      for (const l of ((lotesRes as any).data || [])) {
-        const code = Number(l.codigo_custodia);
-        if (!lotesByCodigo.has(code)) lotesByCodigo.set(code, []);
-        lotesByCodigo.get(code)!.push({
-          ...l,
-          dia_aniversario: Number(l.dia_aniversario),
-          valor_principal: Number(l.valor_principal),
-          valor_atual: Number(l.valor_atual),
-          rendimento_acumulado: Number(l.rendimento_acumulado),
-          codigo_custodia: code,
-        } as PoupancaLote);
-      }
+      // lotes are now derived from movimentações to avoid double-counting resgates
 
       const posicaoRows: PosicaoRow[] = [];
       const allProductRows: DailyRow[][] = [];
