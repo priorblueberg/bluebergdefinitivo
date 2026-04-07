@@ -189,9 +189,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     const date = cal.data;
     const diaUtil = cal.dia_util;
 
-    // Get current Selic
-    const selicHoje = selicMap.get(date) ?? lastSelic;
-    if (selicMap.has(date)) lastSelic = selicHoje;
+    // Track latest Selic for fallback
+    if (selicMap.has(date)) lastSelic = selicMap.get(date)!;
 
     // Calculate rendimento for lotes that have anniversary today
     let rendimentoDia = 0;
