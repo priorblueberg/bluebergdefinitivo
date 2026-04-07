@@ -240,7 +240,7 @@ export default function PosicaoConsolidadaPage() {
 
         const sortedLotes = [...lotes].sort((a, b) => a.data_aplicacao.localeCompare(b.data_aplicacao));
 
-        if (poupancaFifo) {
+        {
           // FIFO mode: all lotes fed into engine as a single row "Poupança"
           const lotesForEngine: PoupancaLote[] = sortedLotes.map((l) => ({
             ...l,
