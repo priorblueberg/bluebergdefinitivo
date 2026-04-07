@@ -147,9 +147,7 @@ export default function PosicaoConsolidadaPage() {
         poupancaCodigos.length > 0
           ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
-        poupancaCodigos.length > 0
-          ? supabase.from("poupanca_lotes").select("*").in("codigo_custodia", poupancaCodigos).eq("user_id", user!.id).eq("status", "ativo")
-          : Promise.resolve({ data: [] }),
+        Promise.resolve({ data: [] }), // lotes now built from movimentações
         poupancaCodigos.length > 0
           ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
