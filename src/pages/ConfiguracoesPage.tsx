@@ -3,8 +3,11 @@ import { Trash2, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
+import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Tooltip,
