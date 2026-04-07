@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
-import { format, parse, isValid, subDays, addDays, isBefore, startOfDay } from "date-fns";
+import { format, parse, isValid, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CalendarIcon, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, RefreshCw, Plus } from "lucide-react";
+import { Bell, CalendarIcon, ChevronDown, RefreshCw, Plus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -30,10 +30,14 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [isForceRecalculating, setIsForceRecalculating] = useState(false);
+  // Staged date: what the user picked but hasn't applied yet
+  const [stagedDate, setStagedDate] = useState<Date>(dataReferencia);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
+
+  const isStagedSameAsApplied = format(stagedDate, "yyyy-MM-dd") === format(dataReferencia, "yyyy-MM-dd");
 
   const handleForceRecalculate = async () => {
     if (!user || isForceRecalculating) return;
@@ -52,12 +56,11 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     }
   };
 
-  const applyDate = async (date: Date) => {
-    if (!user) return;
-    const clamped = clampDate(date);
-    // Skip if the date is the same as already set
-    if (format(clamped, "yyyy-MM-dd") === format(dataReferencia, "yyyy-MM-dd")) return;
+  const handleApply = async () => {
+    if (!user || isStagedSameAsApplied) return;
+    const clamped = clampDate(stagedDate);
     setDataReferencia(clamped);
+    setStagedDate(clamped);
     setInputValue(format(clamped, "dd/MM/yyyy"));
     setIsRecalculating(true);
     try {
@@ -72,6 +75,12 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     }
   };
 
+  const stageDate = (date: Date) => {
+    const clamped = clampDate(date);
+    setStagedDate(clamped);
+    setInputValue(format(clamped, "dd/MM/yyyy"));
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
     let formatted = raw;
@@ -81,14 +90,12 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
       formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
     }
     setInputValue(formatted);
-    // Don't update dataReferencia here — let commitInput/applyDate handle it
-    // so the duplicate-date check works correctly
   };
 
   const commitInput = () => {
     const parsed = parse(inputValue, "dd/MM/yyyy", new Date());
     if (isValid(parsed)) {
-      applyDate(parsed);
+      stageDate(parsed);
     }
   };
 
@@ -102,7 +109,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
 
   const handleDateSelect = (d: Date | undefined) => {
     if (d) {
-      applyDate(d);
+      stageDate(d);
     }
     setCalendarOpen(false);
   };
@@ -164,33 +171,13 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
               </button>
             </div>
             <button
-              onClick={() => applyDate(subDays(dataReferencia, 1))}
-              className="rounded-md border border-border p-1 text-muted-foreground hover:text-primary hover:border-primary bg-background"
+              onClick={handleApply}
+              disabled={isStagedSameAsApplied}
+              className="rounded-md border border-primary px-3 py-1 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground bg-background disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ transition: "all 120ms linear" }}
-              title="Dia anterior"
+              title="Aplicar data de referência"
             >
-              <ChevronLeft size={14} strokeWidth={1.5} />
-            </button>
-            <button
-              onClick={() => {
-                const next = addDays(dataReferencia, 1);
-                if (next <= maxDate) applyDate(next);
-              }}
-              disabled={dataReferencia >= maxDate}
-              className="rounded-md border border-border p-1 text-muted-foreground hover:text-primary hover:border-primary bg-background disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ transition: "all 120ms linear" }}
-              title="Próximo dia"
-            >
-              <ChevronRight size={14} strokeWidth={1.5} />
-            </button>
-            <button
-              onClick={() => applyDate(maxDate)}
-              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-primary hover:border-primary bg-background"
-              style={{ transition: "all 120ms linear" }}
-              title="Desde o início (data padrão)"
-            >
-              <RotateCcw size={12} strokeWidth={1.5} />
-              <span>Desde o início</span>
+              Aplicar
             </button>
           </div>
 
