@@ -144,7 +144,7 @@ export default function PosicaoConsolidadaPage() {
       const allCodigos = allCalcProducts.map((p) => p.codigo_custodia);
       const poupancaCodigos = poupancaProducts.map((p) => p.codigo_custodia);
 
-      const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes] = await Promise.all([
+      const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         allCodigos.length > 0
@@ -158,6 +158,9 @@ export default function PosicaoConsolidadaPage() {
           : Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
       ]);
 
