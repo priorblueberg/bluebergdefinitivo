@@ -146,7 +146,7 @@ export default function CarteiraRendaFixaPage() {
         }))
       );
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
-        .filter((r: any) => r.categorias?.nome === "Renda Fixa")
+        .filter((r: any) => r.categorias?.nome === "Renda Fixa" || r.categorias?.nome === "Poupança")
         .map((r: any) => ({
           id: r.id,
           codigo_custodia: r.codigo_custodia,
