@@ -283,12 +283,17 @@ export default function PosicaoConsolidadaPage() {
           dataCalculo: dataReferenciaISO,
         });
         const lastCarteira = carteiraRows.length > 0 ? carteiraRows[carteiraRows.length - 1] : null;
-        setCarteiraRentabilidade(lastCarteira ? lastCarteira.rentAcumuladaPct * 100 : 0);
+        const rentVal = lastCarteira ? lastCarteira.rentAcumuladaPct * 100 : 0;
+        setCarteiraRentabilidade(rentVal);
+        _cachedRentabilidade = rentVal;
       } else {
         setCarteiraRentabilidade(0);
+        _cachedRentabilidade = 0;
       }
 
       setRows(posicaoRows);
+      _cachedRows = posicaoRows;
+      _cachedVersion = appliedVersion;
     } catch (err) {
       console.error("Erro ao calcular posição consolidada:", err);
     } finally {
