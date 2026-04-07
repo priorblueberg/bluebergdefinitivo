@@ -165,28 +165,41 @@ async function syncResgateNoVencimento(
   const shouldCreate =
     vencimento && resgate_total && resgate_total === vencimento && vencimento < hoje;
 
-  // Find existing auto resgate
-  const { data: existingAuto } = await supabase
+  // Find ALL existing auto resgates (to clean up any duplicates)
+  const { data: existingAutos } = await supabase
     .from("movimentacoes")
     .select("id")
     .eq("codigo_custodia", codigoCustodia)
     .eq("user_id", userId)
     .eq("tipo_movimentacao", "Resgate no Vencimento")
-    .eq("origem", "automatico")
-    .limit(1);
+    .eq("origem", "automatico");
 
   if (!shouldCreate) {
-    // Remove if exists
-    if (existingAuto && existingAuto.length > 0) {
+    // Remove all existing auto resgates
+    if (existingAutos && existingAutos.length > 0) {
       await supabase
         .from("movimentacoes")
         .delete()
-        .eq("id", existingAuto[0].id);
+        .eq("codigo_custodia", codigoCustodia)
+        .eq("user_id", userId)
+        .eq("tipo_movimentacao", "Resgate no Vencimento")
+        .eq("origem", "automatico");
     }
     return;
   }
 
-  const existingId = existingAuto && existingAuto.length > 0 ? existingAuto[0].id : null;
+  // Keep only the first, delete duplicates
+  let existingId: string | null = null;
+  if (existingAutos && existingAutos.length > 0) {
+    existingId = existingAutos[0].id;
+    if (existingAutos.length > 1) {
+      const duplicateIds = existingAutos.slice(1).map(a => a.id);
+      await supabase
+        .from("movimentacoes")
+        .delete()
+        .in("id", duplicateIds);
+    }
+  }
 
   // Calculate liquido and cota via engine
   try {
@@ -229,7 +242,6 @@ async function syncResgateNoVencimento(
     const lastRow = rows[rows.length - 1];
     const isNoVencimento = custodiaRecord.pagamento === "No Vencimento";
 
-    // Resgate no Vencimento: PU and Qty depend on pagamento type
     let valor: number;
     let precoUnitario: number;
     let quantidade: number;
