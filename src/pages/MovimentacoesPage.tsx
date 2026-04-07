@@ -47,11 +47,15 @@ const COLUMNS: { key: SortField; label: string }[] = [
   { key: "valor", label: "Valor" },
 ];
 
+// Module-level cache
+let _movCachedVersion: number | null = null;
+let _movCachedRows: Movimentacao[] = [];
+
 export default function MovimentacoesPage() {
   const navigate = useNavigate();
   const { dataReferenciaISO, applyDataReferencia, appliedVersion } = useDataReferencia();
-  const [rows, setRows] = useState<Movimentacao[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<Movimentacao[]>(_movCachedRows);
+  const [loading, setLoading] = useState(_movCachedVersion === null);
   const [sortField, setSortField] = useState<SortField>("data");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -70,8 +74,7 @@ export default function MovimentacoesPage() {
       .order("data", { ascending: false });
 
     if (!error && data) {
-      setRows(
-        data.map((r: any) => ({
+      const mapped = data.map((r: any) => ({
           id: r.id,
           created_at: r.created_at,
           data: r.data,
@@ -84,25 +87,17 @@ export default function MovimentacoesPage() {
           valor: r.valor ?? null,
           origem: r.origem ?? "manual",
           codigo_custodia: r.codigo_custodia ?? null,
-        }))
-      );
+        }));
+      setRows(mapped);
+      _movCachedRows = mapped;
     }
+    _movCachedVersion = appliedVersion;
     setLoading(false);
   };
 
-  const initialVersionRef = useRef(appliedVersion);
-  const hasMountedRef = useRef(false);
-
   useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      fetchData();
-      return;
-    }
-    if (appliedVersion !== initialVersionRef.current) {
-      initialVersionRef.current = appliedVersion;
-      fetchData();
-    }
+    if (_movCachedVersion === appliedVersion && _movCachedRows.length > 0) return;
+    fetchData();
   }, [appliedVersion]);
 
   // Unique values for filters
