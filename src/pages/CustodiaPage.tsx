@@ -156,19 +156,9 @@ export default function CustodiaPage() {
     setLoading(false);
   };
 
-  const initialVersionRef = useRef(appliedVersion);
-  const hasMountedRef = useRef(false);
-
   useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      fetchData();
-      return;
-    }
-    if (appliedVersion !== initialVersionRef.current) {
-      initialVersionRef.current = appliedVersion;
-      fetchData();
-    }
+    if (_custCachedVersion === appliedVersion && _custCachedRows.length > 0) return;
+    fetchData();
   }, [appliedVersion]);
 
   const openBoleta = (row: CustodiaRow, tipo: "Aplicação" | "Resgate") => {
