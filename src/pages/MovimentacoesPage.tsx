@@ -33,6 +33,7 @@ interface Movimentacao {
   valor: number | null;
   origem: string;
   codigo_custodia: number | null;
+  modalidade: string | null;
 }
 
 type SortField = keyof Movimentacao;
