@@ -216,8 +216,9 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
           rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
         }
 
-        // Arredondar para centavos (2 casas) a cada crédito
-        const rend = Math.round(rendBruto * 100) / 100;
+        // Manter 8 casas decimais no intermediário (padrão B3/CETIP)
+        // para evitar drift de arredondamento ao longo dos meses
+        const rend = Math.round(rendBruto * 1e8) / 1e8;
         lote.valorAtual += rend;
         lote.rendimentoAcumulado += rend;
         lote.ultimoAniversario = date;
