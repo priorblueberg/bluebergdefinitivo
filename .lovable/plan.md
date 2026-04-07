@@ -1,32 +1,24 @@
 
 
-## Plano: Gerar documento .docx com regras de negócio do Controle de Carteiras
+## Plano: Definir data_limite fixa para Poupança na custódia
 
-### Objetivo
-Criar um arquivo Word (.docx) contendo a seção 14 do documento de regras de negócio — "Controle de Carteiras (Admin)" — extraída de `docs/Blueberg_Regras_de_Negocio.md`.
+### Problema
+A Poupança fica com `data_limite = null` na custódia. Quando outros ativos de Renda Fixa vencem, a carteira é marcada como "Encerrada" mesmo com Poupança ativa.
 
-### Abordagem
-Usar a mesma estratégia já implementada: página temporária `/gerar-docx` com a biblioteca `docx` para gerar e baixar o arquivo no navegador. Atualizar o conteúdo da página `GenerateDocxPage.tsx` para focar apenas na seção de Controle de Carteiras.
+### Solução
+Definir `data_limite = "2040-12-31"` para ativos de Poupança na custódia, garantindo que a carteira "Renda Fixa" permaneça ativa enquanto a Poupança existir.
 
-### Conteúdo do documento
-- Título: "Blueberg — Regras de Negócio: Controle de Carteiras"
-- Seção 14.1: Visão Geral (rota, acesso, descrição)
-- Seção 14.2: Tabela de Colunas (Nome da Carteira, Data Início, Data Limite, Resgate Total, Data Cálculo, Status)
+### Alterações
 
-### Passos
+1. **`src/lib/syncEngine.ts`** (linha 537):
+   - Mudar de `isPoupanca ? null` para `isPoupanca ? "2040-12-31"`
+   - Isso afeta tanto a criação quanto a atualização de registros de custódia
 
-1. **Atualizar `GenerateDocxPage.tsx`** para gerar o documento focado no Controle de Carteiras, com:
-   - Heading 1 para o título principal
-   - Heading 2 para cada subseção (14.1, 14.2)
-   - Parágrafos descritivos
-   - Tabela formatada com as 6 colunas e suas descrições
-   - Nome do arquivo: `Blueberg_Controle_de_Carteiras.docx`
+2. **Migração SQL** (opcional mas recomendada):
+   - Atualizar registros de custódia existentes de Poupança que tenham `data_limite IS NULL` para `"2040-12-31"`
 
-2. **Testar** acessando `/gerar-docx` e clicando no botão de download
-
-### Detalhes técnicos
-- Fonte: Arial 12pt
-- Tabela com header sombreado e bordas
-- Página A4 com margens de 1 polegada
-- Reutiliza dependências `docx` e `file-saver` já instaladas
+### Impacto
+- A carteira "Renda Fixa" não será mais encerrada prematuramente quando apenas ativos com vencimento definido forem resgatados
+- A Poupança ativa manterá a carteira com status "Ativa"
+- Nenhum impacto em cálculos — `data_limite` é usado apenas para controle de carteiras e `computeDataCalculo`
 
