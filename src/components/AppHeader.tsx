@@ -81,12 +81,8 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
       formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
     }
     setInputValue(formatted);
-    if (raw.length === 8) {
-      const parsed = parse(formatted, "dd/MM/yyyy", new Date());
-      if (isValid(parsed)) {
-        setDataReferencia(clampDate(parsed));
-      }
-    }
+    // Don't update dataReferencia here — let commitInput/applyDate handle it
+    // so the duplicate-date check works correctly
   };
 
   const commitInput = () => {
