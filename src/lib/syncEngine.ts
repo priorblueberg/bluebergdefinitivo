@@ -510,6 +510,9 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     (m: any) => m.tipo_movimentacao === "Aplicação"
   ) || mov;
 
+  // Refine isPoupanca now that we have aplicacaoInicial
+  isPoupanca = isPoupanca || aplicacaoInicial.modalidade === "Poupança";
+
   // Compute net valor_investido: sum of aplicações - sum of resgates
   let valorInvestidoLiquido = 0;
   for (const m of allMovs || []) {
@@ -521,14 +524,17 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
   }
   if (valorInvestidoLiquido < 0) valorInvestidoLiquido = 0;
 
-  // Compute resgate_total for Renda Fixa
+  // Compute resgate_total (for RF non-poupança or poupança with resgate total)
   let resgateTotal: string | null = null;
-  if (isRendaFixa) {
+  if (isRendaFixa && !isPoupanca) {
     resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, aplicacaoInicial.vencimento);
+  } else if (isPoupanca) {
+    // For Poupança, compute resgate_total from manual "Resgate Total" movements
+    resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, null);
   }
 
   // Compute data_limite (skip for Poupança — no vencimento)
-  const dataLimite = isRendaFixa ? aplicacaoInicial.vencimento : null;
+  const dataLimite = isPoupanca ? null : (isRendaFixa ? aplicacaoInicial.vencimento : null);
 
   // Compute data_calculo
   const dataCalculo = computeDataCalculo(refDate, resgateTotal, dataLimite);
@@ -545,6 +551,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
   const derivedEstrategia = (() => {
     const mod = aplicacaoInicial.modalidade;
     const idx = aplicacaoInicial.indexador;
+    if (mod === "Poupança") return "Poupança";
     if (mod === "Prefixado") return "Prefixado";
     if ((mod === "Pos Fixado" || mod === "Pós Fixado") && idx === "CDI") return "Pós Fixado CDI";
     if (mod === "Mista" && idx === "CDI") return "Pós Fixado CDI + Taxa";
@@ -570,7 +577,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     categoria_id: aplicacaoInicial.categoria_id,
     user_id: mov.user_id,
     data_limite: dataLimite,
-    alocacao_patrimonial: isRendaFixa ? "Renda Fixa" : isPoupanca ? "Poupança" : null,
+    alocacao_patrimonial: "Renda Fixa",
     multiplicador: categoriaNome || null,
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
