@@ -554,7 +554,7 @@ export default function CadastrarTransacaoPage() {
   }, [editId, editLoaded, categorias]);
 
   // Step visibility
-  const showTipoMovimentacao = !!categoriaId && (isRendaFixa || isPoupanca);
+  const showTipoMovimentacao = !!categoriaId && isRendaFixa;
   const showAplicacaoFields = showTipoMovimentacao && !!produtoId && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate));
   const showResgateFields = showTipoMovimentacao && isResgate && !isEditing;
   const showPoupancaFields = isPoupanca && isAplicacao;
