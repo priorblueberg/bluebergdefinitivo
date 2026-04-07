@@ -206,7 +206,7 @@ export default function CarteiraRendaFixaPage() {
         return end > max ? end : max;
       }, dataCalculo);
 
-      const poupancaProds = rfProducts.filter(p => p.categoria_nome === "Poupança");
+      const poupancaProds = rfProducts.filter(p => p.modalidade === "Poupança");
       const poupancaCodigos = poupancaProds.map(p => p.codigo_custodia);
 
       const [calRes, cdiRes, ibovRes, selicRes, trRes, poupRendRes] = await Promise.all([
