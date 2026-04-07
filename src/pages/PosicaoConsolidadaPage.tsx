@@ -243,6 +243,7 @@ export default function PosicaoConsolidadaPage() {
           movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
           lotes,
           selicRecords,
+          trRecords,
           dataResgateTotal: product.resgate_total,
         });
 
