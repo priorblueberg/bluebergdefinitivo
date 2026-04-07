@@ -193,8 +193,10 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
       // Credit yield on anniversary date regardless of business day
       if (isAniversario(date, lote.diaAniversario)) {
-        const trHoje = trMap.get(date) ?? 0;
-        const rend = calcRendimentoMensal(lote.valorAtual, selicHoje, trHoje);
+        // TR data-base = dia do aniversário do mês anterior
+        const dataBaseTR = getDataBaseTR(date, lote.diaAniversario);
+        const trDataBase = trMap.get(dataBaseTR) ?? 0;
+        const rend = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
         lote.valorAtual += rend;
         lote.rendimentoAcumulado += rend;
         lote.ultimoAniversario = date;
