@@ -183,6 +183,7 @@ export default function CarteiraRendaFixaPage() {
         setIbovespaData([]);
         setProductList([]);
         setLoading(false);
+        _cartRFCachedVersion = appliedVersion;
         return;
       }
 
