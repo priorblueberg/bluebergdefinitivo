@@ -74,9 +74,22 @@ export default function PosicaoConsolidadaPage() {
   const [deleteRow, setDeleteRow] = useState<PosicaoRow | null>(null);
   const [detalheRow, setDetalheRow] = useState<PosicaoRow | null>(null);
 
+  const initialVersionRef = useRef(appliedVersion);
+  const hasMountedRef = useRef(false);
+
   useEffect(() => {
     if (!user) return;
-    calculate();
+    // On first mount, always calculate to show data
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      calculate();
+      return;
+    }
+    // After mount, only recalculate if appliedVersion actually changed
+    if (appliedVersion !== initialVersionRef.current) {
+      initialVersionRef.current = appliedVersion;
+      calculate();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, appliedVersion]);
 
