@@ -312,6 +312,21 @@ export type Database = {
         }
         Relationships: []
       }
+      historico_tr: {
+        Row: {
+          data: string
+          taxa_mensal: number
+        }
+        Insert: {
+          data: string
+          taxa_mensal: number
+        }
+        Update: {
+          data?: string
+          taxa_mensal?: number
+        }
+        Relationships: []
+      }
       instituicoes: {
         Row: {
           ativa: boolean

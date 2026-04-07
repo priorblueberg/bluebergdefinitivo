@@ -257,7 +257,70 @@ Deno.serve(async (req) => {
       console.error("Selic error:", e);
     }
 
-    // ── 4. Calendário Dias Úteis ─────────────────────────────────────
+    // ── 4. TR (Taxa Referencial) ─────────────────────────────────────
+    try {
+      const { data: maxTr } = await supabase
+        .from("historico_tr")
+        .select("data")
+        .order("data", { ascending: false })
+        .limit(1)
+        .single();
+
+      const startTr = maxTr
+        ? addDays(new Date(maxTr.data + "T12:00:00"), 1)
+        : new Date(2024, 0, 1);
+
+      const yesterdayTr = new Date();
+      yesterdayTr.setDate(yesterdayTr.getDate() - 1);
+
+      if (startTr <= yesterdayTr) {
+        const fmt = (d: Date) =>
+          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+
+        const bcbTrUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.226/dados?formato=json&dataInicial=${fmt(startTr)}&dataFinal=${fmt(yesterdayTr)}`;
+        console.log("Fetching TR from BCB:", bcbTrUrl);
+
+        const trResp = await fetch(bcbTrUrl);
+        if (!trResp.ok) throw new Error(`BCB TR API error ${trResp.status}`);
+
+        const trData: { data: string; valor: string }[] = await trResp.json();
+
+        if (trData.length > 0) {
+          // Deduplicate by date (keep last value)
+          const byDate = new Map<string, number>();
+          for (const r of trData) {
+            const [dd, mm, yyyy] = r.data.split("/");
+            byDate.set(`${yyyy}-${mm}-${dd}`, parseFloat(r.valor));
+          }
+
+          const trRows = Array.from(byDate.entries()).map(([data, taxa_mensal]) => ({
+            data,
+            taxa_mensal,
+          }));
+
+          const batchSize = 500;
+          let inserted = 0;
+          for (let i = 0; i < trRows.length; i += batchSize) {
+            const batch = trRows.slice(i, i + batchSize);
+            const { error } = await supabase
+              .from("historico_tr")
+              .upsert(batch, { onConflict: "data" });
+            if (error) throw new Error(`TR insert: ${error.message}`);
+            inserted += batch.length;
+          }
+          results.tr = `Upserted ${inserted} TR records`;
+        } else {
+          results.tr = "No new TR data";
+        }
+      } else {
+        results.tr = "TR already up to date";
+      }
+    } catch (e) {
+      results.tr = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("TR error:", e);
+    }
+
+    // ── 5. Calendário Dias Úteis ─────────────────────────────────────
     try {
       // Get max date in calendar
       const { data: maxCal } = await supabase
