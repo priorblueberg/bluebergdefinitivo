@@ -6,7 +6,7 @@ import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, type DailyRow } from "@/lib/rendaFixaEngine";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, type PoupancaLote } from "@/lib/poupancaEngine";
-import { useUserSettings } from "@/hooks/useUserSettings";
+
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -62,13 +62,11 @@ interface PosicaoRow {
 
 // Module-level cache to persist across navigation
 let _cachedVersion: number | null = null;
-let _cachedFifo: boolean | null = null;
 let _cachedRows: PosicaoRow[] = [];
 let _cachedRentabilidade = 0;
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
-  const { poupancaFifo, loading: settingsLoading } = useUserSettings();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>(_cachedRows);
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
@@ -83,11 +81,11 @@ export default function PosicaoConsolidadaPage() {
   const [detalheRow, setDetalheRow] = useState<PosicaoRow | null>(null);
 
   useEffect(() => {
-    if (!user || settingsLoading) return;
-    if (_cachedVersion === appliedVersion && _cachedFifo === poupancaFifo) return;
+    if (!user) return;
+    if (_cachedVersion === appliedVersion) return;
     calculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, appliedVersion, poupancaFifo, settingsLoading]);
+  }, [user, appliedVersion]);
 
   async function calculate() {
     setLoading(true);
@@ -97,7 +95,7 @@ export default function PosicaoConsolidadaPage() {
         .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
         .eq("user_id", user!.id);
 
-      if (!products || products.length === 0) { setRows([]); _cachedRows = []; _cachedVersion = appliedVersion; _cachedFifo = poupancaFifo; setLoading(false); return; }
+      if (!products || products.length === 0) { setRows([]); _cachedRows = []; _cachedVersion = appliedVersion; setLoading(false); return; }
 
       const mapped: CustodiaProduct[] = products.map((r: any) => ({
         id: r.id,
@@ -242,7 +240,7 @@ export default function PosicaoConsolidadaPage() {
 
         const sortedLotes = [...lotes].sort((a, b) => a.data_aplicacao.localeCompare(b.data_aplicacao));
 
-        if (poupancaFifo) {
+        {
           // FIFO mode: all lotes fed into engine as a single row "Poupança"
           const lotesForEngine: PoupancaLote[] = sortedLotes.map((l) => ({
             ...l,
@@ -276,89 +274,6 @@ export default function PosicaoConsolidadaPage() {
               ativo: !isEncerrado,
               product,
             });
-          }
-        } else {
-          // Certificate mode: each lote is an independent row
-          const originalPrincipals = new Map<string, number>();
-          for (const lote of sortedLotes) {
-            const originalApp = allMovsForProduct.find(
-              (m) =>
-                (m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação") &&
-                m.data === lote.data_aplicacao
-            );
-            originalPrincipals.set(lote.id, originalApp ? originalApp.valor : Number(lote.valor_principal));
-          }
-
-          const resgateMovs = allMovsForProduct
-            .filter((m) => m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate Total")
-            .sort((a, b) => a.data.localeCompare(b.data));
-
-          const resgatesPorLote = new Map<string, { data: string; tipo_movimentacao: string; valor: number }[]>();
-          for (const lote of sortedLotes) resgatesPorLote.set(lote.id, []);
-
-          const loteCapacity = new Map<string, number>();
-          for (const lote of sortedLotes) {
-            loteCapacity.set(lote.id, originalPrincipals.get(lote.id) || 0);
-          }
-
-          for (const resgate of resgateMovs) {
-            let restante = resgate.valor;
-            for (const lote of sortedLotes) {
-              if (restante <= 0.01) break;
-              const cap = loteCapacity.get(lote.id) || 0;
-              if (cap <= 0.01) continue;
-              const consumido = Math.min(restante, cap);
-              resgatesPorLote.get(lote.id)!.push({
-                data: resgate.data,
-                tipo_movimentacao: resgate.tipo_movimentacao,
-                valor: consumido,
-              });
-              loteCapacity.set(lote.id, cap - consumido);
-              restante -= consumido;
-            }
-          }
-
-          for (const lote of sortedLotes) {
-            const originalPrincipal = originalPrincipals.get(lote.id) || Number(lote.valor_principal);
-            const movsForEngine: { data: string; tipo_movimentacao: string; valor: number }[] = [
-              { data: lote.data_aplicacao, tipo_movimentacao: "Aplicação Inicial", valor: originalPrincipal },
-              ...(resgatesPorLote.get(lote.id) || []),
-            ];
-
-            const loteForEngine: PoupancaLote = {
-              ...lote,
-              valor_principal: originalPrincipal,
-              valor_atual: originalPrincipal,
-            };
-
-            const engineRows = calcularPoupancaDiario({
-              dataInicio: lote.data_aplicacao,
-              dataCalculo: dataReferenciaISO,
-              calendario,
-              movimentacoes: movsForEngine,
-              lotes: [loteForEngine],
-              selicRecords,
-              trRecords,
-              poupancaRendimentoRecords,
-              dataResgateTotal: null,
-            });
-
-            allProductRows.push(engineRows);
-
-            const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
-            if (lastRow) {
-              const fmtDataAplicacao = new Date(lote.data_aplicacao + "T12:00:00").toLocaleDateString("pt-BR");
-              const isLoteEncerrado = lastRow.liquido < 0.01;
-              posicaoRows.push({
-                nome: `${product.nome || "Poupança"} - ${fmtDataAplicacao}`,
-                valorAtualizado: lastRow.liquido,
-                ganhoFinanceiro: lastRow.ganhoAcumulado,
-                rentabilidade: lastRow.rentabilidadeAcumuladaPct * 100,
-                custodiante: product.instituicao_nome,
-                ativo: !isLoteEncerrado,
-                product,
-              });
-            }
           }
         }
       }
@@ -395,7 +310,6 @@ export default function PosicaoConsolidadaPage() {
       setRows(posicaoRows);
       _cachedRows = posicaoRows;
       _cachedVersion = appliedVersion;
-      _cachedFifo = poupancaFifo;
     } catch (err) {
       console.error("Erro ao calcular posição consolidada:", err);
     } finally {

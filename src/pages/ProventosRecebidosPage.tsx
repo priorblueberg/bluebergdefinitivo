@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { useAuth } from "@/hooks/useAuth";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+import { calcularPoupancaDiario, type PoupancaLote } from "@/lib/poupancaEngine";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -44,10 +45,10 @@ export default function ProventosRecebidosPage() {
     (async () => {
       setLoading(true);
 
-      // 1. Load all custodia products for this user
+      // Load all custodia products for this user
       const { data: custodias } = await supabase
         .from("custodia")
-        .select("codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento")
+        .select("codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, categoria_id, categorias(nome)")
         .eq("user_id", user.id);
 
       if (!custodias || custodias.length === 0) {
@@ -56,31 +57,49 @@ export default function ProventosRecebidosPage() {
         return;
       }
 
-      // Filter only products with periodic payment
+      // Separate renda fixa with periodic payment and poupança
       const withPayment = custodias.filter(
-        (c) => c.pagamento && c.pagamento !== "No Vencimento" && c.modalidade === "Prefixado"
+        (c: any) => c.pagamento && c.pagamento !== "No Vencimento" && c.modalidade === "Prefixado"
+      );
+      const poupancaProducts = custodias.filter(
+        (c: any) => c.categorias?.nome === "Poupança"
       );
 
-      if (withPayment.length === 0) {
+      if (withPayment.length === 0 && poupancaProducts.length === 0) {
         setRows([]);
         setLoading(false);
         return;
       }
 
       // Find date range for calendar
-      const minDate = withPayment.reduce((m, p) => p.data_inicio < m ? p.data_inicio : m, withPayment[0].data_inicio);
-      const maxDate = withPayment.reduce((m, p) => {
+      const allProducts = [...withPayment, ...poupancaProducts];
+      const minDate = allProducts.reduce((m: string, p: any) => p.data_inicio < m ? p.data_inicio : m, allProducts[0].data_inicio);
+      const maxDate = allProducts.reduce((m: string, p: any) => {
         const end = p.data_calculo || dataReferenciaISO;
         return end > m ? end : m;
       }, dataReferenciaISO);
 
       // Batch fetch calendar and all movimentações
-      const allCodigos = withPayment.map(p => p.codigo_custodia);
-      const [calRes, allMovRes] = await Promise.all([
+      const allCodigos = allProducts.map((p: any) => p.codigo_custodia);
+      const poupancaCodigos = poupancaProducts.map((p: any) => p.codigo_custodia);
+
+      const [calRes, allMovRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
           .gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, codigo_custodia")
           .in("codigo_custodia", allCodigos).eq("user_id", user.id).order("data"),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("poupanca_lotes").select("*").in("codigo_custodia", poupancaCodigos).eq("user_id", user.id).eq("status", "ativo")
+          : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
       ]);
 
       const calendario = (calRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util }));
@@ -93,8 +112,9 @@ export default function ProventosRecebidosPage() {
 
       const allProventos: ProventoRow[] = [];
 
+      // 1. Renda Fixa — pagamento de juros periódicos
       for (const prod of withPayment) {
-        const endDate = prod.data_calculo || dataReferenciaISO;
+        const endDate = (prod as any).data_calculo || dataReferenciaISO;
 
         const engineRows = calcularRendaFixaDiario({
           dataInicio: prod.data_inicio,
@@ -117,6 +137,61 @@ export default function ProventosRecebidosPage() {
               nome: prod.nome || "—",
               tipo: "Pagamento de Juros",
               valor: row.pagamentoJuros,
+            });
+          }
+        }
+      }
+
+      // 2. Poupança — rendimentos de aniversário
+      const selicRecords = ((selicRes as any).data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) }));
+      const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
+      const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
+
+      const lotesByCodigo = new Map<number, PoupancaLote[]>();
+      for (const l of ((lotesRes as any).data || [])) {
+        const code = Number(l.codigo_custodia);
+        if (!lotesByCodigo.has(code)) lotesByCodigo.set(code, []);
+        lotesByCodigo.get(code)!.push({
+          ...l,
+          dia_aniversario: Number(l.dia_aniversario),
+          valor_principal: Number(l.valor_principal),
+          valor_atual: Number(l.valor_atual),
+          rendimento_acumulado: Number(l.rendimento_acumulado),
+          codigo_custodia: code,
+        } as PoupancaLote);
+      }
+
+      for (const prod of poupancaProducts) {
+        const lotes = lotesByCodigo.get((prod as any).codigo_custodia) || [];
+        if (lotes.length === 0) continue;
+        const sortedLotes = [...lotes].sort((a, b) => a.data_aplicacao.localeCompare(b.data_aplicacao));
+        const allMovs = movByCodigo.get((prod as any).codigo_custodia) || [];
+
+        const lotesForEngine: PoupancaLote[] = sortedLotes.map((l) => ({
+          ...l,
+          valor_principal: Number(l.valor_principal),
+          valor_atual: Number(l.valor_principal),
+        }));
+
+        const engineRows = calcularPoupancaDiario({
+          dataInicio: sortedLotes[0].data_aplicacao,
+          dataCalculo: dataReferenciaISO,
+          calendario,
+          movimentacoes: allMovs,
+          lotes: lotesForEngine,
+          selicRecords,
+          trRecords,
+          poupancaRendimentoRecords,
+          dataResgateTotal: (prod as any).resgate_total,
+        });
+
+        for (const row of engineRows) {
+          if (row.ganhoDiario > 0.01) {
+            allProventos.push({
+              data: row.data,
+              nome: (prod as any).nome || "Poupança",
+              tipo: "Rendimento",
+              valor: row.ganhoDiario,
             });
           }
         }
@@ -156,7 +231,7 @@ export default function ProventosRecebidosPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-lg font-semibold text-foreground">Proventos Recebidos</h1>
-        <p className="text-xs text-muted-foreground">Pagamentos de juros periódicos dos seus títulos</p>
+        <p className="text-xs text-muted-foreground">Pagamentos de juros periódicos e rendimentos dos seus títulos</p>
       </div>
 
       <div className="rounded-lg border bg-card overflow-x-auto">
