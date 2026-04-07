@@ -63,10 +63,15 @@ interface CarteiraInfo {
   data_calculo: string | null;
 }
 
+// Module-level cache
+let _custCachedVersion: number | null = null;
+let _custCachedRows: CustodiaRow[] = [];
+let _custCachedCarteira: CarteiraInfo | null = null;
+
 export default function CustodiaPage() {
-  const [rows, setRows] = useState<CustodiaRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(null);
+  const [rows, setRows] = useState<CustodiaRow[]>(_custCachedRows);
+  const [loading, setLoading] = useState(_custCachedVersion === null);
+  const [carteiraInfo, setCarteiraInfo] = useState<CarteiraInfo | null>(_custCachedCarteira);
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const { user } = useAuth();
 
