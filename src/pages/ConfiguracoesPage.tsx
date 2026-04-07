@@ -24,7 +24,7 @@ export default function ConfiguracoesPage() {
   const [toggling, setToggling] = useState(false);
 
   const handleToggleFifo = async (value: boolean) => {
-    if (!user || toggling) return;
+    if (!user || toggling || loading) return;
     setToggling(true);
     setIsRecalculating(true);
     try {
@@ -124,11 +124,17 @@ export default function ConfiguracoesPage() {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <Switch
-              checked={poupancaFifo}
-              onCheckedChange={handleToggleFifo}
-              disabled={loading || toggling}
-            />
+            <div className="min-w-24 flex justify-end">
+              {loading ? (
+                <span className="text-xs text-muted-foreground">Carregando...</span>
+              ) : (
+                <Switch
+                  checked={poupancaFifo}
+                  onCheckedChange={handleToggleFifo}
+                  disabled={toggling}
+                />
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

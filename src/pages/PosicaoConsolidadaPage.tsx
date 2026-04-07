@@ -68,7 +68,7 @@ let _cachedRentabilidade = 0;
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
-  const { poupancaFifo } = useUserSettings();
+  const { poupancaFifo, loading: settingsLoading } = useUserSettings();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>(_cachedRows);
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
@@ -83,12 +83,11 @@ export default function PosicaoConsolidadaPage() {
   const [detalheRow, setDetalheRow] = useState<PosicaoRow | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-    // Only recalculate if appliedVersion changed since last calculation
+    if (!user || settingsLoading) return;
     if (_cachedVersion === appliedVersion && _cachedFifo === poupancaFifo) return;
     calculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, appliedVersion, poupancaFifo]);
+  }, [user, appliedVersion, poupancaFifo, settingsLoading]);
 
   async function calculate() {
     setLoading(true);
@@ -98,7 +97,7 @@ export default function PosicaoConsolidadaPage() {
         .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
         .eq("user_id", user!.id);
 
-      if (!products || products.length === 0) { setRows([]); _cachedRows = []; _cachedVersion = appliedVersion; setLoading(false); return; }
+      if (!products || products.length === 0) { setRows([]); _cachedRows = []; _cachedVersion = appliedVersion; _cachedFifo = poupancaFifo; setLoading(false); return; }
 
       const mapped: CustodiaProduct[] = products.map((r: any) => ({
         id: r.id,
