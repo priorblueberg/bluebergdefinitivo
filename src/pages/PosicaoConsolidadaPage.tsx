@@ -170,6 +170,7 @@ export default function PosicaoConsolidadaPage() {
       for (const c of cdiRecords) cdiMap.set(c.data, c.taxa_anual);
       const selicRecords = ((selicRes as any).data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) }));
       const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
+      const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
 
       const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
       for (const m of ((movRes as any).data || [])) {
