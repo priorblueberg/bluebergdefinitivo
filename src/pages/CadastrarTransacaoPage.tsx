@@ -927,7 +927,7 @@ export default function CadastrarTransacaoPage() {
         </div>
 
         {/* ── Aplicação Flow ── */}
-        {(isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && isRendaFixa && (
+        {(isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && isRendaFixa && !isPoupanca && (
           <>
             {/* Produto selector */}
             <Field label="Produto" required>
