@@ -112,8 +112,7 @@ export default function CustodiaPage() {
       .order("codigo_custodia", { ascending: true });
 
     if (!error && data) {
-      setRows(
-        data.map((r: any) => ({
+      const mapped = data.map((r: any) => ({
           id: r.id,
           codigo_custodia: r.codigo_custodia,
           data_inicio: r.data_inicio,
@@ -147,10 +146,11 @@ export default function CustodiaPage() {
           sigla_tesouro: r.sigla_tesouro,
           custodia_no_dia: r.custodia_no_dia,
           estrategia: r.estrategia,
-        }))
-      );
+        }));
+      setRows(mapped);
+      _custCachedRows = mapped;
     }
-    _custCachedRows = rows.length > 0 ? rows : _custCachedRows;
+    _custCachedVersion = appliedVersion;
     setLoading(false);
   };
 
