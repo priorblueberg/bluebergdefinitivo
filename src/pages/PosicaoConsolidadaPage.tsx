@@ -160,9 +160,16 @@ export default function PosicaoConsolidadaPage() {
 
       const lotesByCodigo = new Map<number, PoupancaLote[]>();
       for (const l of ((lotesRes as any).data || [])) {
-        const code = l.codigo_custodia as number;
+        const code = Number(l.codigo_custodia);
         if (!lotesByCodigo.has(code)) lotesByCodigo.set(code, []);
-        lotesByCodigo.get(code)!.push(l as PoupancaLote);
+        lotesByCodigo.get(code)!.push({
+          ...l,
+          dia_aniversario: Number(l.dia_aniversario),
+          valor_principal: Number(l.valor_principal),
+          valor_atual: Number(l.valor_atual),
+          rendimento_acumulado: Number(l.rendimento_acumulado),
+          codigo_custodia: code,
+        } as PoupancaLote);
       }
 
       const posicaoRows: PosicaoRow[] = [];
