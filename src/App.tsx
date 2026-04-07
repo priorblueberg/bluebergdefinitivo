@@ -29,6 +29,7 @@ import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import PlanosPage from "./pages/PlanosPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import GenerateDocxPage from "./pages/GenerateDocxPage";
 
 const queryClient = new QueryClient();
 
