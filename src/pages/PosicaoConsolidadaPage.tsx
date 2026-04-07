@@ -67,7 +67,6 @@ let _cachedRentabilidade = 0;
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
-  const { poupancaFifo, loading: settingsLoading } = useUserSettings();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>(_cachedRows);
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
@@ -82,11 +81,11 @@ export default function PosicaoConsolidadaPage() {
   const [detalheRow, setDetalheRow] = useState<PosicaoRow | null>(null);
 
   useEffect(() => {
-    if (!user || settingsLoading) return;
-    if (_cachedVersion === appliedVersion && _cachedFifo === poupancaFifo) return;
+    if (!user) return;
+    if (_cachedVersion === appliedVersion) return;
     calculate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, appliedVersion, poupancaFifo, settingsLoading]);
+  }, [user, appliedVersion]);
 
   async function calculate() {
     setLoading(true);
