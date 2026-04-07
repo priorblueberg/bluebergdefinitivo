@@ -377,7 +377,6 @@ export type Database = {
           nome_ativo: string | null
           origem: string
           pagamento: string | null
-          poupanca_lote_id: string | null
           preco_unitario: number | null
           produto_id: string
           quantidade: number | null
@@ -401,7 +400,6 @@ export type Database = {
           nome_ativo?: string | null
           origem?: string
           pagamento?: string | null
-          poupanca_lote_id?: string | null
           preco_unitario?: number | null
           produto_id: string
           quantidade?: number | null
@@ -425,7 +423,6 @@ export type Database = {
           nome_ativo?: string | null
           origem?: string
           pagamento?: string | null
-          poupanca_lote_id?: string | null
           preco_unitario?: number | null
           produto_id?: string
           quantidade?: number | null
@@ -456,13 +453,6 @@ export type Database = {
             columns: ["instituicao_id"]
             isOneToOne: false
             referencedRelation: "instituicoes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "movimentacoes_poupanca_lote_id_fkey"
-            columns: ["poupanca_lote_id"]
-            isOneToOne: false
-            referencedRelation: "poupanca_lotes"
             referencedColumns: ["id"]
           },
           {
