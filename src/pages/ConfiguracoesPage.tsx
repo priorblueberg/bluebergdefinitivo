@@ -3,8 +3,11 @@ import { Trash2, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
+import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Tooltip,
@@ -16,7 +19,27 @@ import {
 export default function ConfiguracoesPage() {
   const { user } = useAuth();
   const { poupancaFifo, setPoupancaFifo, loading } = useUserSettings();
+  const { dataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  const handleToggleFifo = async (value: boolean) => {
+    if (!user || toggling) return;
+    setToggling(true);
+    setIsRecalculating(true);
+    try {
+      await setPoupancaFifo(value);
+      await recalculateAllForDataReferencia(user.id, format(dataReferencia, "yyyy-MM-dd"));
+      applyDataReferencia();
+      toast.success("Modelo de poupança atualizado com sucesso");
+    } catch (err) {
+      console.error("Erro ao recalcular após alteração do modelo", err);
+      toast.error("Erro ao recalcular");
+    } finally {
+      setIsRecalculating(false);
+      setToggling(false);
+    }
+  };
 
   const handleReset = async () => {
     if (!user) return;
@@ -103,8 +126,8 @@ export default function ConfiguracoesPage() {
             </div>
             <Switch
               checked={poupancaFifo}
-              onCheckedChange={setPoupancaFifo}
-              disabled={loading}
+              onCheckedChange={handleToggleFifo}
+              disabled={loading || toggling}
             />
           </div>
         </CardContent>
