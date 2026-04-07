@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { useAuth } from "@/hooks/useAuth";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
-import { calcularPoupancaDiario, type PoupancaLote } from "@/lib/poupancaEngine";
+import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -91,9 +91,7 @@ export default function ProventosRecebidosPage() {
         poupancaCodigos.length > 0
           ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
-        poupancaCodigos.length > 0
-          ? supabase.from("poupanca_lotes").select("*").in("codigo_custodia", poupancaCodigos).eq("user_id", user.id).eq("status", "ativo")
-          : Promise.resolve({ data: [] }),
+        Promise.resolve({ data: [] }), // lotes now built from movimentações
         poupancaCodigos.length > 0
           ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
@@ -147,34 +145,13 @@ export default function ProventosRecebidosPage() {
       const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
       const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
 
-      const lotesByCodigo = new Map<number, PoupancaLote[]>();
-      for (const l of ((lotesRes as any).data || [])) {
-        const code = Number(l.codigo_custodia);
-        if (!lotesByCodigo.has(code)) lotesByCodigo.set(code, []);
-        lotesByCodigo.get(code)!.push({
-          ...l,
-          dia_aniversario: Number(l.dia_aniversario),
-          valor_principal: Number(l.valor_principal),
-          valor_atual: Number(l.valor_atual),
-          rendimento_acumulado: Number(l.rendimento_acumulado),
-          codigo_custodia: code,
-        } as PoupancaLote);
-      }
-
       for (const prod of poupancaProducts) {
-        const lotes = lotesByCodigo.get((prod as any).codigo_custodia) || [];
-        if (lotes.length === 0) continue;
-        const sortedLotes = [...lotes].sort((a, b) => a.data_aplicacao.localeCompare(b.data_aplicacao));
         const allMovs = movByCodigo.get((prod as any).codigo_custodia) || [];
-
-        const lotesForEngine: PoupancaLote[] = sortedLotes.map((l) => ({
-          ...l,
-          valor_principal: Number(l.valor_principal),
-          valor_atual: Number(l.valor_principal),
-        }));
+        const lotesForEngine = buildPoupancaLotesFromMovs(allMovs);
+        if (lotesForEngine.length === 0) continue;
 
         const engineRows = calcularPoupancaDiario({
-          dataInicio: sortedLotes[0].data_aplicacao,
+          dataInicio: lotesForEngine[0].data_aplicacao,
           dataCalculo: dataReferenciaISO,
           calendario,
           movimentacoes: allMovs,

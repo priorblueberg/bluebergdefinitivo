@@ -320,6 +320,29 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 }
 
 /**
+ * Constrói lotes de poupança a partir das movimentações (somente aplicações).
+ * Use esta função em vez de buscar lotes do banco de dados para evitar
+ * contagem dupla de resgates (o engine aplica resgates via FIFO).
+ */
+export function buildPoupancaLotesFromMovs(
+  movimentacoes: { data: string; tipo_movimentacao: string; valor: number }[]
+): PoupancaLote[] {
+  return movimentacoes
+    .filter(m => m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação")
+    .map((m, idx) => ({
+      id: `derived-${idx}`,
+      data_aplicacao: m.data,
+      dia_aniversario: new Date(m.data + "T00:00:00").getDate(),
+      valor_principal: m.valor,
+      valor_atual: m.valor,
+      rendimento_acumulado: 0,
+      ultimo_aniversario: null,
+      status: "ativo",
+      data_resgate: null,
+    }));
+}
+
+/**
  * Algoritmo FIFO para resgate de poupança.
  * Consome lotes do mais antigo para o mais novo.
  * Retorna os lotes atualizados e o valor efetivamente resgatado.

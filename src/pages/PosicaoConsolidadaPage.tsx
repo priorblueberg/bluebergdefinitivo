@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, type DailyRow } from "@/lib/rendaFixaEngine";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
-import { calcularPoupancaDiario, type PoupancaLote } from "@/lib/poupancaEngine";
+import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
@@ -147,9 +147,7 @@ export default function PosicaoConsolidadaPage() {
         poupancaCodigos.length > 0
           ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
-        poupancaCodigos.length > 0
-          ? supabase.from("poupanca_lotes").select("*").in("codigo_custodia", poupancaCodigos).eq("user_id", user!.id).eq("status", "ativo")
-          : Promise.resolve({ data: [] }),
+        Promise.resolve({ data: [] }), // lotes now built from movimentações
         poupancaCodigos.length > 0
           ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
@@ -173,19 +171,7 @@ export default function PosicaoConsolidadaPage() {
         movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
       }
 
-      const lotesByCodigo = new Map<number, PoupancaLote[]>();
-      for (const l of ((lotesRes as any).data || [])) {
-        const code = Number(l.codigo_custodia);
-        if (!lotesByCodigo.has(code)) lotesByCodigo.set(code, []);
-        lotesByCodigo.get(code)!.push({
-          ...l,
-          dia_aniversario: Number(l.dia_aniversario),
-          valor_principal: Number(l.valor_principal),
-          valor_atual: Number(l.valor_atual),
-          rendimento_acumulado: Number(l.rendimento_acumulado),
-          codigo_custodia: code,
-        } as PoupancaLote);
-      }
+      // lotes are now derived from movimentações to avoid double-counting resgates
 
       const posicaoRows: PosicaoRow[] = [];
       const allProductRows: DailyRow[][] = [];
@@ -233,32 +219,24 @@ export default function PosicaoConsolidadaPage() {
 
       // Poupança products — FIFO (single row) or per-certificate
       for (const product of poupancaProducts) {
-        const lotes = lotesByCodigo.get(product.codigo_custodia) || [];
         const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
+        const lotesForEngine = buildPoupancaLotesFromMovs(allMovsForProduct);
 
-        if (lotes.length === 0) continue;
+        if (lotesForEngine.length === 0) continue;
 
-        const sortedLotes = [...lotes].sort((a, b) => a.data_aplicacao.localeCompare(b.data_aplicacao));
+        const engineRows = calcularPoupancaDiario({
+          dataInicio: lotesForEngine[0].data_aplicacao,
+          dataCalculo: dataReferenciaISO,
+          calendario,
+          movimentacoes: allMovsForProduct,
+          lotes: lotesForEngine,
+          selicRecords,
+          trRecords,
+          poupancaRendimentoRecords,
+          dataResgateTotal: product.resgate_total,
+        });
 
         {
-          // FIFO mode: all lotes fed into engine as a single row "Poupança"
-          const lotesForEngine: PoupancaLote[] = sortedLotes.map((l) => ({
-            ...l,
-            valor_principal: Number(l.valor_principal),
-            valor_atual: Number(l.valor_principal),
-          }));
-
-          const engineRows = calcularPoupancaDiario({
-            dataInicio: sortedLotes[0].data_aplicacao,
-            dataCalculo: dataReferenciaISO,
-            calendario,
-            movimentacoes: allMovsForProduct,
-            lotes: lotesForEngine,
-            selicRecords,
-            trRecords,
-            poupancaRendimentoRecords,
-            dataResgateTotal: product.resgate_total,
-          });
 
           allProductRows.push(engineRows);
 

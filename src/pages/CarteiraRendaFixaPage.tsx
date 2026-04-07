@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
 import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
+import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { buildCdiSeries, CdiRecord } from "@/lib/cdiCalculations";
 import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 import RentabilidadeDetailTable from "@/components/RentabilidadeDetailTable";
@@ -145,7 +146,7 @@ export default function CarteiraRendaFixaPage() {
         }))
       );
       const rfProducts: CustodiaProduct[] = (custodiaData || [])
-        .filter((r: any) => r.categorias?.nome === "Renda Fixa")
+        .filter((r: any) => r.categorias?.nome === "Renda Fixa" || r.categorias?.nome === "Poupança")
         .map((r: any) => ({
           id: r.id,
           codigo_custodia: r.codigo_custodia,
@@ -205,13 +206,25 @@ export default function CarteiraRendaFixaPage() {
         return end > max ? end : max;
       }, dataCalculo);
 
-      const [calRes, cdiRes, ibovRes] = await Promise.all([
+      const poupancaProds = rfProducts.filter(p => p.categoria_nome === "Poupança");
+      const poupancaCodigos = poupancaProds.map(p => p.codigo_custodia);
+
+      const [calRes, cdiRes, ibovRes, selicRes, trRes, poupRendRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
           .gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual")
           .gte("data", dataInicio).lte("data", dataCalculo).order("data"),
         supabase.from("historico_ibovespa").select("data, pontos")
           .gte("data", dataInicio).lte("data", dataCalculo).order("data"),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data")
+          : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data")
+          : Promise.resolve({ data: [] }),
+        poupancaCodigos.length > 0
+          ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data")
+          : Promise.resolve({ data: [] }),
       ]);
 
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
@@ -230,6 +243,10 @@ export default function CarteiraRendaFixaPage() {
       const cdiMap = new Map<string, number>();
       for (const c of cdiRaw) cdiMap.set(c.data, c.taxa_anual);
 
+      const selicRecords = ((selicRes as any).data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) }));
+      const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
+      const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
+
       const allCodigos = rfProducts.map(p => p.codigo_custodia);
       const { data: allMovData } = await supabase
         .from("movimentacoes")
@@ -245,9 +262,13 @@ export default function CarteiraRendaFixaPage() {
         movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
       }
 
-      const allProdRows = rfProducts.map((product) => {
+      const allProdRows: DailyRow[][] = [];
+      const prodRowProducts: CustodiaProduct[] = []; // parallel array to track which product each row set belongs to
+
+      // Renda Fixa products
+      for (const product of rfProducts.filter(p => p.categoria_nome === "Renda Fixa")) {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
-        return calcularRendaFixaDiario({
+        allProdRows.push(calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
           dataCalculo: dataFim > dataCalculo ? dataCalculo : dataFim,
           taxa: product.taxa || 0,
@@ -263,12 +284,33 @@ export default function CarteiraRendaFixaPage() {
           dataLimite: product.data_limite,
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
-        });
-      });
+        }));
+        prodRowProducts.push(product);
+      }
+
+      // Poupança products
+      for (const product of poupancaProds) {
+        const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
+        const lotesForEngine = buildPoupancaLotesFromMovs(allMovsForProduct);
+        if (lotesForEngine.length === 0) continue;
+
+        allProdRows.push(calcularPoupancaDiario({
+          dataInicio: lotesForEngine[0].data_aplicacao,
+          dataCalculo: dataCalculo,
+          calendario,
+          movimentacoes: allMovsForProduct,
+          lotes: lotesForEngine,
+          selicRecords,
+          trRecords,
+          poupancaRendimentoRecords,
+          dataResgateTotal: product.resgate_total,
+        }));
+        prodRowProducts.push(product);
+      }
 
       setAllProductRows(allProdRows);
 
-      const pList = rfProducts.map((product, idx) => {
+      const pList = prodRowProducts.map((product, idx) => {
         const rows = allProdRows[idx];
         const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
         const isEncerradoNaDataCalculo = product.resgate_total

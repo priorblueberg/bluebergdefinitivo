@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
 import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
-import { calcularPoupancaDiario, type PoupancaLote } from "@/lib/poupancaEngine";
+import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -106,26 +106,22 @@ export default function CalculadoraPage() {
               .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).order("data"),
             supabase.from("historico_selic").select("data, taxa_anual")
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
-            supabase.from("poupanca_lotes").select("*")
-              .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).eq("status", "ativo"),
+            Promise.resolve({ data: [] }), // lotes now built from movimentações
             supabase.from("historico_tr").select("data, taxa_mensal")
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
             supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal")
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
           ]);
 
+          const movs = (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) }));
+          const lotesForEngine = buildPoupancaLotesFromMovs(movs);
+
           const result = calcularPoupancaDiario({
             dataInicio: product.data_inicio,
             dataCalculo: dataFim,
             calendario: (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util })),
-            movimentacoes: (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
-            lotes: ((lotesRes.data || []) as any[]).map((l: any) => ({
-              ...l,
-              dia_aniversario: Number(l.dia_aniversario),
-              valor_principal: Number(l.valor_principal),
-              valor_atual: Number(l.valor_atual),
-              rendimento_acumulado: Number(l.rendimento_acumulado),
-            })) as PoupancaLote[],
+            movimentacoes: movs,
+            lotes: lotesForEngine,
             selicRecords: (selicRes.data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) })),
             trRecords: (trRes.data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) })),
             poupancaRendimentoRecords: (poupRendRes.data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) })),
