@@ -231,34 +231,53 @@ export default function PosicaoConsolidadaPage() {
         }
       }
 
-      // Poupança products
+      // Poupança products — each lote is treated as an independent "certificate"
       for (const product of poupancaProducts) {
         const lotes = lotesByCodigo.get(product.codigo_custodia) || [];
-        const engineRows = calcularPoupancaDiario({
-          dataInicio: product.data_inicio,
-          dataCalculo: dataReferenciaISO,
-          calendario,
-          movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
-          lotes,
-          selicRecords,
-          trRecords,
-          poupancaRendimentoRecords,
-          dataResgateTotal: product.resgate_total,
-        });
+        const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
 
-        allProductRows.push(engineRows);
+        if (lotes.length === 0) continue;
 
-        const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
-        if (lastRow) {
-          posicaoRows.push({
-            nome: product.nome || "Poupança",
-            valorAtualizado: lastRow.liquido,
-            ganhoFinanceiro: lastRow.ganhoAcumulado,
-            rentabilidade: lastRow.rentabilidadeAcumuladaPct * 100,
-            custodiante: product.instituicao_nome,
-            ativo: true,
-            product,
+        for (const lote of lotes) {
+          // Build a single-lote movimentação set: only the application for this lote
+          const loteMovs = allMovsForProduct.filter(
+            (m) =>
+              (m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação") &&
+              m.data === lote.data_aplicacao &&
+              Math.abs(m.valor - Number(lote.valor_principal)) < 0.02
+          );
+          // If no exact match found, create a synthetic application movimentação
+          const movsForEngine = loteMovs.length > 0
+            ? [{ data: lote.data_aplicacao, tipo_movimentacao: "Aplicação Inicial", valor: Number(lote.valor_principal) }]
+            : [{ data: lote.data_aplicacao, tipo_movimentacao: "Aplicação Inicial", valor: Number(lote.valor_principal) }];
+
+          const engineRows = calcularPoupancaDiario({
+            dataInicio: lote.data_aplicacao,
+            dataCalculo: dataReferenciaISO,
+            calendario,
+            movimentacoes: movsForEngine,
+            lotes: [lote],
+            selicRecords,
+            trRecords,
+            poupancaRendimentoRecords,
+            dataResgateTotal: null,
           });
+
+          allProductRows.push(engineRows);
+
+          const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
+          if (lastRow) {
+            const fmtDataAplicacao = new Date(lote.data_aplicacao + "T12:00:00").toLocaleDateString("pt-BR");
+            posicaoRows.push({
+              nome: `${product.nome || "Poupança"} - ${fmtDataAplicacao}`,
+              valorAtualizado: lastRow.liquido,
+              ganhoFinanceiro: lastRow.ganhoAcumulado,
+              rentabilidade: lastRow.rentabilidadeAcumuladaPct * 100,
+              custodiante: product.instituicao_nome,
+              ativo: true,
+              product,
+            });
+          }
         }
       }
 
