@@ -165,28 +165,41 @@ async function syncResgateNoVencimento(
   const shouldCreate =
     vencimento && resgate_total && resgate_total === vencimento && vencimento < hoje;
 
-  // Find existing auto resgate
-  const { data: existingAuto } = await supabase
+  // Find ALL existing auto resgates (to clean up any duplicates)
+  const { data: existingAutos } = await supabase
     .from("movimentacoes")
     .select("id")
     .eq("codigo_custodia", codigoCustodia)
     .eq("user_id", userId)
     .eq("tipo_movimentacao", "Resgate no Vencimento")
-    .eq("origem", "automatico")
-    .limit(1);
+    .eq("origem", "automatico");
 
   if (!shouldCreate) {
-    // Remove if exists
-    if (existingAuto && existingAuto.length > 0) {
+    // Remove all existing auto resgates
+    if (existingAutos && existingAutos.length > 0) {
       await supabase
         .from("movimentacoes")
         .delete()
-        .eq("id", existingAuto[0].id);
+        .eq("codigo_custodia", codigoCustodia)
+        .eq("user_id", userId)
+        .eq("tipo_movimentacao", "Resgate no Vencimento")
+        .eq("origem", "automatico");
     }
     return;
   }
 
-  const existingId = existingAuto && existingAuto.length > 0 ? existingAuto[0].id : null;
+  // Keep only the first, delete duplicates
+  let existingId: string | null = null;
+  if (existingAutos && existingAutos.length > 0) {
+    existingId = existingAutos[0].id;
+    if (existingAutos.length > 1) {
+      const duplicateIds = existingAutos.slice(1).map(a => a.id);
+      await supabase
+        .from("movimentacoes")
+        .delete()
+        .in("id", duplicateIds);
+    }
+  }
 
   // Calculate liquido and cota via engine
   try {
@@ -229,7 +242,6 @@ async function syncResgateNoVencimento(
     const lastRow = rows[rows.length - 1];
     const isNoVencimento = custodiaRecord.pagamento === "No Vencimento";
 
-    // Resgate no Vencimento: PU and Qty depend on pagamento type
     let valor: number;
     let precoUnitario: number;
     let quantidade: number;
@@ -996,45 +1008,65 @@ export async function fullSyncAfterDelete(
   await syncControleCarteiras(categoriaId, userId, dataReferencia);
 }
 
+/** Guard to prevent concurrent full recalculations */
+let _isRecalculating = false;
+
 /** Recalculate ALL custodia and controle_de_carteiras for a user based on a new data_referencia.
  *  Destructive-reconstructive: wipes custodia, controle_de_carteiras, and automatic movimentacoes,
- *  then replays every manual movimentacao in chronological order.
+ *  then replays every unique codigo_custodia once.
  */
 export async function recalculateAllForDataReferencia(userId: string, dataReferencia: string) {
-  // 1. Delete all custodia for the user
-  await supabase.from("custodia").delete().eq("user_id", userId);
-
-  // 2. Delete all controle_de_carteiras for the user
-  await supabase.from("controle_de_carteiras").delete().eq("user_id", userId);
-
-  // 3. Delete all automatic movimentacoes
-  await supabase
-    .from("movimentacoes")
-    .delete()
-    .eq("user_id", userId)
-    .eq("origem", "automatico");
-
-  // 4. Fetch all remaining (manual) movimentacoes ordered chronologically
-  const { data: manualMovs } = await supabase
-    .from("movimentacoes")
-    .select("id, categoria_id")
-    .eq("user_id", userId)
-    .order("data", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  if (!manualMovs || manualMovs.length === 0) return;
-
-  // 5. Replay each movimentacao through the sync engine
-  for (const mov of manualMovs) {
-    await syncCustodiaFromMovimentacao(mov.id, dataReferencia);
+  if (_isRecalculating) {
+    console.warn("recalculateAllForDataReferencia: already in progress, skipping");
+    return;
   }
+  _isRecalculating = true;
 
-  // 6. Collect distinct categoria_ids and sync controle_de_carteiras
-  const categoriaIds = [...new Set(manualMovs.map((m) => m.categoria_id))];
-  for (const catId of categoriaIds) {
-    await syncControleCarteiras(catId, userId, dataReferencia);
+  try {
+    // 1. Delete all custodia for the user
+    await supabase.from("custodia").delete().eq("user_id", userId);
+
+    // 2. Delete all controle_de_carteiras for the user
+    await supabase.from("controle_de_carteiras").delete().eq("user_id", userId);
+
+    // 3. Delete all automatic movimentacoes
+    await supabase
+      .from("movimentacoes")
+      .delete()
+      .eq("user_id", userId)
+      .eq("origem", "automatico");
+
+    // 4. Fetch all remaining (manual) movimentacoes ordered chronologically
+    const { data: manualMovs } = await supabase
+      .from("movimentacoes")
+      .select("id, categoria_id, codigo_custodia")
+      .eq("user_id", userId)
+      .order("data", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (!manualMovs || manualMovs.length === 0) return;
+
+    // 5. Process each codigo_custodia only ONCE via reprocessMovimentacoesForCodigo
+    const processedCodigos = new Set<number>();
+    const categoriaIds = new Set<string>();
+
+    for (const mov of manualMovs) {
+      categoriaIds.add(mov.categoria_id);
+      const code = mov.codigo_custodia;
+      if (code != null && !processedCodigos.has(code)) {
+        processedCodigos.add(code);
+        await reprocessMovimentacoesForCodigo(code, userId, mov.categoria_id, dataReferencia);
+      }
+    }
+
+    // 6. Sync controle_de_carteiras for each category
+    for (const catId of categoriaIds) {
+      await syncControleCarteiras(catId, userId, dataReferencia);
+    }
+
+    // 7. Sync carteira geral ("Investimentos")
+    await syncCarteiraGeral(userId, dataReferencia);
+  } finally {
+    _isRecalculating = false;
   }
-
-  // 7. Sync carteira geral ("Investimentos")
-  await syncCarteiraGeral(userId, dataReferencia);
 }

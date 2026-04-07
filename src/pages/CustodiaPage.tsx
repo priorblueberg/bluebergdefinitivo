@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
@@ -148,8 +148,19 @@ export default function CustodiaPage() {
     setLoading(false);
   };
 
+  const initialVersionRef = useRef(appliedVersion);
+  const hasMountedRef = useRef(false);
+
   useEffect(() => {
-    fetchData();
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      fetchData();
+      return;
+    }
+    if (appliedVersion !== initialVersionRef.current) {
+      initialVersionRef.current = appliedVersion;
+      fetchData();
+    }
   }, [appliedVersion]);
 
   const openBoleta = (row: CustodiaRow, tipo: "Aplicação" | "Resgate") => {

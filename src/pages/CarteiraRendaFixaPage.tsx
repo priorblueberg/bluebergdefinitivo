@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
@@ -113,8 +113,17 @@ export default function CarteiraRendaFixaPage() {
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
 
+  const initialVersionRef = useRef(appliedVersion);
+  const hasMountedRef = useRef(false);
+
   useEffect(() => {
     if (!user) return;
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+    } else if (appliedVersion === initialVersionRef.current) {
+      return; // No change since last calculation
+    }
+    initialVersionRef.current = appliedVersion;
     (async () => {
       setLoading(true);
       const [{ data: cartData }, { data: custodiaData }] = await Promise.all([
