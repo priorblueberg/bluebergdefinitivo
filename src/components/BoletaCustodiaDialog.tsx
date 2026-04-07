@@ -340,11 +340,12 @@ export default function BoletaCustodiaDialog({
     setSubmitting(true);
     try {
       const tipoMovimentacao = fecharPosicao ? "Resgate Total" : tipo;
-      const pu = valorCotaDia ?? row.preco_unitario;
-      const quantidade = pu && pu > 0 ? valorNum / pu : null;
+      const isPoupancaProduct = row.modalidade === "Poupança";
+      const pu = isPoupancaProduct ? null : (valorCotaDia ?? row.preco_unitario);
+      const quantidade = isPoupancaProduct ? null : (pu && pu > 0 ? valorNum / pu : null);
 
       let valorExtrato: string;
-      if (pu && quantidade) {
+      if (!isPoupancaProduct && pu && quantidade) {
         const fmtVal = valorNum.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const fmtPU = pu.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const fmtQtd = quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 6, maximumFractionDigits: 6 });
