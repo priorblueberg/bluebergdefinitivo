@@ -396,6 +396,7 @@ export default function PosicaoConsolidadaPage() {
       setRows(posicaoRows);
       _cachedRows = posicaoRows;
       _cachedVersion = appliedVersion;
+      _cachedFifo = poupancaFifo;
     } catch (err) {
       console.error("Erro ao calcular posição consolidada:", err);
     } finally {
