@@ -89,12 +89,14 @@ export default function CustodiaPage() {
       .maybeSingle();
 
     if (carteiraData) {
-      setCarteiraInfo({
+      const info = {
         nome_carteira: carteiraData.nome_carteira,
         status: carteiraData.status,
         data_inicio: carteiraData.data_inicio,
         data_calculo: carteiraData.data_calculo,
-      });
+      };
+      setCarteiraInfo(info);
+      _custCachedCarteira = info;
     }
 
     const { data, error } = await supabase
