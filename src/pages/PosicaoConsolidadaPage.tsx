@@ -127,7 +127,8 @@ export default function PosicaoConsolidadaPage() {
 
       const rfProducts = mapped.filter((p) => p.categoria_nome === "Renda Fixa" && p.modalidade !== "Poupança");
       const poupancaProducts = mapped.filter((p) => p.modalidade === "Poupança");
-      const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa" && p.modalidade !== "Poupança");
+      const cambioProducts = mapped.filter((p) => p.categoria_nome === "Moedas");
+      const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa" && p.modalidade !== "Poupança" && p.categoria_nome !== "Moedas");
 
       const allCalcProducts = [...rfProducts, ...poupancaProducts];
       const minDate = allCalcProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), allCalcProducts[0]?.data_inicio || dataReferenciaISO);
