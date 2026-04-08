@@ -234,7 +234,6 @@ export default function BoletaCustodiaDialog({
           if (qtyMoeda < 0) qtyMoeda = 0;
           setSaldoDisponivel(cotacao && qtyMoeda > 0 ? qtyMoeda * cotacao : 0);
         }
-        }
       } catch {
         setValorCotaDia(null);
         setSaldoDisponivel(null);
