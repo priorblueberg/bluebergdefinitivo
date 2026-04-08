@@ -614,8 +614,8 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     if (insErr) console.error("syncCustodia: erro ao inserir", insErr);
   }
 
-  // Sync manual "Resgate Total" values created by the "Fechar Posição" flow (RF non-poupança only)
-  if (isRendaFixa && !isPoupanca) {
+  // Sync manual "Resgate Total" values created by the "Fechar Posição" flow (RF non-poupança, non-moedas only)
+  if (isRendaFixa && !isPoupanca && !isMoedas) {
     await syncManualResgatesTotais(mov.codigo_custodia, mov.user_id!, {
       vencimento: aplicacaoInicial.vencimento,
       resgate_total: resgateTotal,
