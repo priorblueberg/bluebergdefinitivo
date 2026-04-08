@@ -453,8 +453,9 @@ export default function BoletaCustodiaDialog({
     try {
       const tipoMovimentacao = fecharPosicao ? "Resgate Total" : tipo;
       const isPoupancaProduct = row.modalidade === "Poupança";
-      const pu = isPoupancaProduct ? null : (valorCotaDia ?? row.preco_unitario);
-      const quantidade = isPoupancaProduct ? null : (pu && pu > 0 ? valorNum / pu : null);
+      const isDolarProd = row.produto === "Dólar" || row.categoria === "Moedas";
+      const pu = (isPoupancaProduct) ? null : (valorCotaDia ?? row.preco_unitario);
+      const quantidade = (isPoupancaProduct) ? null : (pu && pu > 0 ? valorNum / pu : null);
 
       let valorExtrato: string;
       if (!isPoupancaProduct && pu && quantidade) {
