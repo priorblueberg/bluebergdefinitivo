@@ -21,6 +21,7 @@ import {
   ControleCarteiras,
 } from "@/pages/AppPages";
 import CarteiraRendaFixa from "@/pages/CarteiraRendaFixaPage";
+import CarteiraCambioPage from "@/pages/CarteiraCambioPage";
 import CalculadoraPage from "@/pages/CalculadoraPage";
 import PosicaoConsolidadaPage from "@/pages/PosicaoConsolidadaPage";
 import NotFound from "./pages/NotFound";
