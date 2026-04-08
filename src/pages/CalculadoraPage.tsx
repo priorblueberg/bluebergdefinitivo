@@ -140,7 +140,7 @@ export default function CalculadoraPage() {
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
           ]);
 
-          const ipcaRecs = await fetchIpcaRecords(product.indexador, product.data_inicio, dataFim);
+          const ipcaData = await fetchIpcaRecords(product.indexador, product.data_inicio, dataFim);
 
           const result = calcularRendaFixaDiario({
             dataInicio: product.data_inicio,
@@ -156,7 +156,8 @@ export default function CalculadoraPage() {
             indexador: product.indexador,
             cdiRecords: (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) })),
             dataLimite: product.data_limite,
-            ipcaRecords: ipcaRecs,
+            ipcaOficialRecords: ipcaData?.oficial,
+            ipcaProjecaoRecords: ipcaData?.projecao,
           });
           setRows(result);
         }
@@ -231,7 +232,7 @@ export default function CalculadoraPage() {
         movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
       }
 
-      const ipcaRecs = await fetchIpcaRecordsBatch(rfProducts, dataCalculo);
+      const ipcaData = await fetchIpcaRecordsBatch(rfProducts, dataCalculo);
 
       const allProductRows = rfProducts.map((product) => {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
@@ -251,7 +252,8 @@ export default function CalculadoraPage() {
           dataLimite: product.data_limite,
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
-          ipcaRecords: product.indexador === "IPCA" ? ipcaRecs : undefined,
+          ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
+          ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
         });
       });
 

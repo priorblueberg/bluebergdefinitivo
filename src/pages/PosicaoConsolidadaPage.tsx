@@ -184,7 +184,7 @@ export default function PosicaoConsolidadaPage() {
       const allProductRows: DailyRow[][] = [];
 
       // Fetch IPCA if any product uses it
-      const ipcaRecords = await fetchIpcaRecordsBatch(rfProducts, dataReferenciaISO);
+      const ipcaData = await fetchIpcaRecordsBatch(rfProducts, dataReferenciaISO);
 
       for (const product of rfProducts) {
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
@@ -207,7 +207,8 @@ export default function PosicaoConsolidadaPage() {
           dataLimite: product.data_limite,
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
-          ipcaRecords: product.indexador === "IPCA" ? ipcaRecords : undefined,
+          ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
+          ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
         });
 
         allProductRows.push(engineRows);

@@ -6,6 +6,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+import { fetchIpcaRecords } from "@/lib/ipcaHelper";
 
 /** Fetch CDI records if the product uses CDI indexador */
 async function fetchCdiIfNeeded(
@@ -23,51 +24,17 @@ async function fetchCdiIfNeeded(
   return data?.map((r) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) || undefined;
 }
 
-/** Fetch IPCA records (official + projections) if the product uses IPCA indexador.
- * Returns the structured format expected by the anniversary-cycle engine. */
-async function fetchIpcaIfNeeded(
+/** Fetch IPCA inputs for the engine using the anniversary-cycle helper contract. */
+async function fetchIpcaEngineInputs(
   indexador: string | null,
   dataInicio: string,
   dataFim: string
-): Promise<{ oficial: { competencia: string; fator_mensal: number; data_publicacao?: string | null }[]; projecao: { competencia: string; fator_projetado: number }[] } | undefined> {
-  if (indexador !== "IPCA") return undefined;
-
-  // Expand range by 2 months to cover anniversary cycle boundaries
-  const start = new Date(dataInicio + "T12:00:00");
-  start.setMonth(start.getMonth() - 2);
-  const startMonth = start.toISOString().substring(0, 7) + "-01";
-
-  const end = new Date(dataFim + "T12:00:00");
-  end.setMonth(end.getMonth() + 2);
-  const endMonth = end.toISOString().substring(0, 7) + "-01";
-
-  const [oficialRes, projecaoRes] = await Promise.all([
-    supabase
-      .from("historico_ipca")
-      .select("competencia, fator_mensal, data_publicacao")
-      .gte("competencia", startMonth)
-      .lte("competencia", endMonth)
-      .order("competencia"),
-    supabase
-      .from("historico_ipca_projecao")
-      .select("competencia, fator_projetado")
-      .gte("competencia", startMonth)
-      .lte("competencia", endMonth)
-      .order("competencia"),
-  ]);
-
-  const oficial = (oficialRes.data || []).map((r: any) => ({
-    competencia: r.competencia as string,
-    fator_mensal: Number(r.fator_mensal),
-    data_publicacao: (r.data_publicacao as string) || null,
-  }));
-
-  const projecao = (projecaoRes.data || []).map((r: any) => ({
-    competencia: r.competencia as string,
-    fator_projetado: Number(r.fator_projetado),
-  }));
-
-  return oficial.length > 0 || projecao.length > 0 ? { oficial, projecao } : undefined;
+) {
+  const ipcaData = await fetchIpcaRecords(indexador, dataInicio, dataFim);
+  return {
+    ipcaOficialRecords: ipcaData?.oficial,
+    ipcaProjecaoRecords: ipcaData?.projecao,
+  };
 }
 
 // ── Resgate no Vencimento Auto Sync ──
@@ -137,7 +104,7 @@ async function syncManualResgatesTotais(
     if (!calendario || !movs) return;
 
     const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
-    const ipcaRecords = await fetchIpcaIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
+    const { ipcaOficialRecords, ipcaProjecaoRecords } = await fetchIpcaEngineInputs(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
 
     for (const manualResgate of manualResgates) {
       const calendarioAteData = calendario.filter((dia) => dia.data <= manualResgate.data);
@@ -164,7 +131,8 @@ async function syncManualResgatesTotais(
         vencimento: custodiaRecord.vencimento,
         indexador: custodiaRecord.indexador,
         cdiRecords,
-        ipcaRecords,
+        ipcaOficialRecords,
+        ipcaProjecaoRecords,
       });
 
       const rowDia = rows[rows.length - 1];
@@ -270,7 +238,7 @@ async function syncResgateNoVencimento(
     if (!calendario || !movs) return;
 
     const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
-    const ipcaRecords = await fetchIpcaIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
+    const { ipcaOficialRecords, ipcaProjecaoRecords } = await fetchIpcaEngineInputs(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
 
     const rows = calcularRendaFixaDiario({
       dataInicio: custodiaRecord.data_inicio,
@@ -285,7 +253,8 @@ async function syncResgateNoVencimento(
       vencimento: custodiaRecord.vencimento,
       indexador: custodiaRecord.indexador,
       cdiRecords,
-      ipcaRecords,
+      ipcaOficialRecords,
+      ipcaProjecaoRecords,
     });
 
     if (rows.length === 0) return;
@@ -981,7 +950,7 @@ export async function reprocessMovimentacoesForCodigo(
 
   // 5. Fetch CDI if needed
   const cdiRecordsReprocess = await fetchCdiIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
-  const ipcaRecordsReprocess = await fetchIpcaIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
+  const { ipcaOficialRecords: ipcaOficialRecordsReprocess, ipcaProjecaoRecords: ipcaProjecaoRecordsReprocess } = await fetchIpcaEngineInputs(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
 
   // 6. For each movimentação, compute engine and update PU/Qty from calculator columns
   for (let i = 0; i < manualMovs.length; i++) {
@@ -1011,7 +980,8 @@ export async function reprocessMovimentacoesForCodigo(
       vencimento: baseInfo.vencimento,
       indexador: aplicacaoInicial.indexador,
       cdiRecords: cdiRecordsReprocess,
-      ipcaRecords: ipcaRecordsReprocess,
+      ipcaOficialRecords: ipcaOficialRecordsReprocess,
+      ipcaProjecaoRecords: ipcaProjecaoRecordsReprocess,
     });
 
     const rowDia = rows.find((r) => r.data === mov.data);

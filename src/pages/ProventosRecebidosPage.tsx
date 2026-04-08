@@ -112,7 +112,7 @@ export default function ProventosRecebidosPage() {
       const allProventos: ProventoRow[] = [];
 
       // 1. Renda Fixa — pagamento de juros periódicos
-      const ipcaRecs = await fetchIpcaRecordsBatch(withPayment, dataReferenciaISO);
+      const ipcaData = await fetchIpcaRecordsBatch(withPayment, dataReferenciaISO);
       for (const prod of withPayment) {
         const endDate = (prod as any).data_calculo || dataReferenciaISO;
 
@@ -129,7 +129,8 @@ export default function ProventosRecebidosPage() {
           vencimento: prod.vencimento,
           calendarioSorted: true,
           indexador: (prod as any).indexador,
-          ipcaRecords: (prod as any).indexador === "IPCA" ? ipcaRecs : undefined,
+          ipcaOficialRecords: (prod as any).indexador === "IPCA" ? ipcaData?.oficial : undefined,
+          ipcaProjecaoRecords: (prod as any).indexador === "IPCA" ? ipcaData?.projecao : undefined,
         });
 
         for (const row of engineRows) {
