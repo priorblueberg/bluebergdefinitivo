@@ -341,7 +341,15 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
     // Multiplicador
     let dailyMult: number;
-    if (isMistaCDI) {
+    if (isPosFixadoIPCA) {
+      // IPCA + Taxa: fator_ipca_diario * fator_taxa_real_diario - 1
+      if (diaUtil && ipcaDailyFactorMap) {
+        const ipcaFator = ipcaDailyFactorMap.get(cal.data) || 1;
+        dailyMult = ipcaFator * ipcaTaxaRealFactor - 1;
+      } else {
+        dailyMult = 0;
+      }
+    } else if (isMistaCDI) {
       // Mista: (1 + CDI Diário anterior) * (1 + Taxa)^(1/252) - 1
       const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
       dailyMult = diaUtil ? (1 + prevCdiDiario) * mistaSpreadFactor - 1 : 0;
