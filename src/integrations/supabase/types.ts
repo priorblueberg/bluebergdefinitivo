@@ -333,6 +333,57 @@ export type Database = {
         }
         Relationships: []
       }
+      historico_ipca: {
+        Row: {
+          competencia: string
+          created_at: string
+          data_publicacao: string | null
+          data_referencia: string
+          fator_mensal: number
+          variacao_mensal: number
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          data_publicacao?: string | null
+          data_referencia: string
+          fator_mensal: number
+          variacao_mensal: number
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          data_publicacao?: string | null
+          data_referencia?: string
+          fator_mensal?: number
+          variacao_mensal?: number
+        }
+        Relationships: []
+      }
+      historico_ipca_projecao: {
+        Row: {
+          competencia: string
+          created_at: string
+          fator_projetado: number
+          fonte: string | null
+          variacao_projetada: number
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          fator_projetado: number
+          fonte?: string | null
+          variacao_projetada: number
+        }
+        Update: {
+          competencia?: string
+          created_at?: string
+          fator_projetado?: number
+          fonte?: string | null
+          variacao_projetada?: number
+        }
+        Relationships: []
+      }
       historico_poupanca_rendimento: {
         Row: {
           data: string
