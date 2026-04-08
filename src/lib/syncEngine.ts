@@ -135,6 +135,7 @@ async function syncManualResgatesTotais(
     if (!calendario || !movs) return;
 
     const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
+    const ipcaRecords = await fetchIpcaIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
 
     for (const manualResgate of manualResgates) {
       const calendarioAteData = calendario.filter((dia) => dia.data <= manualResgate.data);
