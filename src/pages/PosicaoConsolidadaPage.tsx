@@ -170,11 +170,11 @@ export default function PosicaoConsolidadaPage() {
       const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
       const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
 
-      const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
+      const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number; preco_unitario: number | null; quantidade: number | null }[]>();
       for (const m of ((movRes as any).data || [])) {
         const code = m.codigo_custodia as number;
         if (!movByCodigo.has(code)) movByCodigo.set(code, []);
-        movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
+        movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor), preco_unitario: m.preco_unitario != null ? Number(m.preco_unitario) : null, quantidade: m.quantidade != null ? Number(m.quantidade) : null });
       }
 
       // lotes are now derived from movimentações to avoid double-counting resgates
