@@ -187,9 +187,10 @@ export default function BoletaCustodiaDialog({
       }
     }
 
-    // Validate: business day (skip for Poupança)
+    // Validate: business day (skip for Poupança and Dólar)
     const isPoupancaProduct = row.modalidade === "Poupança";
-    if (!isPoupancaProduct) {
+    const isDolarProduct = row.produto === "Dólar" || row.categoria === "Moedas";
+    if (!isPoupancaProduct && !isDolarProduct) {
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
@@ -200,6 +201,46 @@ export default function BoletaCustodiaDialog({
         setDateError("A data selecionada não é um dia útil.");
         return;
       }
+    }
+
+    // ── Dólar: fetch cotação and compute saldo ──
+    if (isDolarProduct) {
+      if (tipo === "Resgate") setLoadingSaldo(true);
+      setLoadingCota(true);
+      try {
+        const { data: cotacaoDia } = await supabase
+          .from("historico_dolar")
+          .select("cotacao_venda")
+          .eq("data", dateISO)
+          .maybeSingle();
+
+        const cotacao = cotacaoDia?.cotacao_venda ? Number(cotacaoDia.cotacao_venda) : null;
+        if (cotacao) setValorCotaDia(cotacao);
+
+        if (tipo === "Resgate") {
+          const { data: movs } = await supabase
+            .from("movimentacoes")
+            .select("tipo_movimentacao, quantidade")
+            .eq("codigo_custodia", row.codigo_custodia)
+            .eq("user_id", userId)
+            .order("data");
+
+          let qtyUSD = 0;
+          for (const m of (movs || [])) {
+            if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) qtyUSD += Number(m.quantidade || 0);
+            else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) qtyUSD -= Number(m.quantidade || 0);
+          }
+          if (qtyUSD < 0) qtyUSD = 0;
+          setSaldoDisponivel(cotacao && qtyUSD > 0 ? qtyUSD * cotacao : 0);
+        }
+      } catch {
+        setValorCotaDia(null);
+        setSaldoDisponivel(null);
+      } finally {
+        setLoadingCota(false);
+        setLoadingSaldo(false);
+      }
+      return;
     }
 
     const isRendaFixaEngine = (row.modalidade === "Prefixado" || row.modalidade === "Pos Fixado" || row.modalidade === "Pós Fixado" || row.modalidade === "Mista") && row.taxa && row.preco_unitario;
