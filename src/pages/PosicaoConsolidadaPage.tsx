@@ -264,23 +264,34 @@ export default function PosicaoConsolidadaPage() {
 
       // Câmbio products
       const dolarRecords = ((dolarRes as any).data || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
+
+      // Fetch Euro cotações if needed
+      const euroProducts = cambioProducts.filter(p => p.produto_nome.toLowerCase().includes("euro"));
+      let euroRecords: { data: string; cotacao_venda: number }[] = [];
+      if (euroProducts.length > 0) {
+        const { data: euroData } = await supabase.from("historico_euro").select("data, cotacao_venda").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data");
+        euroRecords = (euroData || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
+      }
+
       for (const product of cambioProducts) {
         const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
+        const isEuro = product.produto_nome.toLowerCase().includes("euro");
+        const cotacaoRecords = isEuro ? euroRecords : dolarRecords;
         const cambioRows = calcularCambioDiario({
           dataInicio: product.data_inicio,
           dataCalculo: dataReferenciaISO,
           cotacaoInicial: product.preco_unitario || 1,
           calendario,
           movimentacoes: allMovsForProduct,
-          historicoDolar: dolarRecords,
+          historicoCotacao: cotacaoRecords,
           dataResgateTotal: product.resgate_total,
         });
 
         const lastRow = cambioRows.length > 0 ? cambioRows[cambioRows.length - 1] : null;
         if (lastRow) {
-          const isEncerrado = lastRow.quantidadeUSD < 0.000001;
+          const isEncerrado = lastRow.quantidadeMoeda < 0.000001;
           posicaoRows.push({
-            nome: product.nome || "Dólar",
+            nome: product.nome || product.produto_nome,
             valorAtualizado: lastRow.valorBRL,
             ganhoFinanceiro: lastRow.rentAcumuladaBRL,
             rentabilidade: lastRow.rentAcumuladaPct * 100,
