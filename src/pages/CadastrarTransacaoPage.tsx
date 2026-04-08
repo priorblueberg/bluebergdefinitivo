@@ -610,7 +610,7 @@ export default function CadastrarTransacaoPage() {
   const showAplicacaoFields = showTipoMovimentacao && !!produtoId && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate));
   const showResgateFields = showTipoMovimentacao && isResgate && !isEditing;
   const showPoupancaFields = isPoupanca && isAplicacao;
-  const showDolarFields = isMoedas && isDolar && isAplicacao;
+  const showDolarFields = isMoedas && isAplicacao;
 
   // Fetch cotação when Dólar + date changes
   useEffect(() => {
@@ -1039,7 +1039,7 @@ export default function CadastrarTransacaoPage() {
                 onChange={(v) => {
                   setTipoMovimentacao(v);
                   // Don't reset produtoId for Poupança (auto-selected, single product)
-                  if (!isPoupanca) setProdutoId("");
+                  if (!isPoupanca && !isMoedas) setProdutoId("");
                   setSelectedCustodiaId("");
                   setValor("");
                   setSaldoDisponivel(null);
@@ -1338,7 +1338,7 @@ export default function CadastrarTransacaoPage() {
                 value={produtoId}
                 onChange={setProdutoId}
                 placeholder="Selecione"
-                disabled
+                disabled={isEditing}
                 options={produtos.map((p) => ({
                   value: p.id,
                   label: p.nome,
