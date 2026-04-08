@@ -1,5 +1,5 @@
 /**
- * Engine de cálculo para ativos de Câmbio (Dólar).
+ * Engine de cálculo para ativos de Câmbio (Dólar, Euro).
  *
  * Calcula valuation diário, rentabilidade diária e acumulada com base na
  * cotação PTAX Venda de fechamento.
@@ -8,8 +8,8 @@
 export interface CambioDailyRow {
   data: string;
   diaUtil: boolean;
-  cotacao: number;           // cotação do dólar no dia
-  quantidadeUSD: number;     // quantidade acumulada em USD
+  cotacao: number;           // cotação da moeda no dia
+  quantidadeMoeda: number;   // quantidade acumulada na moeda estrangeira
   valorBRL: number;          // qty × cotação (valor atualizado)
   aplicacoesBRL: number;     // aplicações no dia em BRL
   resgatesBRL: number;       // resgates no dia em BRL
@@ -22,31 +22,31 @@ export interface CambioDailyRow {
 export interface CambioEngineInput {
   dataInicio: string;
   dataCalculo: string;
-  cotacaoInicial: number;            // cotação do dia da primeira aplicação
+  cotacaoInicial: number;
   calendario: { data: string; dia_util: boolean }[];
   movimentacoes: { data: string; tipo_movimentacao: string; valor: number; preco_unitario: number | null; quantidade: number | null }[];
-  historicoDolar: { data: string; cotacao_venda: number }[];
+  historicoCotacao: { data: string; cotacao_venda: number }[];
   dataResgateTotal?: string | null;
 }
 
 export function calcularCambioDiario(input: CambioEngineInput): CambioDailyRow[] {
-  const { dataInicio, dataCalculo, calendario, movimentacoes, historicoDolar, dataResgateTotal } = input;
+  const { dataInicio, dataCalculo, calendario, movimentacoes, historicoCotacao, dataResgateTotal } = input;
 
   // Build maps
   const cotacaoMap = new Map<string, number>();
-  for (const r of historicoDolar) {
+  for (const r of historicoCotacao) {
     cotacaoMap.set(r.data, r.cotacao_venda);
   }
 
-  const movMap = new Map<string, { aplicacoesBRL: number; resgatesBRL: number; aplicacoesUSD: number; resgatesUSD: number }>();
+  const movMap = new Map<string, { aplicacoesBRL: number; resgatesBRL: number; aplicacoesMoeda: number; resgatesMoeda: number }>();
   for (const m of movimentacoes) {
-    const existing = movMap.get(m.data) || { aplicacoesBRL: 0, resgatesBRL: 0, aplicacoesUSD: 0, resgatesUSD: 0 };
+    const existing = movMap.get(m.data) || { aplicacoesBRL: 0, resgatesBRL: 0, aplicacoesMoeda: 0, resgatesMoeda: 0 };
     if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
       existing.aplicacoesBRL += m.valor;
-      existing.aplicacoesUSD += m.quantidade || 0;
+      existing.aplicacoesMoeda += m.quantidade || 0;
     } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
       existing.resgatesBRL += m.valor;
-      existing.resgatesUSD += m.quantidade || 0;
+      existing.resgatesMoeda += m.quantidade || 0;
     }
     movMap.set(m.data, existing);
   }
@@ -60,7 +60,7 @@ export function calcularCambioDiario(input: CambioEngineInput): CambioDailyRow[]
   if (calDays.length === 0) return [];
 
   const rows: CambioDailyRow[] = [];
-  let qtyUSD = 0;
+  let qtyMoeda = 0;
   let lastCotacao = input.cotacaoInicial;
   let rentAcumFactor = 1;
   let totalGanho = 0;
@@ -70,23 +70,19 @@ export function calcularCambioDiario(input: CambioEngineInput): CambioDailyRow[]
     const movDia = movMap.get(day.data);
     const aplicacoesBRL = movDia?.aplicacoesBRL || 0;
     const resgatesBRL = movDia?.resgatesBRL || 0;
-    const aplicacoesUSD = movDia?.aplicacoesUSD || 0;
-    const resgatesUSD = movDia?.resgatesUSD || 0;
+    const aplicacoesMoeda = movDia?.aplicacoesMoeda || 0;
+    const resgatesMoeda = movDia?.resgatesMoeda || 0;
 
-    // Update qty at start of day (applications add, resgates subtract)
-    const prevQtyUSD = qtyUSD;
-    qtyUSD += aplicacoesUSD;
-    qtyUSD -= resgatesUSD;
-    if (qtyUSD < 0.000001) qtyUSD = 0;
+    const prevQtyMoeda = qtyMoeda;
+    qtyMoeda += aplicacoesMoeda;
+    qtyMoeda -= resgatesMoeda;
+    if (qtyMoeda < 0.000001) qtyMoeda = 0;
 
-    const valorBRL = qtyUSD * cotacaoDia;
+    const valorBRL = qtyMoeda * cotacaoDia;
 
-    // Ganho diário: variação do valor pela cotação, excluindo fluxos
-    // = (qty_anterior × (cotação_hoje - cotação_ontem))
-    const ganhoDiarioBRL = prevQtyUSD * (cotacaoDia - lastCotacao);
+    const ganhoDiarioBRL = prevQtyMoeda * (cotacaoDia - lastCotacao);
 
-    // Rent diária %
-    const prevValor = prevQtyUSD * lastCotacao;
+    const prevValor = prevQtyMoeda * lastCotacao;
     const base = prevValor + aplicacoesBRL;
     const rentDiariaPct = base > 0.01 ? ganhoDiarioBRL / base : 0;
 
@@ -97,7 +93,7 @@ export function calcularCambioDiario(input: CambioEngineInput): CambioDailyRow[]
       data: day.data,
       diaUtil: day.dia_util,
       cotacao: cotacaoDia,
-      quantidadeUSD: qtyUSD,
+      quantidadeMoeda: qtyMoeda,
       valorBRL,
       aplicacoesBRL,
       resgatesBRL,
@@ -111,4 +107,20 @@ export function calcularCambioDiario(input: CambioEngineInput): CambioDailyRow[]
   }
 
   return rows;
+}
+
+/**
+ * Helper: returns the Supabase table name for a given currency product.
+ */
+export function getCotacaoTable(produtoNome: string): "historico_dolar" | "historico_euro" {
+  if (produtoNome.toLowerCase().includes("euro")) return "historico_euro";
+  return "historico_dolar";
+}
+
+/**
+ * Helper: returns the currency code for display.
+ */
+export function getCurrencyCode(produtoNome: string): string {
+  if (produtoNome.toLowerCase().includes("euro")) return "EUR";
+  return "USD";
 }
