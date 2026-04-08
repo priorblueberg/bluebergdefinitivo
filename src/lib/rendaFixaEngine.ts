@@ -94,8 +94,14 @@ export interface EngineInput {
   precomputedCdiMap?: Map<string, number>;
   /** If true, skip sorting calendario (already sorted) */
   calendarioSorted?: boolean;
-  /** IPCA records for Pós Fixado IPCA products */
-  ipcaRecords?: { competencia: string; fator_mensal: number }[];
+  /**
+   * IPCA records for Pós Fixado IPCA products.
+   * Contains both official and projection records for anniversary-cycle diarization.
+   */
+  ipcaRecords?: {
+    oficial: { competencia: string; fator_mensal: number; data_publicacao?: string | null }[];
+    projecao: { competencia: string; fator_projetado: number }[];
+  };
 }
 
 // ── Pagamento de Juros Periódico ──
