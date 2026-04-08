@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
@@ -10,6 +10,10 @@ import {
   fetchCustodia, fetchMovimentacoes, getCdiMap, getMovByCodigoMap, getDateMinus,
   type CustodiaRecord,
 } from "@/lib/dataCache";
+import {
+  getCachedRFResult, cacheRFResult, buildMovsHash,
+  getCachedPoupancaResult, cachePoupancaResult,
+} from "@/lib/engineCache";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -30,6 +34,7 @@ export default function CalculadoraPage() {
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [carteiraRows, setCarteiraRows] = useState<CarteiraRFRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const calcVersionRef = useRef(0);
 
   // Load custodia products from cache
   useEffect(() => {
@@ -49,72 +54,114 @@ export default function CalculadoraPage() {
     const product = products.find((p) => p.id === selectedId);
     if (!product) return;
 
+    const currentVersion = ++calcVersionRef.current;
+
     (async () => {
       setLoading(true);
       setCarteiraRows([]);
       try {
         const isPoupanca = product.modalidade === "Poupança";
+        // Compute for the max possible range (vencimento/resgate), not just dataCalculo
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
         const dateStart = getDateMinus(product.data_inicio, 5);
 
         if (isPoupanca) {
-          const [calendario, movs, selicRecords, trRecords, poupRendRecords] = await Promise.all([
-            fetchCalendario(user.id, appliedVersion, dateStart, dataFim),
-            fetchMovimentacoes(user.id, appliedVersion),
-            fetchSelic(user.id, appliedVersion, dateStart, dataFim),
-            fetchTr(user.id, appliedVersion, dateStart, dataFim),
-            fetchPoupancaRendimento(user.id, appliedVersion, dateStart, dataFim),
-          ]);
-
-          const productMovs = movs
+          // Check poupanca cache first
+          const allMovs = await fetchMovimentacoes(user.id, appliedVersion);
+          const productMovs = allMovs
             .filter(m => m.codigo_custodia === product.codigo_custodia)
             .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor }));
+          const movsHash = buildMovsHash(productMovs);
 
-          const lotesForEngine = buildPoupancaLotesFromMovs(productMovs);
+          const cached = getCachedPoupancaResult(product.codigo_custodia, dataFim, movsHash);
+          if (cached) {
+            if (currentVersion !== calcVersionRef.current) return;
+            setRows(cached);
+          } else {
+            const [calendario, selicRecords, trRecords, poupRendRecords] = await Promise.all([
+              fetchCalendario(user.id, appliedVersion, dateStart, dataFim),
+              fetchSelic(user.id, appliedVersion, dateStart, dataFim),
+              fetchTr(user.id, appliedVersion, dateStart, dataFim),
+              fetchPoupancaRendimento(user.id, appliedVersion, dateStart, dataFim),
+            ]);
 
-          const result = calcularPoupancaDiario({
-            dataInicio: product.data_inicio,
-            dataCalculo: dataFim,
-            calendario,
-            movimentacoes: productMovs,
-            lotes: lotesForEngine,
-            selicRecords,
-            trRecords,
-            poupancaRendimentoRecords: poupRendRecords,
-            dataResgateTotal: product.resgate_total,
-          });
-          setRows(result);
+            if (currentVersion !== calcVersionRef.current) return;
+
+            const lotesForEngine = buildPoupancaLotesFromMovs(productMovs);
+            const result = calcularPoupancaDiario({
+              dataInicio: product.data_inicio,
+              dataCalculo: dataFim,
+              calendario,
+              movimentacoes: productMovs,
+              lotes: lotesForEngine,
+              selicRecords,
+              trRecords,
+              poupancaRendimentoRecords: poupRendRecords,
+              dataResgateTotal: product.resgate_total,
+            });
+
+            cachePoupancaResult(product.codigo_custodia, result, movsHash);
+            if (currentVersion !== calcVersionRef.current) return;
+            setRows(result);
+          }
         } else {
-          const [calendario, movs, cdiRecords] = await Promise.all([
-            fetchCalendario(user.id, appliedVersion, dateStart, dataFim),
-            fetchMovimentacoes(user.id, appliedVersion),
-            fetchCdi(user.id, appliedVersion, dateStart, dataFim),
-          ]);
-
-          const productMovs = movs
+          // RF — use engine cache
+          const allMovs = await fetchMovimentacoes(user.id, appliedVersion);
+          const productMovs = allMovs
             .filter(m => m.codigo_custodia === product.codigo_custodia)
             .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor }));
+          const movsHash = buildMovsHash(productMovs);
 
-          const ipcaData = await fetchIpcaRecords(product.indexador, product.data_inicio, dataFim);
-
-          const result = calcularRendaFixaDiario({
+          const cacheParams = {
             dataInicio: product.data_inicio,
-            dataCalculo: dataFim,
             taxa: product.taxa || 0,
             modalidade: product.modalidade || "",
             puInicial: product.preco_unitario || 1000,
-            calendario,
-            movimentacoes: productMovs,
-            dataResgateTotal: product.resgate_total,
             pagamento: product.pagamento,
             vencimento: product.vencimento,
             indexador: product.indexador,
-            cdiRecords,
+            dataResgateTotal: product.resgate_total,
             dataLimite: product.data_limite,
-            ipcaOficialRecords: ipcaData?.oficial,
-            ipcaProjecaoRecords: ipcaData?.projecao,
-          });
-          setRows(result);
+            movsHash,
+          };
+
+          const cached = getCachedRFResult(product.codigo_custodia, dataFim, cacheParams);
+          if (cached) {
+            if (currentVersion !== calcVersionRef.current) return;
+            setRows(cached);
+          } else {
+            const [calendario, cdiRecords] = await Promise.all([
+              fetchCalendario(user.id, appliedVersion, dateStart, dataFim),
+              fetchCdi(user.id, appliedVersion, dateStart, dataFim),
+            ]);
+
+            if (currentVersion !== calcVersionRef.current) return;
+
+            const ipcaData = await fetchIpcaRecords(product.indexador, product.data_inicio, dataFim);
+            if (currentVersion !== calcVersionRef.current) return;
+
+            const result = calcularRendaFixaDiario({
+              dataInicio: product.data_inicio,
+              dataCalculo: dataFim,
+              taxa: product.taxa || 0,
+              modalidade: product.modalidade || "",
+              puInicial: product.preco_unitario || 1000,
+              calendario,
+              movimentacoes: productMovs,
+              dataResgateTotal: product.resgate_total,
+              pagamento: product.pagamento,
+              vencimento: product.vencimento,
+              indexador: product.indexador,
+              cdiRecords,
+              dataLimite: product.data_limite,
+              ipcaOficialRecords: ipcaData?.oficial,
+              ipcaProjecaoRecords: ipcaData?.projecao,
+            });
+
+            cacheRFResult(product.codigo_custodia, result, cacheParams);
+            if (currentVersion !== calcVersionRef.current) return;
+            setRows(result);
+          }
         }
       } catch (err) {
         console.error("Erro ao calcular:", err);
@@ -127,6 +174,7 @@ export default function CalculadoraPage() {
 
   const calculateCarteira = useCallback(async () => {
     if (!user) return;
+    const currentVersion = ++calcVersionRef.current;
     setLoading(true);
     setRows([]);
     try {
@@ -160,10 +208,13 @@ export default function CalculadoraPage() {
         fetchMovimentacoes(user.id, appliedVersion),
       ]);
 
+      if (currentVersion !== calcVersionRef.current) return;
+
       const cdiMap = getCdiMap(cdiRecords, appliedVersion);
       const movByCodigoMap = getMovByCodigoMap(allMovs, appliedVersion);
 
       const ipcaData = await fetchIpcaRecordsBatch(rfProducts, dataCalculo);
+      if (currentVersion !== calcVersionRef.current) return;
 
       const allProductRows = rfProducts.map((product) => {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
@@ -189,6 +240,8 @@ export default function CalculadoraPage() {
           ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
         });
       });
+
+      if (currentVersion !== calcVersionRef.current) return;
 
       const result = calcularCarteiraRendaFixa({
         productRows: allProductRows,
