@@ -1153,6 +1153,7 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
   _isRecalculating = true;
 
   try {
+    invalidateEngineCache();
     // 1. Delete all custodia for the user
     await supabase.from("custodia").delete().eq("user_id", userId);
 
