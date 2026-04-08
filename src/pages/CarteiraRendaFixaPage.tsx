@@ -9,6 +9,9 @@ import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupan
 import { buildCdiSeries, CdiRecord } from "@/lib/cdiCalculations";
 import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 import RentabilidadeDetailTable from "@/components/RentabilidadeDetailTable";
+import {
+  cacheRFResult, getCachedRFResult, buildMovsHash,
+} from "@/lib/engineCache";
 import { ProductDetail, type CustodiaProduct as AnalysisCustodiaProduct } from "@/pages/AnaliseIndividualPage";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
