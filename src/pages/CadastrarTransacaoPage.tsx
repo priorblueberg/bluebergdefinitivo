@@ -806,7 +806,7 @@ export default function CadastrarTransacaoPage() {
     setValidationErrors(new Set());
 
     // Validate business day AFTER required fields check
-    if (!isPoupanca) {
+    if (!isPoupanca && !(isMoedas && isDolar)) {
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
