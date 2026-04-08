@@ -275,28 +275,57 @@ export default function CarteiraRendaFixaPage() {
       // Fetch IPCA if any product uses it
       const ipcaData = await fetchIpcaRecordsBatch(rfProducts.filter(p => p.modalidade !== "Poupança"), dataCalculo);
 
-      // Renda Fixa products
+      // Cancellation check after heavy DB fetches
+      if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
+
+      // Renda Fixa products — use engine cache
       for (const product of rfProducts.filter(p => p.modalidade !== "Poupança")) {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
-        allProdRows.push(calcularRendaFixaDiario({
+        const calcEnd = dataFim > dataCalculo ? dataCalculo : dataFim;
+        const productMovs = movByCodigo.get(product.codigo_custodia) || [];
+        const movsHash = buildMovsHash(productMovs);
+
+        const cacheParams = {
           dataInicio: product.data_inicio,
-          dataCalculo: dataFim > dataCalculo ? dataCalculo : dataFim,
           taxa: product.taxa || 0,
           modalidade: product.modalidade || "",
           puInicial: product.preco_unitario || 1000,
-          calendario,
-          movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
-          dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
           indexador: product.indexador,
-          cdiRecords: cdiRaw,
+          dataResgateTotal: product.resgate_total,
           dataLimite: product.data_limite,
-          precomputedCdiMap: cdiMap,
-          calendarioSorted: true,
-          ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
-          ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
-        }));
+          movsHash,
+        };
+
+        let engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams);
+
+        if (!engineRows) {
+          const maxEnd = dataFim > dataCalculo ? dataFim : dataCalculo;
+          const fullRows = calcularRendaFixaDiario({
+            dataInicio: product.data_inicio,
+            dataCalculo: maxEnd,
+            taxa: product.taxa || 0,
+            modalidade: product.modalidade || "",
+            puInicial: product.preco_unitario || 1000,
+            calendario,
+            movimentacoes: productMovs,
+            dataResgateTotal: product.resgate_total,
+            pagamento: product.pagamento,
+            vencimento: product.vencimento,
+            indexador: product.indexador,
+            cdiRecords: cdiRaw,
+            dataLimite: product.data_limite,
+            precomputedCdiMap: cdiMap,
+            calendarioSorted: true,
+            ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
+            ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
+          });
+          cacheRFResult(product.codigo_custodia, fullRows, cacheParams);
+          engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams) || fullRows;
+        }
+
+        allProdRows.push(engineRows);
         prodRowProducts.push(product);
       }
 
