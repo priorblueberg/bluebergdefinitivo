@@ -552,7 +552,7 @@ export default function PosicaoConsolidadaPage() {
           data={getDetalheData(detalheRow)}
           userId={user.id}
           dataReferenciaISO={dataReferenciaISO}
-          onDataChanged={() => { calculate(); applyDataReferencia(); }}
+          onDataChanged={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
         />
       )}
 
