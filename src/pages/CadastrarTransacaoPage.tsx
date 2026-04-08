@@ -427,36 +427,39 @@ export default function CadastrarTransacaoPage() {
       }
     }
 
-    // Check if this is a Moedas/Dólar resgate
+    // Check if this is a Moedas resgate (Dólar or Euro)
     const isMoedasCustodia = categorias.find(c => c.id === selectedCustodia.categoria_id)?.nome === "Moedas";
     if (isMoedasCustodia) {
       setCalculandoSaldo(true);
       try {
-        // Get current USD qty from movimentacoes
+        // Get current currency qty from movimentacoes
         const { data: movs } = await supabase
           .from("movimentacoes")
           .select("tipo_movimentacao, quantidade")
           .eq("codigo_custodia", selectedCustodia.codigo_custodia)
           .eq("user_id", user.id);
 
-        let qtyUSD = 0;
+        let qtyMoeda = 0;
         for (const m of movs || []) {
           if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
-            qtyUSD += (m.quantidade || 0);
+            qtyMoeda += (m.quantidade || 0);
           } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
-            qtyUSD -= (m.quantidade || 0);
+            qtyMoeda -= (m.quantidade || 0);
           }
         }
 
-        // Get cotação for the resgate date
+        // Determine correct cotação table based on product
+        const resgateProdutoNome = produtos.find(p => p.id === selectedCustodia.produto_id)?.nome || "";
+        const cotacaoTable = resgateProdutoNome.toLowerCase().includes("euro") ? "historico_euro" : "historico_dolar";
+
         const { data: cotRow } = await supabase
-          .from("historico_dolar")
+          .from(cotacaoTable)
           .select("cotacao_venda")
           .eq("data", dateISO)
           .maybeSingle();
 
-        if (cotRow && qtyUSD > 0) {
-          setSaldoDisponivel(qtyUSD * cotRow.cotacao_venda);
+        if (cotRow && qtyMoeda > 0) {
+          setSaldoDisponivel(qtyMoeda * cotRow.cotacao_venda);
         } else {
           setSaldoDisponivel(null);
         }
