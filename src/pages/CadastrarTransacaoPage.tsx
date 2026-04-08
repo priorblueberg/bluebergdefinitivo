@@ -616,7 +616,7 @@ export default function CadastrarTransacaoPage() {
 
   // Fetch cotação when Dólar + date changes
   useEffect(() => {
-    if (!isMoedas || !isDolar || !data) {
+    if (!isMoedas || !isMoeda || !data) {
       setCotacaoMoeda(null);
       setQuantidadeMoeda(null);
       return;
@@ -640,18 +640,18 @@ export default function CadastrarTransacaoPage() {
           setQuantidadeMoeda(null);
         }
       });
-  }, [data, isMoedas, isDolar]);
+  }, [data, isMoedas, isMoeda, produtoId]);
 
   // Recalc quantidade when valor changes (Dólar)
   useEffect(() => {
-    if (!isMoedas || !isDolar || !cotacaoMoeda) {
+    if (!isMoedas || !isMoeda || !cotacaoMoeda) {
       setQuantidadeMoeda(null);
       return;
     }
     const valorNum = parseCurrencyToNumber(valor);
     if (valorNum > 0) setQuantidadeMoeda(valorNum / cotacaoMoeda);
     else setQuantidadeMoeda(null);
-  }, [valor, cotacaoMoeda, isMoedas, isDolar]);
+  }, [valor, cotacaoMoeda, isMoedas, isMoeda]);
 
   const resetForm = () => {
     setCategoriaId("");
