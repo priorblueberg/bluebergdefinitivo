@@ -232,12 +232,19 @@ export default function CadastrarTransacaoPage() {
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
   const produtoSelecionado = produtos.find((p) => p.id === produtoId);
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
+  const isMoedas = categoriaSelecionada?.nome === "Moedas";
+  const isDolar = produtoSelecionado?.nome === "Dólar";
   const isPoupanca = produtoSelecionado?.nome === "Poupança";
   const isPosFixado = modalidade === "Pós Fixado";
   const isEditing = !!editId;
   const isResgate = tipoMovimentacao === "Resgate";
   const isAplicacao = tipoMovimentacao === "Aplicação";
   const selectedCustodia = custodiaItems.find((c) => c.id === selectedCustodiaId);
+
+  // Dólar-specific state
+  const [cotacaoDolar, setCotacaoDolar] = useState<number | null>(null);
+  const [cotacaoLoading, setCotacaoLoading] = useState(false);
+  const [quantidadeUSD, setQuantidadeUSD] = useState<number | null>(null);
 
   // Load categorias on mount — only Renda Fixa (Poupança is now a product within RF)
   useEffect(() => {
@@ -402,9 +409,10 @@ export default function CadastrarTransacaoPage() {
       }
     }
 
-    // Validate: business day (skip for Poupança)
+    // Validate: business day (skip for Poupança and Moedas)
     const isPoupancaResgate = selectedCustodia.modalidade === "Poupança";
-    if (!isPoupancaResgate) {
+    const isMoedasResgateCat = categorias.find(c => c.id === selectedCustodia.categoria_id)?.nome === "Moedas";
+    if (!isPoupancaResgate && !isMoedasResgateCat) {
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
@@ -415,6 +423,47 @@ export default function CadastrarTransacaoPage() {
         setResgateDateError("A data selecionada não é um dia útil.");
         return;
       }
+    }
+
+    // Check if this is a Moedas/Dólar resgate
+    const isMoedasCustodia = categorias.find(c => c.id === selectedCustodia.categoria_id)?.nome === "Moedas";
+    if (isMoedasCustodia) {
+      setCalculandoSaldo(true);
+      try {
+        // Get current USD qty from movimentacoes
+        const { data: movs } = await supabase
+          .from("movimentacoes")
+          .select("tipo_movimentacao, quantidade")
+          .eq("codigo_custodia", selectedCustodia.codigo_custodia)
+          .eq("user_id", user.id);
+
+        let qtyUSD = 0;
+        for (const m of movs || []) {
+          if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
+            qtyUSD += (m.quantidade || 0);
+          } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
+            qtyUSD -= (m.quantidade || 0);
+          }
+        }
+
+        // Get cotação for the resgate date
+        const { data: cotRow } = await supabase
+          .from("historico_dolar")
+          .select("cotacao_venda")
+          .eq("data", dateISO)
+          .maybeSingle();
+
+        if (cotRow && qtyUSD > 0) {
+          setSaldoDisponivel(qtyUSD * cotRow.cotacao_venda);
+        } else {
+          setSaldoDisponivel(null);
+        }
+      } catch {
+        setSaldoDisponivel(null);
+      } finally {
+        setCalculandoSaldo(false);
+      }
+      return;
     }
 
     // Calculate saldo using renda fixa engine
@@ -557,10 +606,50 @@ export default function CadastrarTransacaoPage() {
   }, [editId, editLoaded, categorias]);
 
   // Step visibility
-  const showTipoMovimentacao = !!categoriaId && isRendaFixa;
+  const showTipoMovimentacao = !!categoriaId && (isRendaFixa || isMoedas);
   const showAplicacaoFields = showTipoMovimentacao && !!produtoId && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate));
   const showResgateFields = showTipoMovimentacao && isResgate && !isEditing;
   const showPoupancaFields = isPoupanca && isAplicacao;
+  const showDolarFields = isMoedas && isDolar && isAplicacao;
+
+  // Fetch cotação when Dólar + date changes
+  useEffect(() => {
+    if (!isMoedas || !isDolar || !data) {
+      setCotacaoDolar(null);
+      setQuantidadeUSD(null);
+      return;
+    }
+    setCotacaoLoading(true);
+    supabase
+      .from("historico_dolar")
+      .select("cotacao_venda")
+      .eq("data", data)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        const cot = row?.cotacao_venda ?? null;
+        setCotacaoDolar(cot);
+        setCotacaoLoading(false);
+        // Recalc quantidade
+        if (cot && valor) {
+          const valorNum = parseCurrencyToNumber(valor);
+          if (valorNum > 0) setQuantidadeUSD(valorNum / cot);
+          else setQuantidadeUSD(null);
+        } else {
+          setQuantidadeUSD(null);
+        }
+      });
+  }, [data, isMoedas, isDolar]);
+
+  // Recalc quantidade when valor changes (Dólar)
+  useEffect(() => {
+    if (!isMoedas || !isDolar || !cotacaoDolar) {
+      setQuantidadeUSD(null);
+      return;
+    }
+    const valorNum = parseCurrencyToNumber(valor);
+    if (valorNum > 0) setQuantidadeUSD(valorNum / cotacaoDolar);
+    else setQuantidadeUSD(null);
+  }, [valor, cotacaoDolar, isMoedas, isDolar]);
 
   const resetForm = () => {
     setCategoriaId("");
@@ -622,13 +711,29 @@ export default function CadastrarTransacaoPage() {
         const fmtBR = (v: number) =>
           v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+        // For Dólar resgate: calculate USD quantity from BRL value
+        const isMoedasResgate = categoriaSelecionada?.nome === "Moedas";
+        let resgateQty: number | null = null;
+        let resgatePU: number | null = null;
+        if (isMoedasResgate) {
+          const { data: cotRow } = await supabase
+            .from("historico_dolar")
+            .select("cotacao_venda")
+            .eq("data", data)
+            .maybeSingle();
+          if (cotRow) {
+            resgatePU = cotRow.cotacao_venda;
+            resgateQty = valorNum / cotRow.cotacao_venda;
+          }
+        }
+
         const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: selectedCustodia.categoria_id,
           tipo_movimentacao: tipoMovimentacaoFinal,
           data,
           produto_id: selectedCustodia.produto_id,
           valor: valorNum,
-          preco_unitario: null,
+          preco_unitario: isMoedasResgate ? resgatePU : null,
           instituicao_id: selectedCustodia.instituicao_id,
           emissor_id: selectedCustodia.emissor_id,
           modalidade: selectedCustodia.modalidade,
@@ -638,7 +743,7 @@ export default function CadastrarTransacaoPage() {
           nome_ativo: selectedCustodia.nome,
           codigo_custodia: selectedCustodia.codigo_custodia,
           indexador: selectedCustodia.indexador,
-          quantidade: null,
+          quantidade: isMoedasResgate ? resgateQty : null,
           valor_extrato: `R$ ${fmtBR(valorNum)}`,
           user_id: user.id,
           origem: "manual",
@@ -674,7 +779,13 @@ export default function CadastrarTransacaoPage() {
     // ── Aplicação submission (existing logic) ──
     let requiredFields: Record<string, string>;
 
-    if (isPoupanca) {
+    if (isMoedas && isDolar) {
+      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
+      if (!cotacaoDolar) {
+        toast.error("Cotação do dólar não encontrada para a data selecionada.");
+        return;
+      }
+    } else if (isPoupanca) {
       requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
     } else {
       requiredFields = {
@@ -696,7 +807,7 @@ export default function CadastrarTransacaoPage() {
     setValidationErrors(new Set());
 
     // Validate business day AFTER required fields check
-    if (!isPoupanca) {
+    if (!isPoupanca && !(isMoedas && isDolar)) {
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
@@ -722,7 +833,9 @@ export default function CadastrarTransacaoPage() {
       const instituicaoNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
 
       let nomeAtivo: string | null;
-      if (isPoupanca) {
+      if (isMoedas && isDolar) {
+        nomeAtivo = `Dólar ${instituicaoNome}`.trim();
+      } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
       } else if (isRendaFixa) {
         nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
@@ -731,12 +844,26 @@ export default function CadastrarTransacaoPage() {
       }
 
       const valorNum = parseCurrencyToNumber(valor);
-      const puNum = isPoupanca ? 0 : parseCurrencyToNumber(precoUnitario);
-      const taxaNum = isPoupanca ? 0 : parseFloat(taxa.replace(",", ".") || "0");
-      const quantidade = !isPoupanca && puNum > 0 ? valorNum / puNum : null;
+      let puNum: number;
+      let taxaNum: number;
+      let quantidade: number | null;
+
+      if (isMoedas && isDolar) {
+        puNum = cotacaoDolar!;
+        taxaNum = 0;
+        quantidade = quantidadeUSD;
+      } else if (isPoupanca) {
+        puNum = 0;
+        taxaNum = 0;
+        quantidade = null;
+      } else {
+        puNum = parseCurrencyToNumber(precoUnitario);
+        taxaNum = parseFloat(taxa.replace(",", ".") || "0");
+        quantidade = puNum > 0 ? valorNum / puNum : null;
+      }
 
       // Mapeamento: "Pós Fixado" + "CDI+" → "Mista" + "CDI"
-      let modalidadeToSave = isPoupanca ? "Poupança" : modalidade;
+      let modalidadeToSave = isPoupanca ? "Poupança" : (isMoedas ? null : modalidade);
       let indexadorToSave = isPosFixado ? indexador : null;
       if (modalidade === "Pós Fixado" && indexador === "CDI+") {
         modalidadeToSave = "Mista";
@@ -803,22 +930,23 @@ export default function CadastrarTransacaoPage() {
           codigoCustodia = 0;
         }
 
+        const noFields = isPoupanca || (isMoedas && isDolar);
         const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: categoriaId,
           tipo_movimentacao: tipoFinal,
           data,
           produto_id: produtoId,
           valor: valorNum,
-          preco_unitario: isPoupanca ? null : puNum,
+          preco_unitario: noFields ? (isMoedas ? puNum : null) : puNum,
           instituicao_id: instituicaoId,
-          emissor_id: isPoupanca ? (instituicaoId || null) : emissorId || null,
+          emissor_id: noFields ? null : emissorId || null,
           modalidade: modalidadeToSave,
-          taxa: isPoupanca ? null : taxaNum,
-          pagamento: isPoupanca ? "Mensal" : pagamento,
-          vencimento: isPoupanca ? null : vencimento || null,
+          taxa: noFields ? null : taxaNum,
+          pagamento: isPoupanca ? "Mensal" : (isMoedas ? null : pagamento),
+          vencimento: noFields ? null : vencimento || null,
           nome_ativo: nomeAtivo,
           codigo_custodia: nomeAtivo ? codigoCustodia : null,
-          indexador: isPoupanca ? null : indexadorToSave,
+          indexador: noFields ? null : indexadorToSave,
           quantidade,
           valor_extrato: valorExtrato,
           user_id: user?.id,
@@ -1195,6 +1323,118 @@ export default function CadastrarTransacaoPage() {
                   >
                     <PlusCircle size={16} />
                     {submitting ? "Enviando..." : isEditing ? "Salvar Alterações" : "Enviar"}
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── Dólar Aplicação Flow ── */}
+        {showDolarFields && (
+          <>
+            <Field label="Produto" required>
+              <NativeSelect
+                value={produtoId}
+                onChange={setProdutoId}
+                placeholder="Selecione"
+                disabled
+                options={produtos.map((p) => ({
+                  value: p.id,
+                  label: p.nome,
+                }))}
+              />
+            </Field>
+
+            {!!produtoId && (
+              <>
+                {/* Row 1: Data, Valor em Reais */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Data de Transação" required>
+                    <input
+                      type="date"
+                      value={data}
+                      onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                      className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                    />
+                  </Field>
+
+                  <Field label="Valor Investido (R$)" required>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={valor}
+                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
+                        placeholder="0,00"
+                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                      />
+                    </div>
+                  </Field>
+                </div>
+
+                {/* Row 2: Cotação, Quantidade */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Cotação do Dólar (PTAX)">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={cotacaoLoading ? "Buscando..." : cotacaoDolar != null ? cotacaoDolar.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (data ? "Não encontrada" : "")}
+                        disabled
+                        className="input-field pl-9 opacity-60"
+                      />
+                    </div>
+                  </Field>
+
+                  <Field label="Quantidade (USD)">
+                    <input
+                      type="text"
+                      value={quantidadeUSD != null ? quantidadeUSD.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : ""}
+                      disabled
+                      placeholder="Calculado automaticamente"
+                      className="input-field opacity-60"
+                    />
+                  </Field>
+                </div>
+
+                {/* Row 3: Instituição */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Corretora" required>
+                    <SearchableSelect
+                      value={instituicaoId}
+                      onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
+                      placeholder="Pesquisar corretora..."
+                      hasError={validationErrors.has("instituicaoId")}
+                      options={instituicoes.map((i) => ({
+                        value: i.id,
+                        label: i.nome,
+                      }))}
+                    />
+                  </Field>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={submitting || !cotacaoDolar}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
+                  >
+                    <PlusCircle size={16} />
+                    {submitting ? "Enviando..." : "Enviar"}
                   </button>
                 </div>
               </>
