@@ -540,7 +540,7 @@ export default function PosicaoConsolidadaPage() {
           row={dialogRow}
           userId={user.id}
           dataReferenciaISO={dataReferenciaISO}
-          onSuccess={() => { calculate(); applyDataReferencia(); }}
+          onSuccess={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
         />
       )}
 
