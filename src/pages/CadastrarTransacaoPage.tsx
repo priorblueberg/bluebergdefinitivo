@@ -614,7 +614,7 @@ export default function CadastrarTransacaoPage() {
   const showPoupancaFields = isPoupanca && isAplicacao;
   const showDolarFields = isMoedas && isAplicacao;
 
-  // Fetch cotação when Dólar + date changes
+  // Fetch cotação when Moeda + date changes
   useEffect(() => {
     if (!isMoedas || !isMoeda || !data) {
       setCotacaoMoeda(null);
@@ -622,8 +622,9 @@ export default function CadastrarTransacaoPage() {
       return;
     }
     setCotacaoLoading(true);
+    const tableName = isEuro ? "historico_euro" : "historico_dolar";
     supabase
-      .from("historico_dolar")
+      .from(tableName)
       .select("cotacao_venda")
       .eq("data", data)
       .maybeSingle()
@@ -631,7 +632,6 @@ export default function CadastrarTransacaoPage() {
         const cot = row?.cotacao_venda ?? null;
         setCotacaoMoeda(cot);
         setCotacaoLoading(false);
-        // Recalc quantidade
         if (cot && valor) {
           const valorNum = parseCurrencyToNumber(valor);
           if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
