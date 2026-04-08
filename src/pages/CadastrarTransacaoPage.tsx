@@ -564,10 +564,50 @@ export default function CadastrarTransacaoPage() {
   }, [editId, editLoaded, categorias]);
 
   // Step visibility
-  const showTipoMovimentacao = !!categoriaId && isRendaFixa;
+  const showTipoMovimentacao = !!categoriaId && (isRendaFixa || isMoedas);
   const showAplicacaoFields = showTipoMovimentacao && !!produtoId && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate));
   const showResgateFields = showTipoMovimentacao && isResgate && !isEditing;
   const showPoupancaFields = isPoupanca && isAplicacao;
+  const showDolarFields = isMoedas && isDolar && isAplicacao;
+
+  // Fetch cotação when Dólar + date changes
+  useEffect(() => {
+    if (!isMoedas || !isDolar || !data) {
+      setCotacaoDolar(null);
+      setQuantidadeUSD(null);
+      return;
+    }
+    setCotacaoLoading(true);
+    supabase
+      .from("historico_dolar")
+      .select("cotacao_venda")
+      .eq("data", data)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        const cot = row?.cotacao_venda ?? null;
+        setCotacaoDolar(cot);
+        setCotacaoLoading(false);
+        // Recalc quantidade
+        if (cot && valor) {
+          const valorNum = parseCurrencyToNumber(valor);
+          if (valorNum > 0) setQuantidadeUSD(valorNum / cot);
+          else setQuantidadeUSD(null);
+        } else {
+          setQuantidadeUSD(null);
+        }
+      });
+  }, [data, isMoedas, isDolar]);
+
+  // Recalc quantidade when valor changes (Dólar)
+  useEffect(() => {
+    if (!isMoedas || !isDolar || !cotacaoDolar) {
+      setQuantidadeUSD(null);
+      return;
+    }
+    const valorNum = parseCurrencyToNumber(valor);
+    if (valorNum > 0) setQuantidadeUSD(valorNum / cotacaoDolar);
+    else setQuantidadeUSD(null);
+  }, [valor, cotacaoDolar, isMoedas, isDolar]);
 
   const resetForm = () => {
     setCategoriaId("");
