@@ -400,9 +400,9 @@ Deno.serve(async (req) => {
 
       if (startDolar <= yesterdayDolar) {
         const fmtPtax = (d: Date) =>
-          `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${d.getFullYear()}`;
+          `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
 
-        const ptaxUrl = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@dataInicial='${fmtPtax(startDolar)}'&@dataFinalCotacao='${fmtPtax(yesterdayDolar)}'&$top=10000&$format=json&$select=cotacaoVenda,dataHoraCotacao&$filter=tipoBoletim%20eq%20'Fechamento'`;
+        const ptaxUrl = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@dataInicial='${encodeURIComponent(fmtPtax(startDolar))}'&@dataFinalCotacao='${encodeURIComponent(fmtPtax(yesterdayDolar))}'&$top=10000&$format=json&$select=cotacaoVenda,dataHoraCotacao&$filter=tipoBoletim%20eq%20'Fechamento'`;
         console.log("Fetching PTAX Venda from BCB OLINDA...");
 
         const ptaxResp = await fetch(ptaxUrl);
