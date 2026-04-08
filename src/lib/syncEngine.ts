@@ -1041,20 +1041,8 @@ export async function fullSyncAfterMovimentacao(
   userId: string,
   dataReferencia?: string
 ) {
-  invalidateEngineCache(); // Movimentação changed — invalidate engine results cache
-  const origFn = async (
-    _movimentacaoId: string | null,
-    _categoriaId: string,
-    _userId: string,
-    _dataReferencia?: string
-  ) => {
-  movimentacaoId: string | null,
-  categoriaId: string,
-  userId: string,
-  dataReferencia?: string
-) {
+  invalidateEngineCache();
   if (movimentacaoId) {
-    // Get the codigo_custodia for this movimentação
     const { data: mov } = await supabase
       .from("movimentacoes")
       .select("codigo_custodia")
