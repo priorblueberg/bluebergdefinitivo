@@ -94,6 +94,8 @@ export interface EngineInput {
   precomputedCdiMap?: Map<string, number>;
   /** If true, skip sorting calendario (already sorted) */
   calendarioSorted?: boolean;
+  /** IPCA records for Pós Fixado IPCA products */
+  ipcaRecords?: { competencia: string; fator_mensal: number }[];
 }
 
 // ── Pagamento de Juros Periódico ──
