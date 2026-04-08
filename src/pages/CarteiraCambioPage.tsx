@@ -2,9 +2,9 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
-import { calcularCambioDiario, type CambioDailyRow } from "@/lib/cambioEngine";
+import { calcularCambioDiario, getCotacaoTable, getCurrencyCode, type CambioDailyRow } from "@/lib/cambioEngine";
 import { Badge } from "@/components/ui/badge";
-import { CircleCheck, CircleX } from "lucide-react";
+import { CircleCheck, CircleX, ArrowLeft } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -50,13 +50,19 @@ interface CustodiaProduct {
   produto_nome: string;
 }
 
+interface ProductAnalysis {
+  product: CustodiaProduct;
+  rows: CambioDailyRow[];
+}
+
 export default function CarteiraCambioPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO } = useDataReferencia();
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<CustodiaProduct[]>([]);
-  const [cambioRows, setCambioRows] = useState<CambioDailyRow[]>([]);
+  const [productAnalyses, setProductAnalyses] = useState<ProductAnalysis[]>([]);
   const [carteiraStatus, setCarteiraStatus] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<CustodiaProduct | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -66,7 +72,6 @@ export default function CarteiraCambioPage() {
   async function loadData() {
     setLoading(true);
     try {
-      // Load carteira info
       const { data: carteira } = await supabase
         .from("controle_de_carteiras")
         .select("status, data_inicio, data_calculo")
@@ -76,7 +81,6 @@ export default function CarteiraCambioPage() {
 
       setCarteiraStatus(carteira?.status || null);
 
-      // Load custodia products for Moedas category
       const { data: catData } = await supabase
         .from("categorias")
         .select("id")
@@ -111,18 +115,27 @@ export default function CarteiraCambioPage() {
 
       setProducts(mapped);
 
-      // Fetch data for calculations
       const minDate = mapped.reduce((min, p) => p.data_inicio < min ? p.data_inicio : min, mapped[0].data_inicio);
       const allCodigos = mapped.map(p => p.codigo_custodia);
 
-      const [calRes, dolarRes, movRes] = await Promise.all([
+      // Check which currency tables we need
+      const needsDolar = mapped.some(p => !p.produto_nome.toLowerCase().includes("euro"));
+      const needsEuro = mapped.some(p => p.produto_nome.toLowerCase().includes("euro"));
+
+      const [calRes, dolarRes, euroRes, movRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", dataReferenciaISO).order("data"),
-        supabase.from("historico_dolar").select("data, cotacao_venda").gte("data", getDateMinus(minDate, 5)).lte("data", dataReferenciaISO).order("data"),
+        needsDolar
+          ? supabase.from("historico_dolar").select("data, cotacao_venda").gte("data", getDateMinus(minDate, 5)).lte("data", dataReferenciaISO).order("data")
+          : Promise.resolve({ data: [] }),
+        needsEuro
+          ? supabase.from("historico_euro").select("data, cotacao_venda").gte("data", getDateMinus(minDate, 5)).lte("data", dataReferenciaISO).order("data")
+          : Promise.resolve({ data: [] }),
         supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, preco_unitario, quantidade, codigo_custodia").in("codigo_custodia", allCodigos).eq("user_id", user!.id).order("data"),
       ]);
 
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
-      const dolarRecords = (dolarRes.data || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
+      const dolarRecords = ((dolarRes as any).data || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
+      const euroRecords = ((euroRes as any).data || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
 
       const movByCodigo = new Map<number, any[]>();
       for (const m of (movRes.data || [])) {
@@ -131,21 +144,22 @@ export default function CarteiraCambioPage() {
         movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor), preco_unitario: m.preco_unitario != null ? Number(m.preco_unitario) : null, quantidade: m.quantidade != null ? Number(m.quantidade) : null });
       }
 
-      // Aggregate all cambio rows for portfolio chart
-      let allRows: CambioDailyRow[] = [];
+      const analyses: ProductAnalysis[] = [];
       for (const product of mapped) {
+        const isEuro = product.produto_nome.toLowerCase().includes("euro");
+        const cotacaoRecords = isEuro ? euroRecords : dolarRecords;
         const rows = calcularCambioDiario({
           dataInicio: product.data_inicio,
           dataCalculo: dataReferenciaISO,
           cotacaoInicial: product.preco_unitario || 1,
           calendario,
           movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
-          historicoCotacao: dolarRecords,
+          historicoCotacao: cotacaoRecords,
           dataResgateTotal: product.resgate_total,
         });
-        if (rows.length > allRows.length) allRows = rows;
+        analyses.push({ product, rows });
       }
-      setCambioRows(allRows);
+      setProductAnalyses(analyses);
     } catch (err) {
       console.error("Erro ao carregar carteira Câmbio:", err);
     } finally {
@@ -153,17 +167,20 @@ export default function CarteiraCambioPage() {
     }
   }
 
-  const chartData = useMemo(() => {
-    return cambioRows
-      .filter((_, i) => i % Math.max(1, Math.floor(cambioRows.length / 120)) === 0 || _ === cambioRows[cambioRows.length - 1])
-      .map(r => ({
-        data: new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
-        "Rentabilidade": +(r.rentAcumuladaPct * 100).toFixed(2),
-        "Cotação USD": r.cotacao,
-      }));
-  }, [cambioRows]);
+  // Aggregate all rows for portfolio totals
+  const totals = useMemo(() => {
+    let totalValor = 0;
+    let totalGanho = 0;
+    for (const a of productAnalyses) {
+      const lastRow = a.rows.length > 0 ? a.rows[a.rows.length - 1] : null;
+      if (lastRow) {
+        totalValor += lastRow.valorBRL;
+        totalGanho += lastRow.rentAcumuladaBRL;
+      }
+    }
+    return { totalValor, totalGanho };
+  }, [productAnalyses]);
 
-  const lastRow = cambioRows.length > 0 ? cambioRows[cambioRows.length - 1] : null;
   const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   if (loading) {
@@ -174,7 +191,93 @@ export default function CarteiraCambioPage() {
     return (
       <div className="p-6 text-center text-muted-foreground">
         <p className="text-lg font-medium mb-2">Carteira Câmbio</p>
-        <p className="text-sm">Nenhuma posição encontrada. Cadastre uma aplicação em Dólar para começar.</p>
+        <p className="text-sm">Nenhuma posição encontrada. Cadastre uma aplicação em Dólar ou Euro para começar.</p>
+      </div>
+    );
+  }
+
+  // Product detail view
+  if (selectedProduct) {
+    const analysis = productAnalyses.find(a => a.product.id === selectedProduct.id);
+    const rows = analysis?.rows || [];
+    const lastRow = rows.length > 0 ? rows[rows.length - 1] : null;
+    const currencyCode = getCurrencyCode(selectedProduct.produto_nome);
+
+    const chartData = rows
+      .filter((_, i) => i % Math.max(1, Math.floor(rows.length / 120)) === 0 || _ === rows[rows.length - 1])
+      .map(r => ({
+        data: new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
+        "Rentabilidade": +(r.rentAcumuladaPct * 100).toFixed(2),
+        "Cotação": r.cotacao,
+      }));
+
+    return (
+      <div className="space-y-6 p-6">
+        <div>
+          <button
+            onClick={() => setSelectedProduct(null)}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+          >
+            <ArrowLeft size={16} />
+            Voltar para carteira Câmbio
+          </button>
+          <h1 className="text-lg font-semibold text-foreground">{selectedProduct.nome || selectedProduct.produto_nome}</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            {selectedProduct.instituicao_nome} · Início: {new Date(selectedProduct.data_inicio + "T00:00:00").toLocaleDateString("pt-BR")}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">Patrimônio</p>
+            <p className="text-lg font-bold text-foreground">{lastRow ? fmtBRL(lastRow.valorBRL) : "—"}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">Ganho Acumulado</p>
+            <p className="text-lg font-bold text-foreground">{lastRow ? fmtBRL(lastRow.rentAcumuladaBRL) : "—"}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">Rentabilidade</p>
+            <p className="text-lg font-bold text-foreground">{lastRow ? `${(lastRow.rentAcumuladaPct * 100).toFixed(2)}%` : "—"}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">Quantidade ({currencyCode})</p>
+            <p className="text-lg font-bold text-foreground">{lastRow ? lastRow.quantidadeMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : "—"}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">Cotação Atual</p>
+            <p className="text-lg font-bold text-foreground">{lastRow ? `R$ ${lastRow.cotacao.toFixed(4)}` : "—"}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">Valor Investido</p>
+            <p className="text-lg font-bold text-foreground">{fmtBRL(selectedProduct.valor_investido)}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs text-muted-foreground">Valorização</p>
+            <p className={`text-lg font-bold ${lastRow && lastRow.rentAcumuladaBRL >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+              {lastRow ? fmtBRL(lastRow.rentAcumuladaBRL) : "—"}
+            </p>
+          </div>
+        </div>
+
+        {chartData.length > 1 && (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <h2 className="text-sm font-semibold text-foreground mb-3">Evolução da Rentabilidade</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="data" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
+                <Tooltip content={<CustomTooltipChart />} />
+                <Legend />
+                <Line type="monotone" dataKey="Rentabilidade" stroke="hsl(210, 100%, 45%)" dot={false} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     );
   }
@@ -192,41 +295,20 @@ export default function CarteiraCambioPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Patrimônio</p>
-          <p className="text-lg font-bold text-foreground">{lastRow ? fmtBRL(lastRow.valorBRL) : "—"}</p>
+          <p className="text-xs text-muted-foreground">Patrimônio Total</p>
+          <p className="text-lg font-bold text-foreground">{fmtBRL(totals.totalValor)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Ganho Acumulado</p>
-          <p className="text-lg font-bold text-foreground">{lastRow ? fmtBRL(lastRow.rentAcumuladaBRL) : "—"}</p>
+          <p className="text-lg font-bold text-foreground">{fmtBRL(totals.totalGanho)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Rentabilidade</p>
-          <p className="text-lg font-bold text-foreground">{lastRow ? `${(lastRow.rentAcumuladaPct * 100).toFixed(2)}%` : "—"}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Cotação Atual (USD)</p>
-          <p className="text-lg font-bold text-foreground">{lastRow ? `R$ ${lastRow.cotacao.toFixed(4)}` : "—"}</p>
+          <p className="text-xs text-muted-foreground">Produtos</p>
+          <p className="text-lg font-bold text-foreground">{products.length}</p>
         </div>
       </div>
-
-      {/* Chart */}
-      {chartData.length > 1 && (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold text-foreground mb-3">Evolução da Rentabilidade</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="data" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
-              <Tooltip content={<CustomTooltipChart />} />
-              <Legend />
-              <Line type="monotone" dataKey="Rentabilidade" stroke="hsl(210, 100%, 45%)" dot={false} strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
 
       {/* Position Table */}
       <div className="rounded-lg border border-border bg-card">
@@ -236,7 +318,7 @@ export default function CarteiraCambioPage() {
             <TableRow>
               <TableHead className="text-xs">Ativo</TableHead>
               <TableHead className="text-xs">Instituição</TableHead>
-              <TableHead className="text-xs text-right">Qtd (USD)</TableHead>
+              <TableHead className="text-xs text-right">Quantidade</TableHead>
               <TableHead className="text-xs text-right">Cotação</TableHead>
               <TableHead className="text-xs text-right">Valor Atual (BRL)</TableHead>
               <TableHead className="text-xs text-right">Valorização</TableHead>
@@ -245,16 +327,25 @@ export default function CarteiraCambioPage() {
           </TableHeader>
           <TableBody>
             {products.map((p) => {
-              const qty = p.quantidade || 0;
+              const analysis = productAnalyses.find(a => a.product.id === p.id);
+              const lastRow = analysis?.rows.length ? analysis.rows[analysis.rows.length - 1] : null;
+              const qty = lastRow?.quantidadeMoeda ?? (p.quantidade || 0);
               const cotacaoAtual = lastRow?.cotacao || p.preco_unitario || 0;
-              const valorAtual = qty * cotacaoAtual;
-              const ganho = valorAtual - p.valor_investido;
+              const valorAtual = lastRow?.valorBRL ?? qty * cotacaoAtual;
+              const ganho = lastRow?.rentAcumuladaBRL ?? (valorAtual - p.valor_investido);
               const isAtivo = qty > 0.000001;
+              const currencyCode = getCurrencyCode(p.produto_nome);
               return (
-                <TableRow key={p.id}>
+                <TableRow
+                  key={p.id}
+                  className="cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => setSelectedProduct(p)}
+                >
                   <TableCell className="text-xs font-medium">{p.nome || p.produto_nome}</TableCell>
                   <TableCell className="text-xs">{p.instituicao_nome}</TableCell>
-                  <TableCell className="text-xs text-right">{qty.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-xs text-right">
+                    {qty.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode}
+                  </TableCell>
                   <TableCell className="text-xs text-right">R$ {cotacaoAtual.toFixed(4)}</TableCell>
                   <TableCell className="text-xs text-right font-medium">{fmtBRL(valorAtual)}</TableCell>
                   <TableCell className={`text-xs text-right font-medium ${ganho >= 0 ? "text-emerald-600" : "text-red-500"}`}>
