@@ -448,6 +448,69 @@ Deno.serve(async (req) => {
       console.error("PTAX Venda error:", e);
     }
 
+    // ── 6b. Euro PTAX Venda ──────────────────────────────────────────
+    try {
+      const { data: maxEuro } = await supabase
+        .from("historico_euro")
+        .select("data")
+        .order("data", { ascending: false })
+        .limit(1)
+        .single();
+
+      const startEuro = maxEuro
+        ? addDays(new Date(maxEuro.data + "T12:00:00"), 1)
+        : new Date(2024, 0, 2);
+
+      const yesterdayEuro = new Date();
+      yesterdayEuro.setDate(yesterdayEuro.getDate() - 1);
+
+      if (startEuro <= yesterdayEuro) {
+        const fmtPtax = (d: Date) =>
+          `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${d.getFullYear()}`;
+
+        const euroUrl = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='EUR'&@dataInicial='${fmtPtax(startEuro)}'&@dataFinalCotacao='${fmtPtax(yesterdayEuro)}'&$top=10000&$format=json&$select=cotacaoVenda,dataHoraCotacao`;
+        console.log("Fetching Euro PTAX Venda from BCB OLINDA...");
+
+        const euroResp = await fetch(euroUrl);
+        if (!euroResp.ok) throw new Error(`BCB Euro PTAX API error ${euroResp.status}`);
+
+        const euroJson = await euroResp.json();
+        const euroData = euroJson.value || [];
+
+        if (euroData.length > 0) {
+          const byDate = new Map<string, number>();
+          for (const r of euroData) {
+            const dateStr = r.dataHoraCotacao.substring(0, 10);
+            byDate.set(dateStr, r.cotacaoVenda);
+          }
+
+          const euroRows = Array.from(byDate.entries()).map(([data, cotacao_venda]) => ({
+            data,
+            cotacao_venda,
+          }));
+
+          const batchSize = 500;
+          let inserted = 0;
+          for (let i = 0; i < euroRows.length; i += batchSize) {
+            const batch = euroRows.slice(i, i + batchSize);
+            const { error } = await supabase
+              .from("historico_euro")
+              .upsert(batch, { onConflict: "data" });
+            if (error) throw new Error(`Euro insert: ${error.message}`);
+            inserted += batch.length;
+          }
+          results.euro_ptax = `Upserted ${inserted} Euro PTAX Venda records`;
+        } else {
+          results.euro_ptax = "No new Euro PTAX Venda data";
+        }
+      } else {
+        results.euro_ptax = "Euro PTAX Venda already up to date";
+      }
+    } catch (e) {
+      results.euro_ptax = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("Euro PTAX Venda error:", e);
+    }
+
     // ── 7. Calendário Dias Úteis ─────────────────────────────────────
     try {
       // Get max date in calendar

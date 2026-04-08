@@ -234,6 +234,8 @@ export default function CadastrarTransacaoPage() {
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
   const isMoedas = categoriaSelecionada?.nome === "Moedas";
   const isDolar = produtoSelecionado?.nome === "Dólar";
+  const isEuro = produtoSelecionado?.nome === "Euro";
+  const isMoeda = isDolar || isEuro;
   const isPoupanca = produtoSelecionado?.nome === "Poupança";
   const isPosFixado = modalidade === "Pós Fixado";
   const isEditing = !!editId;
@@ -241,10 +243,10 @@ export default function CadastrarTransacaoPage() {
   const isAplicacao = tipoMovimentacao === "Aplicação";
   const selectedCustodia = custodiaItems.find((c) => c.id === selectedCustodiaId);
 
-  // Dólar-specific state
-  const [cotacaoDolar, setCotacaoDolar] = useState<number | null>(null);
+  // Moeda-specific state (Dólar or Euro)
+  const [cotacaoMoeda, setCotacaoMoeda] = useState<number | null>(null);
   const [cotacaoLoading, setCotacaoLoading] = useState(false);
-  const [quantidadeUSD, setQuantidadeUSD] = useState<number | null>(null);
+  const [quantidadeMoeda, setQuantidadeMoeda] = useState<number | null>(null);
 
   // Load categorias on mount — only Renda Fixa (Poupança is now a product within RF)
   useEffect(() => {
@@ -425,36 +427,39 @@ export default function CadastrarTransacaoPage() {
       }
     }
 
-    // Check if this is a Moedas/Dólar resgate
+    // Check if this is a Moedas resgate (Dólar or Euro)
     const isMoedasCustodia = categorias.find(c => c.id === selectedCustodia.categoria_id)?.nome === "Moedas";
     if (isMoedasCustodia) {
       setCalculandoSaldo(true);
       try {
-        // Get current USD qty from movimentacoes
+        // Get current currency qty from movimentacoes
         const { data: movs } = await supabase
           .from("movimentacoes")
           .select("tipo_movimentacao, quantidade")
           .eq("codigo_custodia", selectedCustodia.codigo_custodia)
           .eq("user_id", user.id);
 
-        let qtyUSD = 0;
+        let qtyMoeda = 0;
         for (const m of movs || []) {
           if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
-            qtyUSD += (m.quantidade || 0);
+            qtyMoeda += (m.quantidade || 0);
           } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
-            qtyUSD -= (m.quantidade || 0);
+            qtyMoeda -= (m.quantidade || 0);
           }
         }
 
-        // Get cotação for the resgate date
+        // Determine correct cotação table based on product
+        const resgateProdutoNome = produtos.find(p => p.id === selectedCustodia.produto_id)?.nome || "";
+        const cotacaoTable = resgateProdutoNome.toLowerCase().includes("euro") ? "historico_euro" : "historico_dolar";
+
         const { data: cotRow } = await supabase
-          .from("historico_dolar")
+          .from(cotacaoTable)
           .select("cotacao_venda")
           .eq("data", dateISO)
           .maybeSingle();
 
-        if (cotRow && qtyUSD > 0) {
-          setSaldoDisponivel(qtyUSD * cotRow.cotacao_venda);
+        if (cotRow && qtyMoeda > 0) {
+          setSaldoDisponivel(qtyMoeda * cotRow.cotacao_venda);
         } else {
           setSaldoDisponivel(null);
         }
@@ -612,44 +617,44 @@ export default function CadastrarTransacaoPage() {
   const showPoupancaFields = isPoupanca && isAplicacao;
   const showDolarFields = isMoedas && isAplicacao;
 
-  // Fetch cotação when Dólar + date changes
+  // Fetch cotação when Moeda + date changes
   useEffect(() => {
-    if (!isMoedas || !isDolar || !data) {
-      setCotacaoDolar(null);
-      setQuantidadeUSD(null);
+    if (!isMoedas || !isMoeda || !data) {
+      setCotacaoMoeda(null);
+      setQuantidadeMoeda(null);
       return;
     }
     setCotacaoLoading(true);
+    const tableName = isEuro ? "historico_euro" : "historico_dolar";
     supabase
-      .from("historico_dolar")
+      .from(tableName)
       .select("cotacao_venda")
       .eq("data", data)
       .maybeSingle()
       .then(({ data: row }) => {
         const cot = row?.cotacao_venda ?? null;
-        setCotacaoDolar(cot);
+        setCotacaoMoeda(cot);
         setCotacaoLoading(false);
-        // Recalc quantidade
         if (cot && valor) {
           const valorNum = parseCurrencyToNumber(valor);
-          if (valorNum > 0) setQuantidadeUSD(valorNum / cot);
-          else setQuantidadeUSD(null);
+          if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
+          else setQuantidadeMoeda(null);
         } else {
-          setQuantidadeUSD(null);
+          setQuantidadeMoeda(null);
         }
       });
-  }, [data, isMoedas, isDolar]);
+  }, [data, isMoedas, isMoeda, produtoId]);
 
   // Recalc quantidade when valor changes (Dólar)
   useEffect(() => {
-    if (!isMoedas || !isDolar || !cotacaoDolar) {
-      setQuantidadeUSD(null);
+    if (!isMoedas || !isMoeda || !cotacaoMoeda) {
+      setQuantidadeMoeda(null);
       return;
     }
     const valorNum = parseCurrencyToNumber(valor);
-    if (valorNum > 0) setQuantidadeUSD(valorNum / cotacaoDolar);
-    else setQuantidadeUSD(null);
-  }, [valor, cotacaoDolar, isMoedas, isDolar]);
+    if (valorNum > 0) setQuantidadeMoeda(valorNum / cotacaoMoeda);
+    else setQuantidadeMoeda(null);
+  }, [valor, cotacaoMoeda, isMoedas, isMoeda]);
 
   const resetForm = () => {
     setCategoriaId("");
@@ -711,13 +716,16 @@ export default function CadastrarTransacaoPage() {
         const fmtBR = (v: number) =>
           v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // For Dólar resgate: calculate USD quantity from BRL value
+        // For Moedas resgate: calculate currency quantity from BRL value
         const isMoedasResgate = categoriaSelecionada?.nome === "Moedas";
         let resgateQty: number | null = null;
         let resgatePU: number | null = null;
         if (isMoedasResgate) {
+          // Determine which cotação table to use based on the product
+          const resgateProdutoNome = produtos.find(p => p.id === selectedCustodia.produto_id)?.nome || "";
+          const cotacaoTable = resgateProdutoNome.toLowerCase().includes("euro") ? "historico_euro" : "historico_dolar";
           const { data: cotRow } = await supabase
-            .from("historico_dolar")
+            .from(cotacaoTable)
             .select("cotacao_venda")
             .eq("data", data)
             .maybeSingle();
@@ -779,9 +787,9 @@ export default function CadastrarTransacaoPage() {
     // ── Aplicação submission (existing logic) ──
     let requiredFields: Record<string, string>;
 
-    if (isMoedas && isDolar) {
+    if (isMoedas && isMoeda) {
       requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
-      if (!cotacaoDolar) {
+      if (!cotacaoMoeda) {
         toast.error("Cotação do dólar não encontrada para a data selecionada.");
         return;
       }
@@ -807,7 +815,7 @@ export default function CadastrarTransacaoPage() {
     setValidationErrors(new Set());
 
     // Validate business day AFTER required fields check
-    if (!isPoupanca && !(isMoedas && isDolar)) {
+    if (!isPoupanca && !(isMoedas && isMoeda)) {
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
@@ -833,8 +841,8 @@ export default function CadastrarTransacaoPage() {
       const instituicaoNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
 
       let nomeAtivo: string | null;
-      if (isMoedas && isDolar) {
-        nomeAtivo = `Dólar ${instituicaoNome}`.trim();
+      if (isMoedas && isMoeda) {
+        nomeAtivo = `${produtoNome} ${instituicaoNome}`.trim();
       } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
       } else if (isRendaFixa) {
@@ -848,10 +856,10 @@ export default function CadastrarTransacaoPage() {
       let taxaNum: number;
       let quantidade: number | null;
 
-      if (isMoedas && isDolar) {
-        puNum = cotacaoDolar!;
+      if (isMoedas && isMoeda) {
+        puNum = cotacaoMoeda!;
         taxaNum = 0;
-        quantidade = quantidadeUSD;
+        quantidade = quantidadeMoeda;
       } else if (isPoupanca) {
         puNum = 0;
         taxaNum = 0;
@@ -930,7 +938,7 @@ export default function CadastrarTransacaoPage() {
           codigoCustodia = 0;
         }
 
-        const noFields = isPoupanca || (isMoedas && isDolar);
+        const noFields = isPoupanca || (isMoedas && isMoeda);
         const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: categoriaId,
           tipo_movimentacao: tipoFinal,
@@ -1377,24 +1385,24 @@ export default function CadastrarTransacaoPage() {
 
                 {/* Row 2: Cotação, Quantidade */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Cotação do Dólar (PTAX)">
+                  <Field label={`Cotação ${produtoSelecionado?.nome || "da Moeda"} (PTAX)`}>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                         R$
                       </span>
                       <input
                         type="text"
-                        value={cotacaoLoading ? "Buscando..." : cotacaoDolar != null ? cotacaoDolar.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (data ? "Não encontrada" : "")}
+                        value={cotacaoLoading ? "Buscando..." : cotacaoMoeda != null ? cotacaoMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (data ? "Não encontrada" : "")}
                         disabled
                         className="input-field pl-9 opacity-60"
                       />
                     </div>
                   </Field>
 
-                  <Field label="Quantidade (USD)">
+                  <Field label={`Quantidade (${isEuro ? "EUR" : "USD"})`}>
                     <input
                       type="text"
-                      value={quantidadeUSD != null ? quantidadeUSD.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : ""}
+                      value={quantidadeMoeda != null ? quantidadeMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : ""}
                       disabled
                       placeholder="Calculado automaticamente"
                       className="input-field opacity-60"
@@ -1430,7 +1438,7 @@ export default function CadastrarTransacaoPage() {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={submitting || !cotacaoDolar}
+                    disabled={submitting || !cotacaoMoeda}
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
                   >
                     <PlusCircle size={16} />

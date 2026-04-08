@@ -189,8 +189,8 @@ export default function BoletaCustodiaDialog({
 
     // Validate: business day (skip for Poupança and Dólar)
     const isPoupancaProduct = row.modalidade === "Poupança";
-    const isDolarProduct = row.produto === "Dólar" || row.categoria === "Moedas";
-    if (!isPoupancaProduct && !isDolarProduct) {
+    const isMoedasProduct = row.categoria === "Moedas";
+    if (!isPoupancaProduct && !isMoedasProduct) {
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
@@ -203,13 +203,14 @@ export default function BoletaCustodiaDialog({
       }
     }
 
-    // ── Dólar: fetch cotação and compute saldo ──
-    if (isDolarProduct) {
+    // ── Moedas (Dólar/Euro): fetch cotação and compute saldo ──
+    if (isMoedasProduct) {
       if (tipo === "Resgate") setLoadingSaldo(true);
       setLoadingCota(true);
       try {
+        const cotacaoTable = row.produto?.toLowerCase().includes("euro") ? "historico_euro" : "historico_dolar";
         const { data: cotacaoDia } = await supabase
-          .from("historico_dolar")
+          .from(cotacaoTable)
           .select("cotacao_venda")
           .eq("data", dateISO)
           .maybeSingle();
@@ -225,13 +226,13 @@ export default function BoletaCustodiaDialog({
             .eq("user_id", userId)
             .order("data");
 
-          let qtyUSD = 0;
+          let qtyMoeda = 0;
           for (const m of (movs || [])) {
-            if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) qtyUSD += Number(m.quantidade || 0);
-            else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) qtyUSD -= Number(m.quantidade || 0);
+            if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) qtyMoeda += Number(m.quantidade || 0);
+            else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) qtyMoeda -= Number(m.quantidade || 0);
           }
-          if (qtyUSD < 0) qtyUSD = 0;
-          setSaldoDisponivel(cotacao && qtyUSD > 0 ? qtyUSD * cotacao : 0);
+          if (qtyMoeda < 0) qtyMoeda = 0;
+          setSaldoDisponivel(cotacao && qtyMoeda > 0 ? qtyMoeda * cotacao : 0);
         }
       } catch {
         setValorCotaDia(null);
@@ -453,7 +454,7 @@ export default function BoletaCustodiaDialog({
     try {
       const tipoMovimentacao = fecharPosicao ? "Resgate Total" : tipo;
       const isPoupancaProduct = row.modalidade === "Poupança";
-      const isDolarProd = row.produto === "Dólar" || row.categoria === "Moedas";
+      const isMoedasProd = row.categoria === "Moedas";
       const pu = (isPoupancaProduct) ? null : (valorCotaDia ?? row.preco_unitario);
       const quantidade = (isPoupancaProduct) ? null : (pu && pu > 0 ? valorNum / pu : null);
 

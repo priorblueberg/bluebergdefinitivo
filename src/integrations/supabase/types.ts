@@ -300,6 +300,24 @@ export type Database = {
         }
         Relationships: []
       }
+      historico_euro: {
+        Row: {
+          cotacao_venda: number
+          created_at: string
+          data: string
+        }
+        Insert: {
+          cotacao_venda: number
+          created_at?: string
+          data: string
+        }
+        Update: {
+          cotacao_venda?: number
+          created_at?: string
+          data?: string
+        }
+        Relationships: []
+      }
       historico_ibovespa: {
         Row: {
           data: string
