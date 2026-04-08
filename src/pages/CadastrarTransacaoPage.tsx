@@ -174,6 +174,12 @@ function buildNomeAtivo(
       .join(" ");
   }
 
+  if (indexador === "IPCA") {
+    return [prod, emissorNome, "IPCA", taxaFormatted ? `+ ${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  }
+
   if (indexador === "CDI") {
     return [prod, emissorNome, modalidade, taxaFormatted, "do CDI", vencFormatted ? `- ${vencFormatted}` : ""]
       .filter(Boolean)
