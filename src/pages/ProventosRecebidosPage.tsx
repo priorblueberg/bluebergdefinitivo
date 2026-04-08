@@ -7,6 +7,9 @@ import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import {
+  cacheRFResult, getCachedRFResult, buildMovsHash,
+} from "@/lib/engineCache";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
