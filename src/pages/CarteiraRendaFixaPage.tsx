@@ -266,6 +266,9 @@ export default function CarteiraRendaFixaPage() {
       const allProdRows: DailyRow[][] = [];
       const prodRowProducts: CustodiaProduct[] = []; // parallel array to track which product each row set belongs to
 
+      // Fetch IPCA if any product uses it
+      const ipcaRecords = await fetchIpcaRecordsBatch(rfProducts.filter(p => p.modalidade !== "Poupança"), dataCalculo);
+
       // Renda Fixa products
       for (const product of rfProducts.filter(p => p.modalidade !== "Poupança")) {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
@@ -285,6 +288,7 @@ export default function CarteiraRendaFixaPage() {
           dataLimite: product.data_limite,
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
+          ipcaRecords: product.indexador === "IPCA" ? ipcaRecords : undefined,
         }));
         prodRowProducts.push(product);
       }
