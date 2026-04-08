@@ -888,22 +888,23 @@ export default function CadastrarTransacaoPage() {
           codigoCustodia = 0;
         }
 
+        const noFields = isPoupanca || (isMoedas && isDolar);
         const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: categoriaId,
           tipo_movimentacao: tipoFinal,
           data,
           produto_id: produtoId,
           valor: valorNum,
-          preco_unitario: isPoupanca ? null : puNum,
+          preco_unitario: noFields ? (isMoedas ? puNum : null) : puNum,
           instituicao_id: instituicaoId,
-          emissor_id: isPoupanca ? (instituicaoId || null) : emissorId || null,
+          emissor_id: noFields ? null : emissorId || null,
           modalidade: modalidadeToSave,
-          taxa: isPoupanca ? null : taxaNum,
-          pagamento: isPoupanca ? "Mensal" : pagamento,
-          vencimento: isPoupanca ? null : vencimento || null,
+          taxa: noFields ? null : taxaNum,
+          pagamento: isPoupanca ? "Mensal" : (isMoedas ? null : pagamento),
+          vencimento: noFields ? null : vencimento || null,
           nome_ativo: nomeAtivo,
           codigo_custodia: nomeAtivo ? codigoCustodia : null,
-          indexador: isPoupanca ? null : indexadorToSave,
+          indexador: noFields ? null : indexadorToSave,
           quantidade,
           valor_extrato: valorExtrato,
           user_id: user?.id,
