@@ -1017,17 +1017,13 @@ export async function reprocessMovimentacoesForCodigo(
       }
     }
 
-    updates.push(
-      supabase
+    const updatePromise = (async () => {
+      await supabase
         .from("movimentacoes")
         .update({ preco_unitario: newPU, quantidade: newQuantidade })
-        .eq("id", mov.id)
-        .then()
-    );
-  }
-
-  // Execute all updates in parallel
-  await Promise.all(updates);
+        .eq("id", mov.id);
+    })();
+    updates.push(updatePromise);
 
   // 6. Now run normal custodia sync using the first movimentação
   await syncCustodiaFromMovimentacao(aplicacaoInicial.id, refDate);
