@@ -140,7 +140,7 @@ export default function CarteiraCambioPage() {
           cotacaoInicial: product.preco_unitario || 1,
           calendario,
           movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
-          historicoDolar: dolarRecords,
+          historicoCotacao: dolarRecords,
           dataResgateTotal: product.resgate_total,
         });
         if (rows.length > allRows.length) allRows = rows;
