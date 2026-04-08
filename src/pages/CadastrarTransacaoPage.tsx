@@ -610,7 +610,7 @@ export default function CadastrarTransacaoPage() {
   const showAplicacaoFields = showTipoMovimentacao && !!produtoId && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate));
   const showResgateFields = showTipoMovimentacao && isResgate && !isEditing;
   const showPoupancaFields = isPoupanca && isAplicacao;
-  const showDolarFields = isMoedas && isDolar && isAplicacao;
+  const showDolarFields = isMoedas && isAplicacao;
 
   // Fetch cotação when Dólar + date changes
   useEffect(() => {
