@@ -409,9 +409,10 @@ export default function CadastrarTransacaoPage() {
       }
     }
 
-    // Validate: business day (skip for Poupança)
+    // Validate: business day (skip for Poupança and Moedas)
     const isPoupancaResgate = selectedCustodia.modalidade === "Poupança";
-    if (!isPoupancaResgate) {
+    const isMoedasResgateCat = categorias.find(c => c.id === selectedCustodia.categoria_id)?.nome === "Moedas";
+    if (!isPoupancaResgate && !isMoedasResgateCat) {
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
