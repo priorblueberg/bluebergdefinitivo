@@ -121,6 +121,7 @@ export default function CarteiraRendaFixaPage() {
   const [allCustodiaForCategoria, setAllCustodiaForCategoria] = useState<{ categoria_nome: string; valor_investido: number; custodia_no_dia: number | null }[]>(_cartRFCached?.allCustodiaForCategoria ?? []);
   const [selectedProduct, setSelectedProduct] = useState<AnalysisCustodiaProduct | null>(null);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
+  const calcVersionRef = useRef(0);
 
   useEffect(() => {
     if (!user) return;
