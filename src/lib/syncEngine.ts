@@ -525,17 +525,17 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
   }
   if (valorInvestidoLiquido < 0) valorInvestidoLiquido = 0;
 
-  // Compute resgate_total (for RF non-poupança or poupança with resgate total)
+  // Compute resgate_total
   let resgateTotal: string | null = null;
   if (isRendaFixa && !isPoupanca) {
     resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, aplicacaoInicial.vencimento);
-  } else if (isPoupanca) {
-    // For Poupança, compute resgate_total from manual "Resgate Total" movements
+  } else if (isPoupanca || isMoedas) {
+    // Poupança and Moedas: compute resgate_total from manual "Resgate Total" movements only
     resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, null);
   }
 
-  // Compute data_limite — Poupança gets a far-future date so the portfolio stays active
-  const dataLimite = isPoupanca ? "2040-12-31" : (isRendaFixa ? aplicacaoInicial.vencimento : null);
+  // Compute data_limite — Poupança and Moedas get a far-future date so the portfolio stays active
+  const dataLimite = (isPoupanca || isMoedas) ? "2040-12-31" : (isRendaFixa ? aplicacaoInicial.vencimento : null);
 
   // Compute data_calculo
   const dataCalculo = computeDataCalculo(refDate, resgateTotal, dataLimite);
