@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
@@ -11,6 +11,14 @@ import {
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
 import { fetchIpcaRecords } from "@/lib/ipcaHelper";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
+import {
+  fetchCalendario, fetchCdi, fetchMovimentacoes,
+  getDateMinus, type CustodiaRecord,
+} from "@/lib/dataCache";
+import {
+  getCachedRFResult, cacheRFResult, buildMovsHash,
+} from "@/lib/engineCache";
+import { useAuth } from "@/hooks/useAuth";
 
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -57,19 +65,14 @@ const CustomTooltipChart = ({ active, payload, label }: any) => {
 
 import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 
-
-function getDateMinus(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
 export function ProductDetail({ product, onBack, backLabel = "Voltar para lista de produtos" }: { product: CustodiaProduct; onBack: () => void; backLabel?: string }) {
+  const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO, dataReferencia } = useDataReferencia();
   const [cdiRecords, setCdiRecords] = useState<CdiRecord[]>([]);
   const [diasUteis, setDiasUteis] = useState<DiaUtilRecord[]>([]);
   const [engineRows, setEngineRows] = useState<DailyRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const calcVersionRef = useRef(0);
 
   const isPrefixado = product.categoria_nome === "Renda Fixa" && (
     product.modalidade === "Prefixado" ||
@@ -78,82 +81,111 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
     product.modalidade === "Mista"
   );
 
+  // Compute max end date once (does not change with dataReferencia)
+  const maxEndDate = useMemo(() => {
+    return [product.resgate_total, product.vencimento, dataReferenciaISO]
+      .filter(Boolean)
+      .sort()
+      .reverse()[0] || dataReferenciaISO;
+  }, [product.resgate_total, product.vencimento, dataReferenciaISO]);
+
   useEffect(() => {
+    if (!user) return;
+    const currentVersion = ++calcVersionRef.current;
+
     (async () => {
       setLoading(true);
-      const endDate = dataReferenciaISO;
-      // Calendar must extend to product end date for correct payment date generation
-      const calendarEndDate = [product.resgate_total, product.vencimento, endDate]
-        .filter(Boolean).sort().reverse()[0] || endDate;
 
-      // Fetch CDI, dias_uteis, and movimentacoes in parallel
-      const [cdiRes, diasRes, movsRes] = await Promise.all([
-        supabase
-          .from("historico_cdi")
-          .select("data, taxa_anual")
-          .gte("data", product.data_inicio)
-          .lte("data", endDate)
-          .order("data"),
-        supabase
-          .from("calendario_dias_uteis")
-          .select("data, dia_util")
-          .gte("data", getDateMinus(product.data_inicio, 5))
-          .lte("data", calendarEndDate)
-          .order("data"),
-        supabase
-          .from("movimentacoes")
-          .select("data, tipo_movimentacao, valor")
-          .eq("codigo_custodia", product.codigo_custodia)
-          .order("data"),
+      const calendarEndDate = [product.resgate_total, product.vencimento, dataReferenciaISO]
+        .filter(Boolean).sort().reverse()[0] || dataReferenciaISO;
+      const dateStart = getDateMinus(product.data_inicio, 5);
+
+      // Use shared data cache
+      const [calendario, cdiData, allMovs] = await Promise.all([
+        fetchCalendario(user.id, appliedVersion, dateStart, calendarEndDate),
+        fetchCdi(user.id, appliedVersion, product.data_inicio, dataReferenciaISO),
+        fetchMovimentacoes(user.id, appliedVersion),
       ]);
 
-      const diasData = (diasRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util }));
-      const diasMap = new Map<string, boolean>();
-      diasData.forEach((d) => diasMap.set(d.data, d.dia_util));
+      if (currentVersion !== calcVersionRef.current) return;
 
-      const merged: CdiRecord[] = (cdiRes.data || []).map((r: any) => ({
+      // Build CDI records with dia_util info
+      const diasMap = new Map<string, boolean>();
+      calendario.forEach(d => diasMap.set(d.data, d.dia_util));
+
+      const merged: CdiRecord[] = cdiData.map(r => ({
         data: r.data,
         taxa_anual: r.taxa_anual,
         dia_util: diasMap.get(r.data) ?? true,
       }));
 
       setCdiRecords(merged);
-      setDiasUteis(diasData);
+      setDiasUteis(calendario.map(d => ({ data: d.data, dia_util: d.dia_util })));
 
-      // Run engine for Prefixado
+      // Run engine for Prefixado - use cache
       if (isPrefixado) {
-        const ipcaData = await fetchIpcaRecords(product.indexador, product.data_inicio, endDate);
-        const rows = calcularRendaFixaDiario({
+        const productMovs = allMovs
+          .filter(m => m.codigo_custodia === product.codigo_custodia)
+          .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor }));
+
+        const movsHash = buildMovsHash(productMovs);
+        const cacheParams = {
           dataInicio: product.data_inicio,
-          dataCalculo: endDate,
           taxa: product.taxa || 0,
           modalidade: product.modalidade || "Prefixado",
           puInicial: product.preco_unitario || 1000,
-          calendario: diasData.map(d => ({ data: d.data, dia_util: d.dia_util })),
-          movimentacoes: (movsRes.data || []).map((m: any) => ({
-            data: m.data,
-            tipo_movimentacao: m.tipo_movimentacao,
-            valor: m.valor,
-          })),
-          dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
           indexador: product.indexador,
-          cdiRecords: (cdiRes.data || []).map((r: any) => ({ data: r.data, taxa_anual: r.taxa_anual })),
-          calendarioSorted: true,
-          ipcaOficialRecords: ipcaData?.oficial,
-          ipcaProjecaoRecords: ipcaData?.projecao,
-        });
-        setEngineRows(rows);
+          dataResgateTotal: product.resgate_total,
+          dataLimite: product.data_limite,
+          movsHash,
+        };
+
+        // Try cache first
+        const cached = getCachedRFResult(product.codigo_custodia, dataReferenciaISO, cacheParams);
+        if (cached) {
+          setEngineRows(cached);
+        } else {
+          // Cache miss — compute for max range and cache
+          const ipcaData = await fetchIpcaRecords(product.indexador, product.data_inicio, calendarEndDate);
+          if (currentVersion !== calcVersionRef.current) return;
+
+          const fullRows = calcularRendaFixaDiario({
+            dataInicio: product.data_inicio,
+            dataCalculo: calendarEndDate,
+            taxa: product.taxa || 0,
+            modalidade: product.modalidade || "Prefixado",
+            puInicial: product.preco_unitario || 1000,
+            calendario: calendario.map(d => ({ data: d.data, dia_util: d.dia_util })),
+            movimentacoes: productMovs,
+            dataResgateTotal: product.resgate_total,
+            pagamento: product.pagamento,
+            vencimento: product.vencimento,
+            indexador: product.indexador,
+            cdiRecords: cdiData.map(r => ({ data: r.data, taxa_anual: r.taxa_anual })),
+            calendarioSorted: true,
+            ipcaOficialRecords: ipcaData?.oficial,
+            ipcaProjecaoRecords: ipcaData?.projecao,
+          });
+
+          // Cache the full result
+          cacheRFResult(product.codigo_custodia, fullRows, cacheParams);
+
+          if (currentVersion !== calcVersionRef.current) return;
+
+          // Slice to current date
+          const sliced = getCachedRFResult(product.codigo_custodia, dataReferenciaISO, cacheParams);
+          setEngineRows(sliced || fullRows);
+        }
       }
 
       setLoading(false);
     })();
-  }, [product, appliedVersion]);
+  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado]);
 
   // Chart data: merge both series
   const chartData = useMemo(() => {
-    // Determine the effective end date for the chart (stop at vencimento/resgate if before selector)
     const effectiveEnd = product.resgate_total || product.vencimento || dataReferenciaISO;
     const chartEndDate = effectiveEnd < dataReferenciaISO ? effectiveEnd : dataReferenciaISO;
 
@@ -161,7 +193,6 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
 
     if (isPrefixado && engineRows.length > 0) {
       const useRentAcum2 = product.pagamento != null && product.pagamento !== "No Vencimento";
-      // Build titulo_acumulado from the appropriate rent column
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
         if (row.data > chartEndDate) break;
@@ -181,7 +212,6 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
         });
       }
 
-      // Merge by date
       const map = new Map<string, any>();
       for (const p of cdiSeries) {
         map.set(p.data, { data: p.data, label: p.label, cdi_acumulado: p.cdi_acumulado });
@@ -195,7 +225,6 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
       return Array.from(map.values()).sort((a, b) => a.data.localeCompare(b.data));
     }
 
-    // Non-prefixado: titulo = CDI
     return cdiSeries.map(p => ({
       ...p,
       titulo_acumulado: p.cdi_acumulado,
@@ -225,7 +254,6 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
 
   const isBeforeStart = dataReferenciaISO < product.data_inicio;
 
-  // Status logic: "Em custódia" if ref date < resgate_total AND > data_inicio
   const isEmCustodia = !isBeforeStart && (
     !product.resgate_total || dataReferenciaISO < product.resgate_total
   );
@@ -281,7 +309,6 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
             const fmtPctCard = (v: number | null) =>
               v != null ? `${v.toFixed(2)}%` : "—";
 
-            // Patrimônio: always use liquido(1) from engine at data_calculo
             let patrimonioDisplayValue: number | null = null;
             if (isPrefixado && engineRows.length > 0) {
               for (let i = engineRows.length - 1; i >= 0; i--) {
@@ -292,7 +319,6 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
               }
             }
 
-            // Rentabilidade: use rentabilidadeAcumuladaPct for "No Vencimento", rentAcumulada2 for periodic
             const useRentAcum2ForCard = product.pagamento != null && product.pagamento !== "No Vencimento";
             let rentValue = topRow.rentAcumulado;
             if (isPrefixado && engineRows.length > 0) {
@@ -305,7 +331,6 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
               }
             }
 
-            // Ganho Financeiro: sum of ganhoDiario from engine
             let ganhoValue = ganho;
             if (isPrefixado && engineRows.length > 0) {
               let targetRow: DailyRow | undefined;
@@ -317,7 +342,6 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
               }
             }
 
-            // CDI: also use the last available value from detail rows for consistency
             let cdiValue = cdiAcum;
 
             const cards = [
@@ -488,7 +512,6 @@ export default function AnaliseIndividualPage() {
         }));
         setProducts(mapped);
 
-        // Update selectedProduct with fresh data if it exists
         if (selectedProduct) {
           const updated = mapped.find(p => p.id === selectedProduct.id);
           if (updated) setSelectedProduct(updated);
