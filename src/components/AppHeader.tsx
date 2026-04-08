@@ -46,6 +46,8 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     setIsForceRecalculating(true);
     setIsRecalculating(true);
     try {
+      invalidateAllCaches();
+      invalidateEngineCache();
       await recalculateAllForDataReferencia(user.id, format(dataReferencia, "yyyy-MM-dd"));
       applyDataReferencia();
       toast.success("Reprocessamento completo realizado com sucesso");
