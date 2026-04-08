@@ -477,17 +477,19 @@ export default function BoletaCustodiaDialog({
   };
 
   const isPoupanca = row.modalidade === "Poupança";
+  const isDolar = row.produto === "Dólar" || row.categoria === "Moedas";
+  const hideFields = isPoupanca || isDolar;
   const readonlyFields = [
     { label: "Nome", value: fmtReadonly(row.nome) },
     { label: "Categoria", value: row.categoria },
     { label: "Produto", value: row.produto },
     { label: "Instituição", value: fmtReadonly(row.instituicao) },
-    { label: "Emissor", value: fmtReadonly(row.emissor) },
-    { label: "Modalidade", value: isPoupanca ? "—" : fmtReadonly(row.modalidade) },
-    { label: "Indexador", value: fmtReadonly(row.indexador) },
-    { label: "Taxa", value: fmtTaxa(row.taxa) },
-    { label: "Pagamento", value: isPoupanca ? "—" : fmtReadonly(row.pagamento) },
-    { label: "Vencimento", value: fmtDate(row.vencimento) },
+    { label: "Emissor", value: hideFields ? "—" : fmtReadonly(row.emissor) },
+    { label: "Modalidade", value: hideFields ? "—" : fmtReadonly(row.modalidade) },
+    { label: "Indexador", value: hideFields ? "—" : fmtReadonly(row.indexador) },
+    { label: "Taxa", value: hideFields ? "—" : fmtTaxa(row.taxa) },
+    { label: "Pagamento", value: hideFields ? "—" : fmtReadonly(row.pagamento) },
+    { label: "Vencimento", value: hideFields ? "—" : fmtDate(row.vencimento) },
   ];
 
   return (
