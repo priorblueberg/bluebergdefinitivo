@@ -145,6 +145,36 @@ export function selectIpcaFactor(
   return 1.0;
 }
 
+// ─── Helpers for stub detection ──────────────────────────────────────
+
+/**
+ * Returns the number of calendar days between two ISO date strings (exclusive start, inclusive end).
+ */
+function calendarDaysBetween(startIso: string, endIso: string): number {
+  const s = new Date(startIso + "T12:00:00");
+  const e = new Date(endIso + "T12:00:00");
+  return Math.round((e.getTime() - s.getTime()) / 86400000);
+}
+
+/**
+ * Returns the first anniversary date strictly after `dataInicio`.
+ */
+function getFirstAnniversaryAfter(dataInicio: string, anniversaryDay: number): string {
+  const dt = new Date(dataInicio + "T12:00:00");
+  let y = dt.getUTCFullYear();
+  let m = dt.getUTCMonth();
+  const day = dt.getUTCDate();
+
+  const clampedThisMonth = clampDay(y, m, anniversaryDay);
+  if (clampedThisMonth > day) {
+    // First anniversary is later this month
+    return toIso(y, m, clampDay(y, m, anniversaryDay));
+  }
+  // Next month
+  if (m === 11) { y += 1; m = 0; } else { m += 1; }
+  return toIso(y, m, clampDay(y, m, anniversaryDay));
+}
+
 // ─── Cycle-based daily factor map ────────────────────────────────────
 
 /**
@@ -153,10 +183,10 @@ export function selectIpcaFactor(
  * For each business day:
  * 1. Determine anniversary cycle bounds
  * 2. Select the correct IPCA factor (official or projection, no look-ahead bias)
- * 3. Count business days in that cycle
- * 4. Compute: fatorDiario = POWER(fatorCiclo, 1 / bizDaysInCycle)
- *
- * This replaces the old calendar-month diarization.
+ * 3. Determine divisor:
+ *    - STUB period (before first anniversary after issue): CALENDAR DAYS in cycle
+ *    - Normal cycles: BUSINESS DAYS in cycle
+ * 4. Compute: fatorDiario = POWER(fatorCiclo, 1 / divisor)
  */
 export function buildIpcaCycleDailyFactorMap(
   dataInicio: string,
@@ -172,8 +202,11 @@ export function buildIpcaCycleDailyFactorMap(
   // Sort calendar once
   const sortedCal = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
 
-  // Cache: cycle key → { factor, bizDays }
-  const cycleCache = new Map<string, { factor: number; bizDays: number }>();
+  // Determine the first anniversary boundary after the issue date
+  const firstAnniversary = getFirstAnniversaryAfter(dataInicio, annDay);
+
+  // Cache: cycle key → { factor, divisor }
+  const cycleCache = new Map<string, { factor: number; divisor: number }>();
 
   for (const cal of sortedCal) {
     if (cal.data < dataInicio || cal.data > dataCalculo) continue;
@@ -184,14 +217,23 @@ export function buildIpcaCycleDailyFactorMap(
 
     let cycleInfo = cycleCache.get(cacheKey);
     if (!cycleInfo) {
-      // Count business days in this cycle: lastAnniversary < date <= nextAnniversary
-      let bizDays = 0;
-      for (const c of sortedCal) {
-        if (c.data <= bounds.lastAnniversary) continue;
-        if (c.data > bounds.nextAnniversary) break;
-        if (c.dia_util) bizDays++;
+      // Determine if this cycle is the initial stub (before first anniversary)
+      const isStubCycle = bounds.nextAnniversary <= firstAnniversary;
+
+      let divisor: number;
+      if (isStubCycle) {
+        // Stub period: use CALENDAR DAYS in the cycle
+        divisor = calendarDaysBetween(bounds.lastAnniversary, bounds.nextAnniversary);
+      } else {
+        // Normal cycle: use BUSINESS DAYS
+        divisor = 0;
+        for (const c of sortedCal) {
+          if (c.data <= bounds.lastAnniversary) continue;
+          if (c.data > bounds.nextAnniversary) break;
+          if (c.dia_util) divisor++;
+        }
       }
-      if (bizDays === 0) bizDays = 1;
+      if (divisor === 0) divisor = 1;
 
       // Select factor with look-ahead bias protection
       const factor = selectIpcaFactor(
@@ -201,11 +243,11 @@ export function buildIpcaCycleDailyFactorMap(
         projecaoRecords
       );
 
-      cycleInfo = { factor, bizDays };
+      cycleInfo = { factor, divisor };
       cycleCache.set(cacheKey, cycleInfo);
     }
 
-    const dailyFactor = Math.pow(cycleInfo.factor, 1 / cycleInfo.bizDays);
+    const dailyFactor = Math.pow(cycleInfo.factor, 1 / cycleInfo.divisor);
     result.set(cal.data, dailyFactor);
   }
 
