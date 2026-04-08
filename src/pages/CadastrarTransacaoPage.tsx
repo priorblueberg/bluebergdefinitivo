@@ -781,7 +781,7 @@ export default function CadastrarTransacaoPage() {
     // ── Aplicação submission (existing logic) ──
     let requiredFields: Record<string, string>;
 
-    if (isMoedas && isDolar) {
+    if (isMoedas && isMoeda) {
       requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
       if (!cotacaoMoeda) {
         toast.error("Cotação do dólar não encontrada para a data selecionada.");
@@ -809,7 +809,7 @@ export default function CadastrarTransacaoPage() {
     setValidationErrors(new Set());
 
     // Validate business day AFTER required fields check
-    if (!isPoupanca && !(isMoedas && isDolar)) {
+    if (!isPoupanca && !(isMoedas && isMoeda)) {
       const { data: diaUtil } = await supabase
         .from("calendario_dias_uteis")
         .select("dia_util")
@@ -835,7 +835,7 @@ export default function CadastrarTransacaoPage() {
       const instituicaoNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
 
       let nomeAtivo: string | null;
-      if (isMoedas && isDolar) {
+      if (isMoedas && isMoeda) {
         nomeAtivo = `Dólar ${instituicaoNome}`.trim();
       } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
@@ -850,7 +850,7 @@ export default function CadastrarTransacaoPage() {
       let taxaNum: number;
       let quantidade: number | null;
 
-      if (isMoedas && isDolar) {
+      if (isMoedas && isMoeda) {
         puNum = cotacaoMoeda!;
         taxaNum = 0;
         quantidade = quantidadeMoeda;
@@ -932,7 +932,7 @@ export default function CadastrarTransacaoPage() {
           codigoCustodia = 0;
         }
 
-        const noFields = isPoupanca || (isMoedas && isDolar);
+        const noFields = isPoupanca || (isMoedas && isMoeda);
         const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: categoriaId,
           tipo_movimentacao: tipoFinal,
