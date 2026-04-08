@@ -375,6 +375,9 @@ export default function PosicaoConsolidadaPage() {
         _cachedRentabilidade = 0;
       }
 
+      // Only update state if this is still the latest request
+      if (requestVersion !== calcVersionRef.current) return;
+
       setRows(posicaoRows);
       _cachedRows = posicaoRows;
       _cachedVersion = appliedVersion;
