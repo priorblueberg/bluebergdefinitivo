@@ -791,7 +791,9 @@ export default function CadastrarTransacaoPage() {
       const instituicaoNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
 
       let nomeAtivo: string | null;
-      if (isPoupanca) {
+      if (isMoedas && isDolar) {
+        nomeAtivo = `Dólar ${instituicaoNome}`.trim();
+      } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
       } else if (isRendaFixa) {
         nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
@@ -800,12 +802,26 @@ export default function CadastrarTransacaoPage() {
       }
 
       const valorNum = parseCurrencyToNumber(valor);
-      const puNum = isPoupanca ? 0 : parseCurrencyToNumber(precoUnitario);
-      const taxaNum = isPoupanca ? 0 : parseFloat(taxa.replace(",", ".") || "0");
-      const quantidade = !isPoupanca && puNum > 0 ? valorNum / puNum : null;
+      let puNum: number;
+      let taxaNum: number;
+      let quantidade: number | null;
+
+      if (isMoedas && isDolar) {
+        puNum = cotacaoDolar!;
+        taxaNum = 0;
+        quantidade = quantidadeUSD;
+      } else if (isPoupanca) {
+        puNum = 0;
+        taxaNum = 0;
+        quantidade = null;
+      } else {
+        puNum = parseCurrencyToNumber(precoUnitario);
+        taxaNum = parseFloat(taxa.replace(",", ".") || "0");
+        quantidade = puNum > 0 ? valorNum / puNum : null;
+      }
 
       // Mapeamento: "Pós Fixado" + "CDI+" → "Mista" + "CDI"
-      let modalidadeToSave = isPoupanca ? "Poupança" : modalidade;
+      let modalidadeToSave = isPoupanca ? "Poupança" : (isMoedas ? null : modalidade);
       let indexadorToSave = isPosFixado ? indexador : null;
       if (modalidade === "Pós Fixado" && indexador === "CDI+") {
         modalidadeToSave = "Mista";
