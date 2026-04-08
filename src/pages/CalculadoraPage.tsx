@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
 import { fetchIpcaRecords, fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
-import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
+import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
+import {
+  fetchCalendario, fetchCdi, fetchSelic, fetchTr, fetchPoupancaRendimento,
+  fetchCustodia, fetchMovimentacoes, getCdiMap, getMovByCodigoMap, getDateMinus,
+  type CustodiaRecord,
+} from "@/lib/dataCache";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -14,69 +18,23 @@ import { Download } from "lucide-react";
 import CalculadoraTable from "@/components/CalculadoraTable";
 import CalculadoraCarteiraTable from "@/components/CalculadoraCarteiraTable";
 import { exportIndividualToExcel, exportCarteiraToExcel } from "@/lib/exportCalculadora";
+import { supabase } from "@/integrations/supabase/client";
 
 const CARTEIRA_RF_ID = "__carteira_rf__";
-
-interface CustodiaOption {
-  id: string;
-  codigo_custodia: number;
-  nome: string | null;
-  data_inicio: string;
-  data_calculo: string | null;
-  taxa: number | null;
-  modalidade: string | null;
-  multiplicador: string | null;
-  preco_unitario: number | null;
-  categoria_nome: string;
-  produto_nome: string;
-  resgate_total: string | null;
-  pagamento: string | null;
-  vencimento: string | null;
-  indexador: string | null;
-  data_limite: string | null;
-}
 
 export default function CalculadoraPage() {
   const { user } = useAuth();
   const { appliedVersion } = useDataReferencia();
-  const [products, setProducts] = useState<CustodiaOption[]>([]);
+  const [products, setProducts] = useState<CustodiaRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [carteiraRows, setCarteiraRows] = useState<CarteiraRFRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Load custodia products
+  // Load custodia products from cache
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const { data } = await supabase
-        .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, categorias(nome), produtos(nome)")
-        .eq("user_id", user.id);
-
-      if (data) {
-        setProducts(
-          data.map((r: any) => ({
-            id: r.id,
-            codigo_custodia: r.codigo_custodia,
-            nome: r.nome,
-            data_inicio: r.data_inicio,
-            data_calculo: r.data_calculo,
-            taxa: r.taxa,
-            modalidade: r.modalidade,
-            multiplicador: r.multiplicador,
-            preco_unitario: r.preco_unitario,
-            categoria_nome: r.categorias?.nome || "",
-            produto_nome: r.produtos?.nome || "",
-            resgate_total: r.resgate_total,
-            pagamento: r.pagamento,
-            vencimento: r.vencimento,
-            indexador: r.indexador,
-            data_limite: r.data_limite,
-          }))
-        );
-      }
-    })();
+    fetchCustodia(user.id, appliedVersion).then(setProducts);
   }, [user, appliedVersion]);
 
   // Calculate when product is selected
@@ -97,48 +55,45 @@ export default function CalculadoraPage() {
       try {
         const isPoupanca = product.modalidade === "Poupança";
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
+        const dateStart = getDateMinus(product.data_inicio, 5);
 
         if (isPoupanca) {
-          // Poupança calculation
-          const [calRes, movRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
-            supabase.from("calendario_dias_uteis").select("data, dia_util")
-              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
-            supabase.from("movimentacoes").select("data, tipo_movimentacao, valor")
-              .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).order("data"),
-            supabase.from("historico_selic").select("data, taxa_anual")
-              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
-            Promise.resolve({ data: [] }), // lotes now built from movimentações
-            supabase.from("historico_tr").select("data, taxa_mensal")
-              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
-            supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal")
-              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+          const [calendario, movs, selicRecords, trRecords, poupRendRecords] = await Promise.all([
+            fetchCalendario(user.id, appliedVersion, dateStart, dataFim),
+            fetchMovimentacoes(user.id, appliedVersion),
+            fetchSelic(user.id, appliedVersion, dateStart, dataFim),
+            fetchTr(user.id, appliedVersion, dateStart, dataFim),
+            fetchPoupancaRendimento(user.id, appliedVersion, dateStart, dataFim),
           ]);
 
-          const movs = (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) }));
-          const lotesForEngine = buildPoupancaLotesFromMovs(movs);
+          const productMovs = movs
+            .filter(m => m.codigo_custodia === product.codigo_custodia)
+            .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor }));
+
+          const lotesForEngine = buildPoupancaLotesFromMovs(productMovs);
 
           const result = calcularPoupancaDiario({
             dataInicio: product.data_inicio,
             dataCalculo: dataFim,
-            calendario: (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util })),
-            movimentacoes: movs,
+            calendario,
+            movimentacoes: productMovs,
             lotes: lotesForEngine,
-            selicRecords: (selicRes.data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) })),
-            trRecords: (trRes.data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) })),
-            poupancaRendimentoRecords: (poupRendRes.data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) })),
+            selicRecords,
+            trRecords,
+            poupancaRendimentoRecords: poupRendRecords,
             dataResgateTotal: product.resgate_total,
           });
           setRows(result);
         } else {
-          // Renda Fixa calculation
-          const [calRes, movRes, cdiRes] = await Promise.all([
-            supabase.from("calendario_dias_uteis").select("data, dia_util")
-              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
-            supabase.from("movimentacoes").select("data, tipo_movimentacao, valor")
-              .eq("codigo_custodia", product.codigo_custodia).eq("user_id", user.id).order("data"),
-            supabase.from("historico_cdi").select("data, taxa_anual")
-              .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
+          const [calendario, movs, cdiRecords] = await Promise.all([
+            fetchCalendario(user.id, appliedVersion, dateStart, dataFim),
+            fetchMovimentacoes(user.id, appliedVersion),
+            fetchCdi(user.id, appliedVersion, dateStart, dataFim),
           ]);
+
+          const productMovs = movs
+            .filter(m => m.codigo_custodia === product.codigo_custodia)
+            .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor }));
 
           const ipcaData = await fetchIpcaRecords(product.indexador, product.data_inicio, dataFim);
 
@@ -148,13 +103,13 @@ export default function CalculadoraPage() {
             taxa: product.taxa || 0,
             modalidade: product.modalidade || "",
             puInicial: product.preco_unitario || 1000,
-            calendario: (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util })),
-            movimentacoes: (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) })),
+            calendario,
+            movimentacoes: productMovs,
             dataResgateTotal: product.resgate_total,
             pagamento: product.pagamento,
             vencimento: product.vencimento,
             indexador: product.indexador,
-            cdiRecords: (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) })),
+            cdiRecords,
             dataLimite: product.data_limite,
             ipcaOficialRecords: ipcaData?.oficial,
             ipcaProjecaoRecords: ipcaData?.projecao,
@@ -170,12 +125,11 @@ export default function CalculadoraPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, appliedVersion]);
 
-  async function calculateCarteira() {
+  const calculateCarteira = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setRows([]);
     try {
-      // Fetch carteira info
       const { data: carteiraData } = await supabase
         .from("controle_de_carteiras")
         .select("data_inicio, data_calculo, data_limite, resgate_total")
@@ -192,50 +146,29 @@ export default function CalculadoraPage() {
       const dataInicio = carteiraData.data_inicio;
       const dataCalculo = carteiraData.data_calculo;
 
-      // Fetch RF products
       const rfProducts = products.filter(p => p.categoria_nome === "Renda Fixa");
       if (rfProducts.length === 0) { setCarteiraRows([]); setLoading(false); return; }
 
-      // Calendar must extend to max product end date for correct payment date generation
       const maxEndDate = rfProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataCalculo;
         return end > max ? end : max;
       }, dataCalculo);
 
-      const [calRes, cdiRes] = await Promise.all([
-        supabase.from("calendario_dias_uteis").select("data, dia_util")
-          .gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data"),
-        supabase.from("historico_cdi").select("data, taxa_anual")
-          .gte("data", getDateMinus(dataInicio, 5)).lte("data", dataCalculo).order("data"),
+      const [calendario, cdiRecords, allMovs] = await Promise.all([
+        fetchCalendario(user.id, appliedVersion, getDateMinus(dataInicio, 5), maxEndDate),
+        fetchCdi(user.id, appliedVersion, getDateMinus(dataInicio, 5), dataCalculo),
+        fetchMovimentacoes(user.id, appliedVersion),
       ]);
 
-      const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
-      const cdiRecords = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
-
-      // Pre-compute CDI map once
-      const cdiMap = new Map<string, number>();
-      for (const c of cdiRecords) cdiMap.set(c.data, c.taxa_anual);
-
-      // Batch fetch all movimentações in a single query
-      const allCodigos = rfProducts.map(p => p.codigo_custodia);
-      const { data: allMovData } = await supabase
-        .from("movimentacoes")
-        .select("data, tipo_movimentacao, valor, codigo_custodia")
-        .in("codigo_custodia", allCodigos)
-        .eq("user_id", user!.id)
-        .order("data");
-
-      const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
-      for (const m of (allMovData || [])) {
-        const code = m.codigo_custodia as number;
-        if (!movByCodigo.has(code)) movByCodigo.set(code, []);
-        movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
-      }
+      const cdiMap = getCdiMap(cdiRecords, appliedVersion);
+      const movByCodigoMap = getMovByCodigoMap(allMovs, appliedVersion);
 
       const ipcaData = await fetchIpcaRecordsBatch(rfProducts, dataCalculo);
 
       const allProductRows = rfProducts.map((product) => {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
+        const productMovs = (movByCodigoMap.get(product.codigo_custodia) || [])
+          .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor }));
         return calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
           dataCalculo: dataFim > dataCalculo ? dataCalculo : dataFim,
@@ -243,7 +176,7 @@ export default function CalculadoraPage() {
           modalidade: product.modalidade || "",
           puInicial: product.preco_unitario || 1000,
           calendario,
-          movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
+          movimentacoes: productMovs,
           dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
@@ -270,9 +203,12 @@ export default function CalculadoraPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user, products, appliedVersion]);
 
-  const selectedProduct = selectedId !== CARTEIRA_RF_ID ? products.find((p) => p.id === selectedId) : null;
+  const selectedProduct = useMemo(
+    () => selectedId !== CARTEIRA_RF_ID ? products.find((p) => p.id === selectedId) : null,
+    [selectedId, products]
+  );
   const isCarteira = selectedId === CARTEIRA_RF_ID;
 
   return (
@@ -359,10 +295,4 @@ export default function CalculadoraPage() {
       )}
     </div>
   );
-}
-
-function getDateMinus(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
 }
