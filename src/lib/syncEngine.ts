@@ -1065,6 +1065,7 @@ export async function fullSyncAfterDelete(
   userId: string,
   dataReferencia?: string
 ) {
+  invalidateEngineCache();
   if (codigoCustodia) {
     // Check if there are remaining movimentações for this codigo
     const { data: remaining } = await supabase
