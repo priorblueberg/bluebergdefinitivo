@@ -355,6 +355,9 @@ export default function PosicaoConsolidadaPage() {
         });
       }
 
+      // Cancellation check before expensive carteira computation
+      if (requestVersion !== calcVersionRef.current) { setLoading(false); return; }
+
       // Compute TWR for total rentabilidade using carteira engine
       if (allProductRows.length > 0) {
         const carteiraRows = calcularCarteiraRendaFixa({
