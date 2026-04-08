@@ -79,6 +79,7 @@ export default function PosicaoConsolidadaPage() {
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const calcVersionRef = useRef(0);
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -90,11 +91,12 @@ export default function PosicaoConsolidadaPage() {
   useEffect(() => {
     if (!user) return;
     if (_cachedVersion === appliedVersion) return;
-    calculate();
+    calcVersionRef.current += 1;
+    calculate(calcVersionRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, appliedVersion]);
 
-  async function calculate() {
+  async function calculate(requestVersion: number) {
     setLoading(true);
     try {
       const { data: products } = await supabase
