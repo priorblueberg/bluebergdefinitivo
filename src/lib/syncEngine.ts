@@ -756,9 +756,12 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
     status = "Encerrada";
   }
 
+  // Map category name to carteira name
+  const nomeCarteira = categoriaNome === "Moedas" ? "Câmbio" : categoriaNome;
+
   const carteiraData = {
     categoria_id: categoriaId,
-    nome_carteira: categoriaNome,
+    nome_carteira: nomeCarteira,
     data_inicio: dataInicio,
     data_limite: dataLimite,
     resgate_total: resgateTotal,
