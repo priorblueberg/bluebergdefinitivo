@@ -547,11 +547,17 @@ Deno.serve(async (req) => {
             // competencia = first day of the month
             const competencia = `${yyyy}-${mm}-01`;
             const variacao = parseFloat(r.valor);
+            // data_publicacao ≈ competencia + 1 month + 10 days (IBGE publication)
+            const compDate = new Date(parseInt(yyyy), parseInt(mm) - 1, 1);
+            compDate.setMonth(compDate.getMonth() + 1);
+            compDate.setDate(compDate.getDate() + 10);
+            const dataPub = `${compDate.getFullYear()}-${String(compDate.getMonth() + 1).padStart(2, "0")}-${String(compDate.getDate()).padStart(2, "0")}`;
             return {
               data_referencia: dataRef,
               competencia,
               variacao_mensal: variacao,
               fator_mensal: 1 + variacao / 100,
+              data_publicacao: dataPub,
             };
           });
 

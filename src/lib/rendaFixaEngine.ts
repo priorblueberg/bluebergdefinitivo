@@ -245,39 +245,20 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     }
   }
 
-  // Build IPCA daily factor map: month -> fator diário
-  // Each month's factor is distributed across its business days
+  // Build IPCA daily factor map using ANNIVERSARY CYCLE methodology.
+  // Each cycle runs between consecutive anniversary dates (derived from vencimento).
+  // The monthly IPCA factor is distributed across business days within the cycle,
+  // NOT across calendar-month business days.
   let ipcaDailyFactorMap: Map<string, number> | null = null;
-  if (isPosFixadoIPCA && ipcaRecords && ipcaRecords.length > 0) {
-    ipcaDailyFactorMap = new Map<string, number>();
-    const sortedCal = calendarioSorted ? calendario : [...calendario].sort((a, b) => a.data.localeCompare(b.data));
-    
-    // Count business days per month
-    const bizDaysByMonth = new Map<string, number>();
-    for (const c of sortedCal) {
-      if (!c.dia_util) continue;
-      const monthKey = c.data.substring(0, 7); // "YYYY-MM"
-      bizDaysByMonth.set(monthKey, (bizDaysByMonth.get(monthKey) || 0) + 1);
-    }
-
-    // Map competencia -> fator_mensal
-    const ipcaByCompetencia = new Map<string, number>();
-    for (const rec of ipcaRecords) {
-      const key = rec.competencia.substring(0, 7); // "YYYY-MM"
-      ipcaByCompetencia.set(key, rec.fator_mensal);
-    }
-
-    // For each business day, compute its daily IPCA factor
-    for (const c of sortedCal) {
-      if (!c.dia_util) continue;
-      const monthKey = c.data.substring(0, 7);
-      const fatorMensal = ipcaByCompetencia.get(monthKey);
-      const bizDays = bizDaysByMonth.get(monthKey) || 1;
-      if (fatorMensal && fatorMensal > 0) {
-        const fatorDiario = Math.pow(fatorMensal, 1 / bizDays);
-        ipcaDailyFactorMap.set(c.data, fatorDiario);
-      }
-    }
+  if (isPosFixadoIPCA && ipcaRecords && vencimento) {
+    ipcaDailyFactorMap = buildIpcaCycleDailyFactorMap(
+      dataInicio,
+      dataCalculo || dataInicio,
+      vencimento,
+      calendario,
+      ipcaRecords.oficial,
+      ipcaRecords.projecao
+    );
   }
 
   const movMap = buildMovMap(movimentacoes);
