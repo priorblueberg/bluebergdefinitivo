@@ -231,6 +231,8 @@ export default function CalculadoraPage() {
         movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
       }
 
+      const ipcaRecs = await fetchIpcaRecordsBatch(rfProducts, dataCalculo);
+
       const allProductRows = rfProducts.map((product) => {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
         return calcularRendaFixaDiario({
@@ -249,6 +251,7 @@ export default function CalculadoraPage() {
           dataLimite: product.data_limite,
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
+          ipcaRecords: product.indexador === "IPCA" ? ipcaRecs : undefined,
         });
       });
 
