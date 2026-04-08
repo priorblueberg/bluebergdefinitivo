@@ -170,6 +170,9 @@ export default function PosicaoConsolidadaPage() {
           : Promise.resolve({ data: [] }),
       ]);
 
+      // Cancellation check: if a newer calculation was requested, abort
+      if (requestVersion !== calcVersionRef.current) { setLoading(false); return; }
+
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
       const cdiRecords = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
       const cdiMap = new Map<string, number>();
