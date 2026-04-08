@@ -180,9 +180,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   let totalAplicacoes = 0;
   let totalResgates = 0;
 
-  // Track which lotes are active on each day
-  const activeLotesOnDate = (date: string) =>
-    loteStates.filter(l => l.dataAplicacao <= date && l.status === "ativo");
+  // Pre-sort lotes by application date for efficient filtering
+  const sortedLoteStates = [...loteStates].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
 
   for (let idx = 0; idx < sortedCal.length; idx++) {
     const cal = sortedCal[idx];
@@ -194,7 +193,13 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
     // Calculate rendimento for lotes that have anniversary today
     let rendimentoDia = 0;
-    const activeLotes = activeLotesOnDate(date);
+    // Active lotes: those applied on or before this date and still active
+    // Since loteStates is sorted, we iterate once (no filter needed)
+    const activeLotes: LoteState[] = [];
+    for (const l of sortedLoteStates) {
+      if (l.dataAplicacao > date) break; // sorted, no more can match
+      if (l.status === "ativo") activeLotes.push(l);
+    }
 
     for (const lote of activeLotes) {
       if (date <= lote.dataAplicacao) continue;
