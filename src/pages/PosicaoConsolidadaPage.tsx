@@ -130,7 +130,7 @@ export default function PosicaoConsolidadaPage() {
       const cambioProducts = mapped.filter((p) => p.categoria_nome === "Moedas");
       const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa" && p.modalidade !== "Poupança" && p.categoria_nome !== "Moedas");
 
-      const allCalcProducts = [...rfProducts, ...poupancaProducts];
+      const allCalcProducts = [...rfProducts, ...poupancaProducts, ...cambioProducts];
       const minDate = allCalcProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), allCalcProducts[0]?.data_inicio || dataReferenciaISO);
       const maxDate = allCalcProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataReferenciaISO;
@@ -139,22 +139,26 @@ export default function PosicaoConsolidadaPage() {
 
       const allCodigos = allCalcProducts.map((p) => p.codigo_custodia);
       const poupancaCodigos = poupancaProducts.map((p) => p.codigo_custodia);
+      const cambioCodigos = cambioProducts.map((p) => p.codigo_custodia);
 
-      const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
+      const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes, poupRendRes, dolarRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         allCodigos.length > 0
-          ? supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, codigo_custodia").in("codigo_custodia", allCodigos).eq("user_id", user!.id).order("data")
+          ? supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, preco_unitario, quantidade, codigo_custodia").in("codigo_custodia", allCodigos).eq("user_id", user!.id).order("data")
           : Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
-        Promise.resolve({ data: [] }), // lotes now built from movimentações
+        Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
+        cambioCodigos.length > 0
+          ? supabase.from("historico_dolar").select("data, cotacao_venda").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
       ]);
 
