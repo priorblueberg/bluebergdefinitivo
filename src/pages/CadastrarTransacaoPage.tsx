@@ -1385,7 +1385,7 @@ export default function CadastrarTransacaoPage() {
 
                 {/* Row 2: Cotação, Quantidade */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Cotação do Dólar (PTAX)">
+                  <Field label={`Cotação ${produtoSelecionado?.nome || "da Moeda"} (PTAX)`}>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                         R$
@@ -1399,7 +1399,7 @@ export default function CadastrarTransacaoPage() {
                     </div>
                   </Field>
 
-                  <Field label="Quantidade (USD)">
+                  <Field label={`Quantidade (${isEuro ? "EUR" : "USD"})`}>
                     <input
                       type="text"
                       value={quantidadeMoeda != null ? quantidadeMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : ""}
