@@ -299,12 +299,16 @@ export function buildIpcaCdbDailyMultMap(
     const calcDate = cal.data;
     const calcMonth = calcDate.substring(0, 7); // "YYYY-MM"
 
-    // 1. Accumulate all CLOSED official months from dataInicio up to (but not including) current month
+    // 1. Accumulate all CLOSED official months from the month BEFORE dataInicio
+    // up to (but not including) current month.
+    // IPCAt-1 starts from the month prior to emission per CDB IPCA methodology.
     // Only count months whose data_publicacao <= calcDate (no look-ahead)
     let accFatorFechado = 1.0;
 
-    // Find the month of dataInicio
-    const startMonth = dataInicio.substring(0, 7);
+    // Start from the month BEFORE dataInicio (IPCAt-1)
+    const startDate = new Date(dataInicio + "T12:00:00");
+    startDate.setUTCMonth(startDate.getUTCMonth() - 1);
+    const startMonth = `${startDate.getUTCFullYear()}-${String(startDate.getUTCMonth() + 1).padStart(2, "0")}`;
 
     // Iterate months from startMonth to the month BEFORE calcMonth
     let cursor = startMonth;
