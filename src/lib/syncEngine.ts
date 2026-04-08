@@ -1024,8 +1024,12 @@ export async function reprocessMovimentacoesForCodigo(
         .eq("id", mov.id);
     })();
     updates.push(updatePromise);
+  }
 
-  // 6. Now run normal custodia sync using the first movimentação
+  // Execute all updates in parallel
+  await Promise.all(updates);
+
+  // 7. Now run normal custodia sync using the first movimentação
   await syncCustodiaFromMovimentacao(aplicacaoInicial.id, refDate);
 }
 
