@@ -1022,6 +1022,7 @@ export async function reprocessMovimentacoesForCodigo(
         .from("movimentacoes")
         .update({ preco_unitario: newPU, quantidade: newQuantidade })
         .eq("id", mov.id)
+        .then()
     );
   }
 
