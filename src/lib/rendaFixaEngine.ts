@@ -1,3 +1,5 @@
+import { buildIpcaCycleDailyFactorMap } from "@/lib/ipcaHelper";
+
 /**
  * Engine de Cálculo Diário de Renda Fixa Prefixada
  * 
