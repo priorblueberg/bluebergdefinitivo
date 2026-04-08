@@ -244,16 +244,16 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     }
   }
 
-  // Build IPCA daily factor map using ANNIVERSARY CYCLE methodology.
-  // Each cycle runs between consecutive anniversary dates (derived from vencimento).
-  // The monthly IPCA factor is distributed across business days within the cycle,
-  // NOT across calendar-month business days.
+  // Build IPCA daily factor map.
+  // For CDB/LC/LCI/LCA/LF/LFS/LIG (this phase): use accumulated + pro-rata projection
+  // by calendar-month business days — NOT anniversary cycles.
+  // Anniversary cycles (buildIpcaCycleDailyFactorMap) are preserved for future
+  // debênture/CRI/CRA support.
   let ipcaDailyFactorMap: Map<string, number> | null = null;
-  if (isPosFixadoIPCA && vencimento) {
-    ipcaDailyFactorMap = buildIpcaCycleDailyFactorMap(
+  if (isPosFixadoIPCA) {
+    ipcaDailyFactorMap = buildIpcaCdbDailyMultMap(
       dataInicio,
       dataCalculo || dataInicio,
-      vencimento,
       calendario,
       ipcaOficialRecords ?? [],
       ipcaProjecaoRecords ?? []
