@@ -669,13 +669,29 @@ export default function CadastrarTransacaoPage() {
         const fmtBR = (v: number) =>
           v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+        // For Dólar resgate: calculate USD quantity from BRL value
+        const isMoedasResgate = categoriaSelecionada?.nome === "Moedas";
+        let resgateQty: number | null = null;
+        let resgatePU: number | null = null;
+        if (isMoedasResgate) {
+          const { data: cotRow } = await supabase
+            .from("historico_dolar")
+            .select("cotacao_venda")
+            .eq("data", data)
+            .maybeSingle();
+          if (cotRow) {
+            resgatePU = cotRow.cotacao_venda;
+            resgateQty = valorNum / cotRow.cotacao_venda;
+          }
+        }
+
         const { error } = await supabase.from("movimentacoes").insert({
           categoria_id: selectedCustodia.categoria_id,
           tipo_movimentacao: tipoMovimentacaoFinal,
           data,
           produto_id: selectedCustodia.produto_id,
           valor: valorNum,
-          preco_unitario: null,
+          preco_unitario: isMoedasResgate ? resgatePU : null,
           instituicao_id: selectedCustodia.instituicao_id,
           emissor_id: selectedCustodia.emissor_id,
           modalidade: selectedCustodia.modalidade,
@@ -685,7 +701,7 @@ export default function CadastrarTransacaoPage() {
           nome_ativo: selectedCustodia.nome,
           codigo_custodia: selectedCustodia.codigo_custodia,
           indexador: selectedCustodia.indexador,
-          quantidade: null,
+          quantidade: isMoedasResgate ? resgateQty : null,
           valor_extrato: `R$ ${fmtBR(valorNum)}`,
           user_id: user.id,
           origem: "manual",
