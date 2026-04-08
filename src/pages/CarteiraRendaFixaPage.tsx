@@ -393,12 +393,18 @@ export default function CarteiraRendaFixaPage() {
       });
       setProductList(pList);
 
+      // Cancellation check before final computation
+      if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
+
       const result = calcularCarteiraRendaFixa({
         productRows: allProdRows,
         calendario,
         dataInicio,
         dataCalculo,
       });
+
+      // Only update state if still the latest request
+      if (myVersion !== calcVersionRef.current) return;
 
       setCarteiraRows(result);
       _cartRFCachedVersion = appliedVersion;
