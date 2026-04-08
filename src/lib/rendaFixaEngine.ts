@@ -1,4 +1,4 @@
-import { buildIpcaCycleDailyFactorMap } from "@/lib/ipcaHelper";
+import { buildIpcaCycleDailyFactorMap, type IpcaProjecaoRecord, type IpcaRecord } from "@/lib/ipcaHelper";
 
 /**
  * Engine de Cálculo Diário de Renda Fixa Prefixada
@@ -97,13 +97,12 @@ export interface EngineInput {
   /** If true, skip sorting calendario (already sorted) */
   calendarioSorted?: boolean;
   /**
-   * IPCA records for Pós Fixado IPCA products.
-   * Contains both official and projection records for anniversary-cycle diarization.
+   * IPCA inputs for Pós Fixado IPCA products.
+   * The engine consumes official records and projections separately so the
+   * daily factor always comes from the anniversary-cycle helper.
    */
-  ipcaRecords?: {
-    oficial: { competencia: string; fator_mensal: number; data_publicacao?: string | null }[];
-    projecao: { competencia: string; fator_projetado: number }[];
-  };
+  ipcaOficialRecords?: IpcaRecord[];
+  ipcaProjecaoRecords?: IpcaProjecaoRecord[];
 }
 
 // ── Pagamento de Juros Periódico ──
@@ -220,7 +219,7 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 // ── Main engine ──
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite, precomputedCdiMap, calendarioSorted, ipcaRecords } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite, precomputedCdiMap, calendarioSorted, ipcaOficialRecords, ipcaProjecaoRecords } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
@@ -250,14 +249,14 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   // The monthly IPCA factor is distributed across business days within the cycle,
   // NOT across calendar-month business days.
   let ipcaDailyFactorMap: Map<string, number> | null = null;
-  if (isPosFixadoIPCA && ipcaRecords && vencimento) {
+  if (isPosFixadoIPCA && vencimento) {
     ipcaDailyFactorMap = buildIpcaCycleDailyFactorMap(
       dataInicio,
       dataCalculo || dataInicio,
       vencimento,
       calendario,
-      ipcaRecords.oficial,
-      ipcaRecords.projecao
+      ipcaOficialRecords ?? [],
+      ipcaProjecaoRecords ?? []
     );
   }
 
