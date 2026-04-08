@@ -424,6 +424,47 @@ export default function CadastrarTransacaoPage() {
       }
     }
 
+    // Check if this is a Moedas/Dólar resgate
+    const isMoedasCustodia = categorias.find(c => c.id === selectedCustodia.categoria_id)?.nome === "Moedas";
+    if (isMoedasCustodia) {
+      setCalculandoSaldo(true);
+      try {
+        // Get current USD qty from movimentacoes
+        const { data: movs } = await supabase
+          .from("movimentacoes")
+          .select("tipo_movimentacao, quantidade")
+          .eq("codigo_custodia", selectedCustodia.codigo_custodia)
+          .eq("user_id", user.id);
+
+        let qtyUSD = 0;
+        for (const m of movs || []) {
+          if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
+            qtyUSD += (m.quantidade || 0);
+          } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
+            qtyUSD -= (m.quantidade || 0);
+          }
+        }
+
+        // Get cotação for the resgate date
+        const { data: cotRow } = await supabase
+          .from("historico_dolar")
+          .select("cotacao_venda")
+          .eq("data", dateISO)
+          .maybeSingle();
+
+        if (cotRow && qtyUSD > 0) {
+          setSaldoDisponivel(qtyUSD * cotRow.cotacao_venda);
+        } else {
+          setSaldoDisponivel(null);
+        }
+      } catch {
+        setSaldoDisponivel(null);
+      } finally {
+        setCalculandoSaldo(false);
+      }
+      return;
+    }
+
     // Calculate saldo using renda fixa engine
     const isRendaFixaEngine = (selectedCustodia.modalidade === "Prefixado" || selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado" || selectedCustodia.modalidade === "Mista") && selectedCustodia.taxa && selectedCustodia.preco_unitario;
 
