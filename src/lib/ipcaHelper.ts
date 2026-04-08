@@ -95,13 +95,13 @@ export function getAnniversaryBounds(
   const lastAnniversary = toIso(lastY, lastM, lastD);
   const nextAnniversary = toIso(nextY, nextM, nextD);
 
-  // Competencia: the month OF the lastAnniversary.
-  // The IPCA factor for competencia X is the inflation measured during month X,
-  // published around the 10th of month X+1, and applied in the anniversary
-  // cycle that starts at the anniversary date in month X+1.
-  // So if lastAnniversary is in month M, competencia = M (same month).
-  const compY = lastY;
-  const compM = lastM; // 0-based
+  // Competencia: the month PRIOR to the lastAnniversary month.
+  // ANBIMA convention: the IPCA measured during month X is published around
+  // the 15th of month X+1. For the cycle starting at anniversary in month M,
+  // the applicable IPCA is from month M-1 (published ~15th of M, hence available).
+  let compY = lastY;
+  let compM = lastM - 1; // 0-based, go to prior month
+  if (compM < 0) { compM = 11; compY -= 1; }
   const competencia = `${compY}-${String(compM + 1).padStart(2, "0")}-01`;
 
   return { lastAnniversary, nextAnniversary, competencia };
@@ -175,19 +175,19 @@ function getFirstAnniversaryAfter(dataInicio: string, anniversaryDay: number): s
   return toIso(y, m, clampDay(y, m, anniversaryDay));
 }
 
-// ─── Cycle-based daily factor map (for debêntures/CRI/CRA — future use) ──
+// ─── Cycle-based daily factor map ──────────────────────────────────
 
 /**
- * Builds a Map<date, dailyIpcaFactor> for EVERY calendar day in [dataInicio, dataCalculo].
+ * Builds a Map<date, dailyIpcaFactor> for BUSINESS DAYS in [dataInicio, dataCalculo].
  *
- * IPCA correction uses CALENDAR DAYS (dias corridos) as the divisor for all cycles.
- * The factor is emitted for every day (business days AND non-business days alike)
- * so that the engine can apply IPCA correction consistently on all days.
+ * For CDB/LC/LCI/LCA/LF/LFS/LIG IPCA products, the anniversary day is
+ * overridden to 15 (ANBIMA IPCA reference date). The IPCA factor for each
+ * cycle is distributed across the BUSINESS DAYS within that cycle.
  *
- * dailyFactor = POWER(fatorCiclo, 1 / calendarDaysInCycle)
+ * dailyFactor = POWER(fatorCiclo, 1 / businessDaysInCycle)
  *
- * NOTE: This is for anniversary-cycle products (debêntures, CRI, CRA).
- * For CDB/LC/LCI/LCA/LF/LFS/LIG, use buildIpcaCdbDailyMultMap instead.
+ * The optional `overrideAnnDay` parameter allows using a fixed anniversary
+ * day (e.g. 15 for CDB IPCA) instead of the vencimento day.
  */
 export function buildIpcaCycleDailyFactorMap(
   dataInicio: string,
@@ -195,24 +195,39 @@ export function buildIpcaCycleDailyFactorMap(
   vencimento: string,
   calendario: CalEntry[],
   oficialRecords: IpcaRecord[],
-  projecaoRecords: IpcaProjecaoRecord[]
+  projecaoRecords: IpcaProjecaoRecord[],
+  overrideAnnDay?: number
 ): Map<string, number> {
-  const annDay = getAnniversaryDay(vencimento);
+  const annDay = overrideAnnDay ?? getAnniversaryDay(vencimento);
   const result = new Map<string, number>();
 
   const sortedCal = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
+
+  // Pre-build set of business days for counting within cycles
+  const bizDaysSet = new Set<string>();
+  for (const cal of sortedCal) {
+    if (cal.dia_util) bizDaysSet.add(cal.data);
+  }
 
   const cycleCache = new Map<string, { factor: number; divisor: number }>();
 
   for (const cal of sortedCal) {
     if (cal.data < dataInicio || cal.data > dataCalculo) continue;
+    if (!cal.dia_util) continue; // Only emit factors for business days
 
     const bounds = getAnniversaryBounds(cal.data, annDay);
     const cacheKey = bounds.lastAnniversary;
 
     let cycleInfo = cycleCache.get(cacheKey);
     if (!cycleInfo) {
-      const divisor = calendarDaysBetween(bounds.lastAnniversary, bounds.nextAnniversary) || 1;
+      // Count business days in the cycle (lastAnniversary, nextAnniversary]
+      let bizDaysInCycle = 0;
+      const lastAnn = bounds.lastAnniversary;
+      const nextAnn = bounds.nextAnniversary;
+      for (const d of bizDaysSet) {
+        if (d > lastAnn && d <= nextAnn) bizDaysInCycle++;
+      }
+      if (bizDaysInCycle === 0) bizDaysInCycle = 1;
 
       const factor = selectIpcaFactor(
         bounds.competencia,
@@ -221,7 +236,7 @@ export function buildIpcaCycleDailyFactorMap(
         projecaoRecords
       );
 
-      cycleInfo = { factor, divisor };
+      cycleInfo = { factor, divisor: bizDaysInCycle };
       cycleCache.set(cacheKey, cycleInfo);
     }
 
