@@ -952,43 +952,45 @@ export async function reprocessMovimentacoesForCodigo(
   const cdiRecordsReprocess = await fetchCdiIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
   const { ipcaOficialRecords: ipcaOficialRecordsReprocess, ipcaProjecaoRecords: ipcaProjecaoRecordsReprocess } = await fetchIpcaEngineInputs(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
 
-  // 6. For each movimentação, compute engine and update PU/Qty from calculator columns
-  for (let i = 0; i < manualMovs.length; i++) {
-    const mov = manualMovs[i];
+  // 6. Run engine ONCE with ALL movements to get PU/qty for each date
+  //    This replaces N separate engine calls with a single one.
+  const allMovsForEngine = manualMovs.map((m) => ({
+    data: m.data,
+    tipo_movimentacao: m.tipo_movimentacao,
+    valor: Number(m.valor),
+  }));
 
-    // Build movimentações list: for resgates include the current movement so
-    // the engine computes qtdResgate2 correctly; for aplicações use only preceding.
-    const isResgate = ["Resgate", "Resgate Parcial", "Resgate Total"].includes(mov.tipo_movimentacao);
-    const precedingMovs = manualMovs
-      .filter((m, idx) => isResgate ? idx <= i : idx < i)
-      .map((m) => ({
-        data: m.data,
-        tipo_movimentacao: m.tipo_movimentacao,
-        valor: Number(m.valor),
-      }));
+  const rows = calcularRendaFixaDiario({
+    dataInicio: baseInfo.dataInicio,
+    dataCalculo: calEnd > refDate ? calEnd : refDate,
+    taxa: baseInfo.taxa,
+    modalidade: baseInfo.modalidade,
+    puInicial: baseInfo.puInicial,
+    calendario,
+    movimentacoes: allMovsForEngine,
+    dataResgateTotal: null,
+    pagamento: baseInfo.pagamento,
+    vencimento: baseInfo.vencimento,
+    indexador: aplicacaoInicial.indexador,
+    cdiRecords: cdiRecordsReprocess,
+    ipcaOficialRecords: ipcaOficialRecordsReprocess,
+    ipcaProjecaoRecords: ipcaProjecaoRecordsReprocess,
+    calendarioSorted: true,
+  });
 
-    const rows = calcularRendaFixaDiario({
-      dataInicio: baseInfo.dataInicio,
-      dataCalculo: mov.data,
-      taxa: baseInfo.taxa,
-      modalidade: baseInfo.modalidade,
-      puInicial: baseInfo.puInicial,
-      calendario,
-      movimentacoes: precedingMovs,
-      dataResgateTotal: null,
-      pagamento: baseInfo.pagamento,
-      vencimento: baseInfo.vencimento,
-      indexador: aplicacaoInicial.indexador,
-      cdiRecords: cdiRecordsReprocess,
-      ipcaOficialRecords: ipcaOficialRecordsReprocess,
-      ipcaProjecaoRecords: ipcaProjecaoRecordsReprocess,
-    });
+  // Build date-indexed map for O(1) lookups
+  const rowByDate = new Map<string, typeof rows[0]>();
+  for (const r of rows) rowByDate.set(r.data, r);
 
-    const rowDia = rows.find((r) => r.data === mov.data);
+  // Batch updates
+  const updates: Promise<any>[] = [];
+  const isNoVencimento = baseInfo.pagamento === "No Vencimento";
+
+  for (const mov of manualMovs) {
+    const rowDia = rowByDate.get(mov.data);
     if (!rowDia) continue;
 
     const isAplicacao = ["Aplicação", "Aplicação Inicial"].includes(mov.tipo_movimentacao);
-    const isNoVencimento = baseInfo.pagamento === "No Vencimento";
     const isResgateTotalMov = ["Resgate Total", "Resgate no Vencimento"].includes(mov.tipo_movimentacao);
 
     let newPU: number;
@@ -1015,16 +1017,19 @@ export async function reprocessMovimentacoesForCodigo(
       }
     }
 
-    await supabase
-      .from("movimentacoes")
-      .update({
-        preco_unitario: newPU,
-        quantidade: newQuantidade,
-      })
-      .eq("id", mov.id);
+    const updatePromise = (async () => {
+      await supabase
+        .from("movimentacoes")
+        .update({ preco_unitario: newPU, quantidade: newQuantidade })
+        .eq("id", mov.id);
+    })();
+    updates.push(updatePromise);
   }
 
-  // 6. Now run normal custodia sync using the first movimentação
+  // Execute all updates in parallel
+  await Promise.all(updates);
+
+  // 7. Now run normal custodia sync using the first movimentação
   await syncCustodiaFromMovimentacao(aplicacaoInicial.id, refDate);
 }
 
