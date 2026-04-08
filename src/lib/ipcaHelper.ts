@@ -95,13 +95,13 @@ export function getAnniversaryBounds(
   const lastAnniversary = toIso(lastY, lastM, lastD);
   const nextAnniversary = toIso(nextY, nextM, nextD);
 
-  // Competencia: the month PRIOR to lastAnniversary month.
-  // ANBIMA convention: IPCA de "competencia X" is published in X+1 and applies
-  // in the cycle that starts at the anniversary in month X+1.
-  // So if lastAnniversary is in month M, competencia = M-1.
-  let compY = lastY;
-  let compM = lastM - 1; // 0-based, so subtract 1
-  if (compM < 0) { compM = 11; compY -= 1; }
+  // Competencia: the month OF the lastAnniversary.
+  // The IPCA factor for competencia X is the inflation measured during month X,
+  // published around the 10th of month X+1, and applied in the anniversary
+  // cycle that starts at the anniversary date in month X+1.
+  // So if lastAnniversary is in month M, competencia = M (same month).
+  const compY = lastY;
+  const compM = lastM; // 0-based
   const competencia = `${compY}-${String(compM + 1).padStart(2, "0")}-01`;
 
   return { lastAnniversary, nextAnniversary, competencia };
