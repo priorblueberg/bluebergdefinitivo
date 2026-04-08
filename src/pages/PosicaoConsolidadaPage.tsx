@@ -262,6 +262,35 @@ export default function PosicaoConsolidadaPage() {
         }
       }
 
+      // Câmbio products
+      const dolarRecords = ((dolarRes as any).data || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
+      for (const product of cambioProducts) {
+        const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
+        const cambioRows = calcularCambioDiario({
+          dataInicio: product.data_inicio,
+          dataCalculo: dataReferenciaISO,
+          cotacaoInicial: product.preco_unitario || 1,
+          calendario,
+          movimentacoes: allMovsForProduct,
+          historicoDolar: dolarRecords,
+          dataResgateTotal: product.resgate_total,
+        });
+
+        const lastRow = cambioRows.length > 0 ? cambioRows[cambioRows.length - 1] : null;
+        if (lastRow) {
+          const isEncerrado = lastRow.quantidadeUSD < 0.000001;
+          posicaoRows.push({
+            nome: product.nome || "Dólar",
+            valorAtualizado: lastRow.valorBRL,
+            ganhoFinanceiro: lastRow.rentAcumuladaBRL,
+            rentabilidade: lastRow.rentAcumuladaPct * 100,
+            custodiante: product.instituicao_nome,
+            ativo: !isEncerrado,
+            product,
+          });
+        }
+      }
+
       for (const product of otherProducts) {
         posicaoRows.push({
           nome: product.nome || product.produto_nome,
