@@ -1338,7 +1338,7 @@ export default function CadastrarTransacaoPage() {
                 value={produtoId}
                 onChange={setProdutoId}
                 placeholder="Selecione"
-                disabled
+                disabled={isEditing}
                 options={produtos.map((p) => ({
                   value: p.id,
                   label: p.nome,
