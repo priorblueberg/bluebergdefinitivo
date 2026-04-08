@@ -248,7 +248,7 @@ export default function CadastrarTransacaoPage() {
       .order("nome")
       .then(({ data }) => {
         if (data) {
-          const allowed = data.filter((c: Categoria) => c.nome === "Renda Fixa");
+          const allowed = data.filter((c: Categoria) => ["Renda Fixa", "Moedas"].includes(c.nome));
           setCategorias(allowed);
           if (allowed.length === 1 && !editId) {
             setCategoriaId(allowed[0].id);

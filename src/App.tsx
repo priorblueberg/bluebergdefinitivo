@@ -21,6 +21,7 @@ import {
   ControleCarteiras,
 } from "@/pages/AppPages";
 import CarteiraRendaFixa from "@/pages/CarteiraRendaFixaPage";
+import CarteiraCambioPage from "@/pages/CarteiraCambioPage";
 import CalculadoraPage from "@/pages/CalculadoraPage";
 import PosicaoConsolidadaPage from "@/pages/PosicaoConsolidadaPage";
 import NotFound from "./pages/NotFound";
@@ -89,6 +90,7 @@ const App = () => (
                 <Route path="/welcome" element={<Navigate to="/carteira/renda-fixa" replace />} />
                 <Route path="/carteira" element={<Navigate to="/carteira/renda-fixa" replace />} />
                 <Route path="/carteira/renda-fixa" element={<CarteiraRendaFixa />} />
+                <Route path="/carteira/cambio" element={<CarteiraCambioPage />} />
                 <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
                 <Route path="/carteira/fundos" element={<CarteiraFundos />} />
                 <Route path="/carteira/tesouro-direto" element={<CarteiraTesouroDireto />} />

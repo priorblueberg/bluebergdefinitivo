@@ -6,6 +6,7 @@ import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, type DailyRow } from "@/lib/rendaFixaEngine";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
+import { calcularCambioDiario, type CambioDailyRow } from "@/lib/cambioEngine";
 
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
@@ -126,9 +127,10 @@ export default function PosicaoConsolidadaPage() {
 
       const rfProducts = mapped.filter((p) => p.categoria_nome === "Renda Fixa" && p.modalidade !== "Poupança");
       const poupancaProducts = mapped.filter((p) => p.modalidade === "Poupança");
-      const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa" && p.modalidade !== "Poupança");
+      const cambioProducts = mapped.filter((p) => p.categoria_nome === "Moedas");
+      const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa" && p.modalidade !== "Poupança" && p.categoria_nome !== "Moedas");
 
-      const allCalcProducts = [...rfProducts, ...poupancaProducts];
+      const allCalcProducts = [...rfProducts, ...poupancaProducts, ...cambioProducts];
       const minDate = allCalcProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), allCalcProducts[0]?.data_inicio || dataReferenciaISO);
       const maxDate = allCalcProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataReferenciaISO;
@@ -137,22 +139,26 @@ export default function PosicaoConsolidadaPage() {
 
       const allCodigos = allCalcProducts.map((p) => p.codigo_custodia);
       const poupancaCodigos = poupancaProducts.map((p) => p.codigo_custodia);
+      const cambioCodigos = cambioProducts.map((p) => p.codigo_custodia);
 
-      const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
+      const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes, poupRendRes, dolarRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         allCodigos.length > 0
-          ? supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, codigo_custodia").in("codigo_custodia", allCodigos).eq("user_id", user!.id).order("data")
+          ? supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, preco_unitario, quantidade, codigo_custodia").in("codigo_custodia", allCodigos).eq("user_id", user!.id).order("data")
           : Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
-        Promise.resolve({ data: [] }), // lotes now built from movimentações
+        Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
+        cambioCodigos.length > 0
+          ? supabase.from("historico_dolar").select("data, cotacao_venda").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -164,11 +170,11 @@ export default function PosicaoConsolidadaPage() {
       const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
       const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
 
-      const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
+      const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number; preco_unitario: number | null; quantidade: number | null }[]>();
       for (const m of ((movRes as any).data || [])) {
         const code = m.codigo_custodia as number;
         if (!movByCodigo.has(code)) movByCodigo.set(code, []);
-        movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) });
+        movByCodigo.get(code)!.push({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor), preco_unitario: m.preco_unitario != null ? Number(m.preco_unitario) : null, quantidade: m.quantidade != null ? Number(m.quantidade) : null });
       }
 
       // lotes are now derived from movimentações to avoid double-counting resgates
@@ -253,6 +259,35 @@ export default function PosicaoConsolidadaPage() {
               product,
             });
           }
+        }
+      }
+
+      // Câmbio products
+      const dolarRecords = ((dolarRes as any).data || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
+      for (const product of cambioProducts) {
+        const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
+        const cambioRows = calcularCambioDiario({
+          dataInicio: product.data_inicio,
+          dataCalculo: dataReferenciaISO,
+          cotacaoInicial: product.preco_unitario || 1,
+          calendario,
+          movimentacoes: allMovsForProduct,
+          historicoDolar: dolarRecords,
+          dataResgateTotal: product.resgate_total,
+        });
+
+        const lastRow = cambioRows.length > 0 ? cambioRows[cambioRows.length - 1] : null;
+        if (lastRow) {
+          const isEncerrado = lastRow.quantidadeUSD < 0.000001;
+          posicaoRows.push({
+            nome: product.nome || "Dólar",
+            valorAtualizado: lastRow.valorBRL,
+            ganhoFinanceiro: lastRow.rentAcumuladaBRL,
+            rentabilidade: lastRow.rentAcumuladaPct * 100,
+            custodiante: product.instituicao_nome,
+            ativo: !isEncerrado,
+            product,
+          });
         }
       }
 

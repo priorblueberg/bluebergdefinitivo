@@ -382,7 +382,73 @@ Deno.serve(async (req) => {
       console.error("Poupança rendimento error:", e);
     }
 
-    // ── 6. Calendário Dias Úteis ─────────────────────────────────────
+    // ── 6. Dólar PTAX Venda ──────────────────────────────────────────
+    try {
+      const { data: maxDolar } = await supabase
+        .from("historico_dolar")
+        .select("data")
+        .order("data", { ascending: false })
+        .limit(1)
+        .single();
+
+      const startDolar = maxDolar
+        ? addDays(new Date(maxDolar.data + "T12:00:00"), 1)
+        : new Date(2024, 0, 2);
+
+      const yesterdayDolar = new Date();
+      yesterdayDolar.setDate(yesterdayDolar.getDate() - 1);
+
+      if (startDolar <= yesterdayDolar) {
+        const fmtPtax = (d: Date) =>
+          `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${d.getFullYear()}`;
+
+        const ptaxUrl = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@dataInicial='${fmtPtax(startDolar)}'&@dataFinalCotacao='${fmtPtax(yesterdayDolar)}'&$top=10000&$format=json&$select=cotacaoVenda,dataHoraCotacao`;
+        console.log("Fetching PTAX Venda from BCB OLINDA...");
+
+        const ptaxResp = await fetch(ptaxUrl);
+        if (!ptaxResp.ok) throw new Error(`BCB PTAX API error ${ptaxResp.status}`);
+
+        const ptaxJson = await ptaxResp.json();
+        const ptaxData = ptaxJson.value || [];
+
+        if (ptaxData.length > 0) {
+          // Group by date, keep last entry per day (closing)
+          const byDate = new Map<string, number>();
+          for (const r of ptaxData) {
+            const dateStr = r.dataHoraCotacao.substring(0, 10); // "yyyy-MM-dd" from ISO
+            // BCB returns "yyyy-MM-dd HH:mm:ss.SSS" format
+            const isoDate = dateStr;
+            byDate.set(isoDate, r.cotacaoVenda);
+          }
+
+          const dolarRows = Array.from(byDate.entries()).map(([data, cotacao_venda]) => ({
+            data,
+            cotacao_venda,
+          }));
+
+          const batchSize = 500;
+          let inserted = 0;
+          for (let i = 0; i < dolarRows.length; i += batchSize) {
+            const batch = dolarRows.slice(i, i + batchSize);
+            const { error } = await supabase
+              .from("historico_dolar")
+              .upsert(batch, { onConflict: "data" });
+            if (error) throw new Error(`Dolar insert: ${error.message}`);
+            inserted += batch.length;
+          }
+          results.dolar_ptax = `Upserted ${inserted} PTAX Venda records`;
+        } else {
+          results.dolar_ptax = "No new PTAX Venda data";
+        }
+      } else {
+        results.dolar_ptax = "PTAX Venda already up to date";
+      }
+    } catch (e) {
+      results.dolar_ptax = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("PTAX Venda error:", e);
+    }
+
+    // ── 7. Calendário Dias Úteis ─────────────────────────────────────
     try {
       // Get max date in calendar
       const { data: maxCal } = await supabase

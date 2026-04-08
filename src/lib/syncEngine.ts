@@ -462,6 +462,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   const categoriaNome = (mov as any).categorias?.nome || "";
   const isRendaFixa = categoriaNome === "Renda Fixa";
+  const isMoedas = categoriaNome === "Moedas";
   let isPoupanca = mov.modalidade === "Poupança";
 
   if (!mov.codigo_custodia) return;
@@ -524,17 +525,17 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
   }
   if (valorInvestidoLiquido < 0) valorInvestidoLiquido = 0;
 
-  // Compute resgate_total (for RF non-poupança or poupança with resgate total)
+  // Compute resgate_total
   let resgateTotal: string | null = null;
   if (isRendaFixa && !isPoupanca) {
     resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, aplicacaoInicial.vencimento);
-  } else if (isPoupanca) {
-    // For Poupança, compute resgate_total from manual "Resgate Total" movements
+  } else if (isPoupanca || isMoedas) {
+    // Poupança and Moedas: compute resgate_total from manual "Resgate Total" movements only
     resgateTotal = await computeResgateTotal(mov.codigo_custodia, mov.user_id!, null);
   }
 
-  // Compute data_limite — Poupança gets a far-future date so the portfolio stays active
-  const dataLimite = isPoupanca ? "2040-12-31" : (isRendaFixa ? aplicacaoInicial.vencimento : null);
+  // Compute data_limite — Poupança and Moedas get a far-future date so the portfolio stays active
+  const dataLimite = (isPoupanca || isMoedas) ? "2040-12-31" : (isRendaFixa ? aplicacaoInicial.vencimento : null);
 
   // Compute data_calculo
   const dataCalculo = computeDataCalculo(refDate, resgateTotal, dataLimite);
@@ -549,6 +550,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   // Derive estrategia from modalidade + indexador
   const derivedEstrategia = (() => {
+    if (isMoedas) return "Câmbio";
     const mod = aplicacaoInicial.modalidade;
     const idx = aplicacaoInicial.indexador;
     if (mod === "Poupança") return "Poupança";
@@ -557,6 +559,20 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     if (mod === "Mista" && idx === "CDI") return "Pós Fixado CDI + Taxa";
     return null;
   })();
+
+  // Compute total quantity for Moedas
+  let totalQuantidade = aplicacaoInicial.quantidade;
+  if (isMoedas) {
+    let qtyAccum = 0;
+    for (const m of allMovs || []) {
+      if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
+        qtyAccum += Number(m.quantidade || 0);
+      } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
+        qtyAccum -= Number(m.quantidade || 0);
+      }
+    }
+    totalQuantidade = Math.max(qtyAccum, 0);
+  }
 
   const custodiaData = {
     codigo_custodia: mov.codigo_custodia,
@@ -569,7 +585,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     taxa: aplicacaoInicial.taxa,
     valor_investido: valorInvestidoLiquido,
     preco_unitario: aplicacaoInicial.preco_unitario,
-    quantidade: aplicacaoInicial.quantidade,
+    quantidade: totalQuantidade,
     vencimento: aplicacaoInicial.vencimento,
     emissor_id: aplicacaoInicial.emissor_id,
     pagamento: aplicacaoInicial.pagamento,
@@ -577,7 +593,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     categoria_id: aplicacaoInicial.categoria_id,
     user_id: mov.user_id,
     data_limite: dataLimite,
-    alocacao_patrimonial: "Renda Fixa",
+    alocacao_patrimonial: isMoedas ? "Câmbio" : "Renda Fixa",
     multiplicador: categoriaNome || null,
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
@@ -598,8 +614,8 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     if (insErr) console.error("syncCustodia: erro ao inserir", insErr);
   }
 
-  // Sync manual "Resgate Total" values created by the "Fechar Posição" flow (RF non-poupança only)
-  if (isRendaFixa && !isPoupanca) {
+  // Sync manual "Resgate Total" values created by the "Fechar Posição" flow (RF non-poupança, non-moedas only)
+  if (isRendaFixa && !isPoupanca && !isMoedas) {
     await syncManualResgatesTotais(mov.codigo_custodia, mov.user_id!, {
       vencimento: aplicacaoInicial.vencimento,
       resgate_total: resgateTotal,
@@ -740,9 +756,12 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
     status = "Encerrada";
   }
 
+  // Map category name to carteira name
+  const nomeCarteira = categoriaNome === "Moedas" ? "Câmbio" : categoriaNome;
+
   const carteiraData = {
     categoria_id: categoriaId,
-    nome_carteira: categoriaNome,
+    nome_carteira: nomeCarteira,
     data_inicio: dataInicio,
     data_limite: dataLimite,
     resgate_total: resgateTotal,
@@ -865,12 +884,26 @@ export async function reprocessMovimentacoesForCodigo(
     .order("data", { ascending: true })
     .order("created_at", { ascending: true });
 
-  if (!manualMovs || manualMovs.length === 0) return;
+   if (!manualMovs || manualMovs.length === 0) return;
 
   // 3. Fetch custodia base info from Aplicação Inicial
   const aplicacaoInicial = manualMovs.find(
     (m) => m.tipo_movimentacao === "Aplicação Inicial"
   ) || manualMovs[0];
+
+  // Check category to decide engine
+  const { data: catInfo } = await supabase
+    .from("categorias")
+    .select("nome")
+    .eq("id", aplicacaoInicial.categoria_id)
+    .single();
+  const isMoedasReprocess = catInfo?.nome === "Moedas";
+
+  if (isMoedasReprocess) {
+    // Moedas: no PU reprocessing needed, just sync custodia
+    await syncCustodiaFromMovimentacao(aplicacaoInicial.id, refDate);
+    return;
+  }
 
   const baseInfo = {
     dataInicio: aplicacaoInicial.data,
@@ -938,12 +971,10 @@ export async function reprocessMovimentacoesForCodigo(
     let newQuantidade: number | null;
 
     if (isNoVencimento) {
-      // Pagamento "No Vencimento": uses Preço Unitário and QTD Aplicação / QTD Resgate
       if (isAplicacao) {
         newPU = rowDia.precoUnitario;
         newQuantidade = rowDia.qtdAplicacaoPU > 0 ? rowDia.qtdAplicacaoPU : (newPU > 0 ? Number(mov.valor) / newPU : null);
       } else if (isResgateTotalMov) {
-        // On resgate_total day: use QTD Resgate (2)
         newPU = rowDia.precoUnitario;
         newQuantidade = rowDia.qtdResgate2 > 0 ? rowDia.qtdResgate2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
       } else {
@@ -951,7 +982,6 @@ export async function reprocessMovimentacoesForCodigo(
         newQuantidade = rowDia.qtdResgatePU > 0 ? rowDia.qtdResgatePU : (newPU > 0 ? Number(mov.valor) / newPU : null);
       }
     } else {
-      // Other pagamento types: uses PU Juros Periódicos and QTD Aplicação (2) / QTD Resgate (2)
       if (isAplicacao) {
         newPU = rowDia.puJurosPeriodicos;
         newQuantidade = rowDia.qtdAplicacao2 > 0 ? rowDia.qtdAplicacao2 : (newPU > 0 ? Number(mov.valor) / newPU : null);

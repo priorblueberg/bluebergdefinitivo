@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 
 const tabs = [
   { label: "Renda Fixa", url: "/carteira/renda-fixa" },
-  // MVP2: Renda Variável, Fundos, Tesouro Direto
+  { label: "Câmbio", url: "/carteira/cambio" },
 ];
 
 export function SubTabs() {
