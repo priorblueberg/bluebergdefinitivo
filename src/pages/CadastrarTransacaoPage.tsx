@@ -1288,6 +1288,118 @@ export default function CadastrarTransacaoPage() {
           </>
         )}
 
+        {/* ── Dólar Aplicação Flow ── */}
+        {showDolarFields && (
+          <>
+            <Field label="Produto" required>
+              <NativeSelect
+                value={produtoId}
+                onChange={setProdutoId}
+                placeholder="Selecione"
+                disabled
+                options={produtos.map((p) => ({
+                  value: p.id,
+                  label: p.nome,
+                }))}
+              />
+            </Field>
+
+            {!!produtoId && (
+              <>
+                {/* Row 1: Data, Valor em Reais */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Data de Transação" required>
+                    <input
+                      type="date"
+                      value={data}
+                      onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                      className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                    />
+                  </Field>
+
+                  <Field label="Valor Investido (R$)" required>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={valor}
+                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
+                        placeholder="0,00"
+                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                      />
+                    </div>
+                  </Field>
+                </div>
+
+                {/* Row 2: Cotação, Quantidade */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Cotação do Dólar (PTAX)">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={cotacaoLoading ? "Buscando..." : cotacaoDolar != null ? cotacaoDolar.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (data ? "Não encontrada" : "")}
+                        disabled
+                        className="input-field pl-9 opacity-60"
+                      />
+                    </div>
+                  </Field>
+
+                  <Field label="Quantidade (USD)">
+                    <input
+                      type="text"
+                      value={quantidadeUSD != null ? quantidadeUSD.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : ""}
+                      disabled
+                      placeholder="Calculado automaticamente"
+                      className="input-field opacity-60"
+                    />
+                  </Field>
+                </div>
+
+                {/* Row 3: Instituição */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Corretora" required>
+                    <SearchableSelect
+                      value={instituicaoId}
+                      onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
+                      placeholder="Pesquisar corretora..."
+                      hasError={validationErrors.has("instituicaoId")}
+                      options={instituicoes.map((i) => ({
+                        value: i.id,
+                        label: i.nome,
+                      }))}
+                    />
+                  </Field>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={submitting || !cotacaoDolar}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
+                  >
+                    <PlusCircle size={16} />
+                    {submitting ? "Enviando..." : "Enviar"}
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
         {/* ── Resgate Flow ── */}
         {showResgateFields && (
           <>
