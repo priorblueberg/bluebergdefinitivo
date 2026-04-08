@@ -195,26 +195,51 @@ export default function PosicaoConsolidadaPage() {
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
         const isEncerrado = product.resgate_total ? product.resgate_total <= dataReferenciaISO : product.vencimento ? product.vencimento <= dataReferenciaISO : false;
         const calcEnd = dataFim > dataReferenciaISO ? dataReferenciaISO : dataFim;
+        const productMovs = movByCodigo.get(product.codigo_custodia) || [];
+        const movsHash = buildMovsHash(productMovs);
 
-        const engineRows = calcularRendaFixaDiario({
+        const cacheParams = {
           dataInicio: product.data_inicio,
-          dataCalculo: calcEnd,
           taxa: product.taxa || 0,
           modalidade: product.modalidade || "",
           puInicial: product.preco_unitario || 1000,
-          calendario,
-          movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
-          dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
           indexador: product.indexador,
-          cdiRecords,
+          dataResgateTotal: product.resgate_total,
           dataLimite: product.data_limite,
-          precomputedCdiMap: cdiMap,
-          calendarioSorted: true,
-          ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
-          ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
-        });
+          movsHash,
+        };
+
+        // Try cache first
+        let engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams);
+
+        if (!engineRows) {
+          // Cache miss: compute for the max possible date and cache
+          const maxCalcEnd = dataFim > dataReferenciaISO ? dataFim : dataReferenciaISO;
+          const fullRows = calcularRendaFixaDiario({
+            dataInicio: product.data_inicio,
+            dataCalculo: maxCalcEnd,
+            taxa: product.taxa || 0,
+            modalidade: product.modalidade || "",
+            puInicial: product.preco_unitario || 1000,
+            calendario,
+            movimentacoes: productMovs,
+            dataResgateTotal: product.resgate_total,
+            pagamento: product.pagamento,
+            vencimento: product.vencimento,
+            indexador: product.indexador,
+            cdiRecords,
+            dataLimite: product.data_limite,
+            precomputedCdiMap: cdiMap,
+            calendarioSorted: true,
+            ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
+            ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
+          });
+          cacheRFResult(product.codigo_custodia, fullRows, cacheParams);
+          // Slice to requested date
+          engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams) || fullRows;
+        }
 
         allProductRows.push(engineRows);
 
