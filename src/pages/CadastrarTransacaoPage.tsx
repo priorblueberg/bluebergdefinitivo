@@ -737,7 +737,13 @@ export default function CadastrarTransacaoPage() {
     // ── Aplicação submission (existing logic) ──
     let requiredFields: Record<string, string>;
 
-    if (isPoupanca) {
+    if (isMoedas && isDolar) {
+      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
+      if (!cotacaoDolar) {
+        toast.error("Cotação do dólar não encontrada para a data selecionada.");
+        return;
+      }
+    } else if (isPoupanca) {
       requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
     } else {
       requiredFields = {
