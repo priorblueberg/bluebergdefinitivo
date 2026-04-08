@@ -1123,7 +1123,7 @@ export async function updateDataReferenciaOnly(userId: string, dataReferencia: s
       categoriaIds.add(cust.categoria_id);
       const newDataCalculo = computeDataCalculo(dataReferencia, cust.resgate_total, cust.data_limite);
       updates.push(
-        supabase.from("custodia").update({ data_calculo: newDataCalculo }).eq("id", cust.id)
+        supabase.from("custodia").update({ data_calculo: newDataCalculo }).eq("id", cust.id).then()
       );
     }
     await Promise.all(updates);
