@@ -140,6 +140,8 @@ export default function CalculadoraPage() {
               .gte("data", getDateMinus(product.data_inicio, 5)).lte("data", dataFim).order("data"),
           ]);
 
+          const ipcaRecs = await fetchIpcaRecords(product.indexador, product.data_inicio, dataFim);
+
           const result = calcularRendaFixaDiario({
             dataInicio: product.data_inicio,
             dataCalculo: dataFim,
@@ -154,6 +156,7 @@ export default function CalculadoraPage() {
             indexador: product.indexador,
             cdiRecords: (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) })),
             dataLimite: product.data_limite,
+            ipcaRecords: ipcaRecs,
           });
           setRows(result);
         }
