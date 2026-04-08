@@ -617,8 +617,8 @@ export default function CadastrarTransacaoPage() {
   // Fetch cotação when Dólar + date changes
   useEffect(() => {
     if (!isMoedas || !isDolar || !data) {
-      setCotacaoDolar(null);
-      setQuantidadeUSD(null);
+      setCotacaoMoeda(null);
+      setQuantidadeMoeda(null);
       return;
     }
     setCotacaoLoading(true);
@@ -629,29 +629,29 @@ export default function CadastrarTransacaoPage() {
       .maybeSingle()
       .then(({ data: row }) => {
         const cot = row?.cotacao_venda ?? null;
-        setCotacaoDolar(cot);
+        setCotacaoMoeda(cot);
         setCotacaoLoading(false);
         // Recalc quantidade
         if (cot && valor) {
           const valorNum = parseCurrencyToNumber(valor);
-          if (valorNum > 0) setQuantidadeUSD(valorNum / cot);
-          else setQuantidadeUSD(null);
+          if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
+          else setQuantidadeMoeda(null);
         } else {
-          setQuantidadeUSD(null);
+          setQuantidadeMoeda(null);
         }
       });
   }, [data, isMoedas, isDolar]);
 
   // Recalc quantidade when valor changes (Dólar)
   useEffect(() => {
-    if (!isMoedas || !isDolar || !cotacaoDolar) {
-      setQuantidadeUSD(null);
+    if (!isMoedas || !isDolar || !cotacaoMoeda) {
+      setQuantidadeMoeda(null);
       return;
     }
     const valorNum = parseCurrencyToNumber(valor);
-    if (valorNum > 0) setQuantidadeUSD(valorNum / cotacaoDolar);
-    else setQuantidadeUSD(null);
-  }, [valor, cotacaoDolar, isMoedas, isDolar]);
+    if (valorNum > 0) setQuantidadeMoeda(valorNum / cotacaoMoeda);
+    else setQuantidadeMoeda(null);
+  }, [valor, cotacaoMoeda, isMoedas, isDolar]);
 
   const resetForm = () => {
     setCategoriaId("");
@@ -783,7 +783,7 @@ export default function CadastrarTransacaoPage() {
 
     if (isMoedas && isDolar) {
       requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
-      if (!cotacaoDolar) {
+      if (!cotacaoMoeda) {
         toast.error("Cotação do dólar não encontrada para a data selecionada.");
         return;
       }
@@ -851,9 +851,9 @@ export default function CadastrarTransacaoPage() {
       let quantidade: number | null;
 
       if (isMoedas && isDolar) {
-        puNum = cotacaoDolar!;
+        puNum = cotacaoMoeda!;
         taxaNum = 0;
-        quantidade = quantidadeUSD;
+        quantidade = quantidadeMoeda;
       } else if (isPoupanca) {
         puNum = 0;
         taxaNum = 0;
@@ -1386,7 +1386,7 @@ export default function CadastrarTransacaoPage() {
                       </span>
                       <input
                         type="text"
-                        value={cotacaoLoading ? "Buscando..." : cotacaoDolar != null ? cotacaoDolar.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (data ? "Não encontrada" : "")}
+                        value={cotacaoLoading ? "Buscando..." : cotacaoMoeda != null ? cotacaoMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (data ? "Não encontrada" : "")}
                         disabled
                         className="input-field pl-9 opacity-60"
                       />
@@ -1396,7 +1396,7 @@ export default function CadastrarTransacaoPage() {
                   <Field label="Quantidade (USD)">
                     <input
                       type="text"
-                      value={quantidadeUSD != null ? quantidadeUSD.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : ""}
+                      value={quantidadeMoeda != null ? quantidadeMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : ""}
                       disabled
                       placeholder="Calculado automaticamente"
                       className="input-field opacity-60"
@@ -1432,7 +1432,7 @@ export default function CadastrarTransacaoPage() {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={submitting || !cotacaoDolar}
+                    disabled={submitting || !cotacaoMoeda}
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
                   >
                     <PlusCircle size={16} />
