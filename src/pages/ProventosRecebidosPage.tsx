@@ -209,6 +209,8 @@ export default function ProventosRecebidosPage() {
         }
       }
 
+      // Only update if still the latest request
+      if (myVersion !== calcVersionRef.current) return;
       setRows(allProventos);
       setLoading(false);
     })();
