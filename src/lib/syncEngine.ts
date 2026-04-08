@@ -1116,17 +1116,13 @@ export async function updateDataReferenciaOnly(userId: string, dataReferencia: s
     }
 
     // 2. Batch update data_calculo on each custodia
-    const updates: Promise<any>[] = [];
     const categoriaIds = new Set<string>();
 
     for (const cust of allCustodia) {
       categoriaIds.add(cust.categoria_id);
       const newDataCalculo = computeDataCalculo(dataReferencia, cust.resgate_total, cust.data_limite);
-      updates.push(
-        supabase.from("custodia").update({ data_calculo: newDataCalculo }).eq("id", cust.id).then()
-      );
+      await supabase.from("custodia").update({ data_calculo: newDataCalculo }).eq("id", cust.id);
     }
-    await Promise.all(updates);
 
     // 3. Sync controle_de_carteiras for each category (lightweight: just status/dates)
     const catUpdates: Promise<any>[] = [];
