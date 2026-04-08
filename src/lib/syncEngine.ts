@@ -23,6 +23,51 @@ async function fetchCdiIfNeeded(
   return data?.map((r) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) || undefined;
 }
 
+/** Fetch IPCA records if the product uses IPCA indexador */
+async function fetchIpcaIfNeeded(
+  indexador: string | null,
+  dataInicio: string,
+  dataFim: string
+): Promise<{ competencia: string; fator_mensal: number }[] | undefined> {
+  if (indexador !== "IPCA") return undefined;
+  
+  // Fetch official IPCA
+  const { data: oficial } = await supabase
+    .from("historico_ipca")
+    .select("competencia, fator_mensal")
+    .gte("competencia", dataInicio.substring(0, 7) + "-01")
+    .lte("competencia", dataFim.substring(0, 7) + "-01")
+    .order("competencia");
+  
+  const records = (oficial || []).map(r => ({
+    competencia: r.competencia,
+    fator_mensal: Number(r.fator_mensal),
+  }));
+  
+  // Check for months without official data - use projections
+  const { data: projecoes } = await supabase
+    .from("historico_ipca_projecao")
+    .select("competencia, fator_projetado")
+    .gte("competencia", dataInicio.substring(0, 7) + "-01")
+    .lte("competencia", dataFim.substring(0, 7) + "-01")
+    .order("competencia");
+  
+  if (projecoes) {
+    const oficialSet = new Set(records.map(r => r.competencia));
+    for (const p of projecoes) {
+      if (!oficialSet.has(p.competencia)) {
+        records.push({
+          competencia: p.competencia,
+          fator_mensal: Number(p.fator_projetado),
+        });
+      }
+    }
+    records.sort((a, b) => a.competencia.localeCompare(b.competencia));
+  }
+  
+  return records.length > 0 ? records : undefined;
+}
+
 // ── Resgate no Vencimento Auto Sync ──
 
 type SyncCustodiaBase = {
