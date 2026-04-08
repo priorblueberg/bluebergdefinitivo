@@ -23,6 +23,51 @@ async function fetchCdiIfNeeded(
   return data?.map((r) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) || undefined;
 }
 
+/** Fetch IPCA records if the product uses IPCA indexador */
+async function fetchIpcaIfNeeded(
+  indexador: string | null,
+  dataInicio: string,
+  dataFim: string
+): Promise<{ competencia: string; fator_mensal: number }[] | undefined> {
+  if (indexador !== "IPCA") return undefined;
+  
+  // Fetch official IPCA
+  const { data: oficial } = await supabase
+    .from("historico_ipca")
+    .select("competencia, fator_mensal")
+    .gte("competencia", dataInicio.substring(0, 7) + "-01")
+    .lte("competencia", dataFim.substring(0, 7) + "-01")
+    .order("competencia");
+  
+  const records = (oficial || []).map(r => ({
+    competencia: r.competencia,
+    fator_mensal: Number(r.fator_mensal),
+  }));
+  
+  // Check for months without official data - use projections
+  const { data: projecoes } = await supabase
+    .from("historico_ipca_projecao")
+    .select("competencia, fator_projetado")
+    .gte("competencia", dataInicio.substring(0, 7) + "-01")
+    .lte("competencia", dataFim.substring(0, 7) + "-01")
+    .order("competencia");
+  
+  if (projecoes) {
+    const oficialSet = new Set(records.map(r => r.competencia));
+    for (const p of projecoes) {
+      if (!oficialSet.has(p.competencia)) {
+        records.push({
+          competencia: p.competencia,
+          fator_mensal: Number(p.fator_projetado),
+        });
+      }
+    }
+    records.sort((a, b) => a.competencia.localeCompare(b.competencia));
+  }
+  
+  return records.length > 0 ? records : undefined;
+}
+
 // ── Resgate no Vencimento Auto Sync ──
 
 type SyncCustodiaBase = {
@@ -90,6 +135,7 @@ async function syncManualResgatesTotais(
     if (!calendario || !movs) return;
 
     const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
+    const ipcaRecords = await fetchIpcaIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
 
     for (const manualResgate of manualResgates) {
       const calendarioAteData = calendario.filter((dia) => dia.data <= manualResgate.data);
@@ -116,6 +162,7 @@ async function syncManualResgatesTotais(
         vencimento: custodiaRecord.vencimento,
         indexador: custodiaRecord.indexador,
         cdiRecords,
+        ipcaRecords,
       });
 
       const rowDia = rows[rows.length - 1];
@@ -221,6 +268,7 @@ async function syncResgateNoVencimento(
     if (!calendario || !movs) return;
 
     const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
+    const ipcaRecords = await fetchIpcaIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
 
     const rows = calcularRendaFixaDiario({
       dataInicio: custodiaRecord.data_inicio,
@@ -235,6 +283,7 @@ async function syncResgateNoVencimento(
       vencimento: custodiaRecord.vencimento,
       indexador: custodiaRecord.indexador,
       cdiRecords,
+      ipcaRecords,
     });
 
     if (rows.length === 0) return;
@@ -556,6 +605,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     if (mod === "Poupança") return "Poupança";
     if (mod === "Prefixado") return "Prefixado";
     if ((mod === "Pos Fixado" || mod === "Pós Fixado") && idx === "CDI") return "Pós Fixado CDI";
+    if ((mod === "Pos Fixado" || mod === "Pós Fixado") && idx === "IPCA") return "Pós Fixado IPCA + Taxa";
     if (mod === "Mista" && idx === "CDI") return "Pós Fixado CDI + Taxa";
     return null;
   })();
@@ -929,6 +979,7 @@ export async function reprocessMovimentacoesForCodigo(
 
   // 5. Fetch CDI if needed
   const cdiRecordsReprocess = await fetchCdiIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
+  const ipcaRecordsReprocess = await fetchIpcaIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
 
   // 6. For each movimentação, compute engine and update PU/Qty from calculator columns
   for (let i = 0; i < manualMovs.length; i++) {
@@ -958,6 +1009,7 @@ export async function reprocessMovimentacoesForCodigo(
       vencimento: baseInfo.vencimento,
       indexador: aplicacaoInicial.indexador,
       cdiRecords: cdiRecordsReprocess,
+      ipcaRecords: ipcaRecordsReprocess,
     });
 
     const rowDia = rows.find((r) => r.data === mov.data);

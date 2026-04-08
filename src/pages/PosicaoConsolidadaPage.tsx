@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, type DailyRow } from "@/lib/rendaFixaEngine";
+import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { calcularCambioDiario, type CambioDailyRow } from "@/lib/cambioEngine";
@@ -182,6 +183,9 @@ export default function PosicaoConsolidadaPage() {
       const posicaoRows: PosicaoRow[] = [];
       const allProductRows: DailyRow[][] = [];
 
+      // Fetch IPCA if any product uses it
+      const ipcaRecords = await fetchIpcaRecordsBatch(rfProducts, dataReferenciaISO);
+
       for (const product of rfProducts) {
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
         const isEncerrado = product.resgate_total ? product.resgate_total <= dataReferenciaISO : product.vencimento ? product.vencimento <= dataReferenciaISO : false;
@@ -203,6 +207,7 @@ export default function PosicaoConsolidadaPage() {
           dataLimite: product.data_limite,
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
+          ipcaRecords: product.indexador === "IPCA" ? ipcaRecords : undefined,
         });
 
         allProductRows.push(engineRows);

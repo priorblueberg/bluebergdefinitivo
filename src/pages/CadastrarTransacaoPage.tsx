@@ -91,7 +91,7 @@ const PAGAMENTO_OPTIONS = [
 
 const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
 
-const INDEXADOR_OPTIONS = ["CDI", "CDI+"];
+const INDEXADOR_OPTIONS = ["CDI", "CDI+", "IPCA"];
 
 // ── Currency formatting helpers ──
 function formatCurrency(value: string): string {
@@ -170,6 +170,12 @@ function buildNomeAtivo(
 
   if (modalidade === "Prefixado") {
     return [prod, emissorNome, modalidade, taxaFormatted ? `${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  if (indexador === "IPCA") {
+    return [prod, emissorNome, "IPCA", taxaFormatted ? `+ ${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
       .filter(Boolean)
       .join(" ");
   }

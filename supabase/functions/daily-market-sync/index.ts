@@ -511,7 +511,73 @@ Deno.serve(async (req) => {
       console.error("Euro PTAX Venda error:", e);
     }
 
-    // ── 7. Calendário Dias Úteis ─────────────────────────────────────
+    // ── 7. IPCA (Série SGS 433 — variação mensal) ────────────────────
+    try {
+      const { data: maxIpca } = await supabase
+        .from("historico_ipca")
+        .select("data_referencia")
+        .order("data_referencia", { ascending: false })
+        .limit(1)
+        .single();
+
+      // SGS 433 returns monthly data; start from last + 1 month or 2020-01
+      const startIpca = maxIpca
+        ? addDays(new Date(maxIpca.data_referencia + "T12:00:00"), 32) // next month
+        : new Date(2020, 0, 1);
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      if (startIpca <= yesterday) {
+        const fmt = (d: Date) =>
+          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+
+        const bcbIpcaUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json&dataInicial=${fmt(startIpca)}&dataFinal=${fmt(yesterday)}`;
+        console.log("Fetching IPCA from BCB SGS 433:", bcbIpcaUrl);
+
+        const ipcaResp = await fetch(bcbIpcaUrl);
+        if (!ipcaResp.ok) throw new Error(`BCB IPCA API error ${ipcaResp.status}`);
+
+        const ipcaData: { data: string; valor: string }[] = await ipcaResp.json();
+
+        if (ipcaData.length > 0) {
+          const ipcaRows = ipcaData.map((r) => {
+            const [dd, mm, yyyy] = r.data.split("/");
+            const dataRef = `${yyyy}-${mm}-${dd}`;
+            // competencia = first day of the month
+            const competencia = `${yyyy}-${mm}-01`;
+            const variacao = parseFloat(r.valor);
+            return {
+              data_referencia: dataRef,
+              competencia,
+              variacao_mensal: variacao,
+              fator_mensal: 1 + variacao / 100,
+            };
+          });
+
+          const batchSize = 500;
+          let inserted = 0;
+          for (let i = 0; i < ipcaRows.length; i += batchSize) {
+            const batch = ipcaRows.slice(i, i + batchSize);
+            const { error } = await supabase
+              .from("historico_ipca")
+              .upsert(batch, { onConflict: "data_referencia" });
+            if (error) throw new Error(`IPCA insert: ${error.message}`);
+            inserted += batch.length;
+          }
+          results.ipca = `Upserted ${inserted} IPCA records`;
+        } else {
+          results.ipca = "No new IPCA data";
+        }
+      } else {
+        results.ipca = "IPCA already up to date";
+      }
+    } catch (e) {
+      results.ipca = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("IPCA error:", e);
+    }
+
+    // ── 8. Calendário Dias Úteis ─────────────────────────────────────
     try {
       // Get max date in calendar
       const { data: maxCal } = await supabase

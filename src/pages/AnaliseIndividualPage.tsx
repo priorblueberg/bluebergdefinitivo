@@ -9,6 +9,7 @@ import {
   CdiRecord, DiaUtilRecord,
 } from "@/lib/cdiCalculations";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
+import { fetchIpcaRecords } from "@/lib/ipcaHelper";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
 
 import {
@@ -121,6 +122,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
 
       // Run engine for Prefixado
       if (isPrefixado) {
+        const ipcaRecords = await fetchIpcaRecords(product.indexador, product.data_inicio, endDate);
         const rows = calcularRendaFixaDiario({
           dataInicio: product.data_inicio,
           dataCalculo: endDate,
@@ -139,6 +141,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           indexador: product.indexador,
           cdiRecords: (cdiRes.data || []).map((r: any) => ({ data: r.data, taxa_anual: r.taxa_anual })),
           calendarioSorted: true,
+          ipcaRecords,
         });
         setEngineRows(rows);
       }
