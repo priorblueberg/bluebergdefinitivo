@@ -476,16 +476,17 @@ export default function BoletaCustodiaDialog({
     onClose();
   };
 
+  const isPoupanca = row.modalidade === "Poupança";
   const readonlyFields = [
     { label: "Nome", value: fmtReadonly(row.nome) },
     { label: "Categoria", value: row.categoria },
     { label: "Produto", value: row.produto },
     { label: "Instituição", value: fmtReadonly(row.instituicao) },
     { label: "Emissor", value: fmtReadonly(row.emissor) },
-    { label: "Modalidade", value: fmtReadonly(row.modalidade) },
+    { label: "Modalidade", value: isPoupanca ? "—" : fmtReadonly(row.modalidade) },
     { label: "Indexador", value: fmtReadonly(row.indexador) },
     { label: "Taxa", value: fmtTaxa(row.taxa) },
-    { label: "Pagamento", value: fmtReadonly(row.pagamento) },
+    { label: "Pagamento", value: isPoupanca ? "—" : fmtReadonly(row.pagamento) },
     { label: "Vencimento", value: fmtDate(row.vencimento) },
   ];
 
