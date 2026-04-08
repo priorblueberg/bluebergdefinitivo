@@ -839,7 +839,7 @@ export default function CadastrarTransacaoPage() {
 
       let nomeAtivo: string | null;
       if (isMoedas && isMoeda) {
-        nomeAtivo = `Dólar ${instituicaoNome}`.trim();
+        nomeAtivo = `${produtoNome} ${instituicaoNome}`.trim();
       } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
       } else if (isRendaFixa) {
