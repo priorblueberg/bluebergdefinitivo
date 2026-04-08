@@ -7,6 +7,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import { fetchIpcaRecords } from "@/lib/ipcaHelper";
+import { invalidateEngineCache } from "@/lib/engineCache";
 
 /** Fetch CDI records if the product uses CDI indexador */
 async function fetchCdiIfNeeded(
