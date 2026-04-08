@@ -1,4 +1,4 @@
-import { buildIpcaCycleDailyFactorMap, type IpcaProjecaoRecord, type IpcaRecord } from "@/lib/ipcaHelper";
+import { buildIpcaCycleDailyFactorMap, buildIpcaCdbDailyMultMap, type IpcaProjecaoRecord, type IpcaRecord } from "@/lib/ipcaHelper";
 
 /**
  * Engine de Cálculo Diário de Renda Fixa Prefixada
@@ -244,16 +244,16 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     }
   }
 
-  // Build IPCA daily factor map using ANNIVERSARY CYCLE methodology.
-  // Each cycle runs between consecutive anniversary dates (derived from vencimento).
-  // The monthly IPCA factor is distributed across business days within the cycle,
-  // NOT across calendar-month business days.
+  // Build IPCA daily factor map.
+  // For CDB/LC/LCI/LCA/LF/LFS/LIG (this phase): use accumulated + pro-rata projection
+  // by calendar-month business days — NOT anniversary cycles.
+  // Anniversary cycles (buildIpcaCycleDailyFactorMap) are preserved for future
+  // debênture/CRI/CRA support.
   let ipcaDailyFactorMap: Map<string, number> | null = null;
-  if (isPosFixadoIPCA && vencimento) {
-    ipcaDailyFactorMap = buildIpcaCycleDailyFactorMap(
+  if (isPosFixadoIPCA) {
+    ipcaDailyFactorMap = buildIpcaCdbDailyMultMap(
       dataInicio,
       dataCalculo || dataInicio,
-      vencimento,
       calendario,
       ipcaOficialRecords ?? [],
       ipcaProjecaoRecords ?? []
@@ -330,12 +330,16 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // Multiplicador
     let dailyMult: number;
     if (isPosFixadoIPCA) {
-      // IPCA + Taxa: fator_ipca_diario * fator_taxa_real_diario - 1
-      // IPCA accrues on ALL calendar days (not just business days).
-      // The real rate (taxa) also compounds daily on calendar days for IPCA products.
+      // CDB IPCA: ipcaDailyFactorMap contains the daily inflation increment
+      // (1.0 on non-business days, >1 on business days).
+      // Combine with taxa real factor (which also only applies on business days).
       if (ipcaDailyFactorMap) {
         const ipcaFator = ipcaDailyFactorMap.get(cal.data) || 1;
-        dailyMult = ipcaFator * ipcaTaxaRealFactor - 1;
+        if (diaUtil) {
+          dailyMult = ipcaFator * ipcaTaxaRealFactor - 1;
+        } else {
+          dailyMult = 0; // No accrual on non-business days for CDB IPCA
+        }
       } else {
         dailyMult = 0;
       }

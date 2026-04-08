@@ -175,7 +175,7 @@ function getFirstAnniversaryAfter(dataInicio: string, anniversaryDay: number): s
   return toIso(y, m, clampDay(y, m, anniversaryDay));
 }
 
-// ─── Cycle-based daily factor map ────────────────────────────────────
+// ─── Cycle-based daily factor map (for debêntures/CRI/CRA — future use) ──
 
 /**
  * Builds a Map<date, dailyIpcaFactor> for EVERY calendar day in [dataInicio, dataCalculo].
@@ -185,6 +185,9 @@ function getFirstAnniversaryAfter(dataInicio: string, anniversaryDay: number): s
  * so that the engine can apply IPCA correction consistently on all days.
  *
  * dailyFactor = POWER(fatorCiclo, 1 / calendarDaysInCycle)
+ *
+ * NOTE: This is for anniversary-cycle products (debêntures, CRI, CRA).
+ * For CDB/LC/LCI/LCA/LF/LFS/LIG, use buildIpcaCdbDailyMultMap instead.
  */
 export function buildIpcaCycleDailyFactorMap(
   dataInicio: string,
@@ -197,25 +200,20 @@ export function buildIpcaCycleDailyFactorMap(
   const annDay = getAnniversaryDay(vencimento);
   const result = new Map<string, number>();
 
-  // Build a set of all calendar dates in range for iteration (including non-business days)
   const sortedCal = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
 
-  // Cache: cycle key → { factor, divisor }
   const cycleCache = new Map<string, { factor: number; divisor: number }>();
 
   for (const cal of sortedCal) {
     if (cal.data < dataInicio || cal.data > dataCalculo) continue;
-    // DO NOT skip non-business days — IPCA accrues on all calendar days
 
     const bounds = getAnniversaryBounds(cal.data, annDay);
     const cacheKey = bounds.lastAnniversary;
 
     let cycleInfo = cycleCache.get(cacheKey);
     if (!cycleInfo) {
-      // Always use CALENDAR DAYS as divisor for IPCA cycles
       const divisor = calendarDaysBetween(bounds.lastAnniversary, bounds.nextAnniversary) || 1;
 
-      // Select factor with look-ahead bias protection
       const factor = selectIpcaFactor(
         bounds.competencia,
         cal.data,
@@ -229,6 +227,138 @@ export function buildIpcaCycleDailyFactorMap(
 
     const dailyFactor = Math.pow(cycleInfo.factor, 1 / cycleInfo.divisor);
     result.set(cal.data, dailyFactor);
+  }
+
+  return result;
+}
+
+// ─── CDB IPCA: Accumulated + Pro-rata projection (calendar-month) ───
+
+/**
+ * For CDB/LC/LCI/LCA/LF/LFS/LIG IPCA products, the IPCA component is:
+ *
+ *   fatorInflacao = (produto de todos os fatores mensais oficiais fechados)
+ *                 × (1 + IPCA_projecao_mes_corrente)^(DU_decorridos / DU_totais_do_mes)
+ *
+ * The daily multiplier returned is the INCREMENTAL factor for each business day:
+ *   on business days: the factor that, when compounded, builds the accumulated inflation
+ *   on non-business days: 1.0 (no accrual)
+ *
+ * Returns Map<date, dailyIpcaMult> where dailyIpcaMult is the inflation
+ * component of the daily multiplier (to be combined with taxa real by the engine).
+ */
+export function buildIpcaCdbDailyMultMap(
+  dataInicio: string,
+  dataCalculo: string,
+  calendario: CalEntry[],
+  oficialRecords: IpcaRecord[],
+  projecaoRecords: IpcaProjecaoRecord[]
+): Map<string, number> {
+  const result = new Map<string, number>();
+
+  const sortedCal = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
+
+  // Pre-build: for each month "YYYY-MM", count total business days and list them
+  const monthBizDays = new Map<string, string[]>();
+  for (const cal of sortedCal) {
+    if (!cal.dia_util) continue;
+    const mk = cal.data.substring(0, 7);
+    const arr = monthBizDays.get(mk) || [];
+    arr.push(cal.data);
+    monthBizDays.set(mk, arr);
+  }
+
+  // Build oficial map: competencia "YYYY-MM" → fator_mensal
+  const oficialMap = new Map<string, { fator: number; pubDate: string | null }>();
+  for (const r of oficialRecords) {
+    oficialMap.set(r.competencia.substring(0, 7), {
+      fator: r.fator_mensal,
+      pubDate: r.data_publicacao || null,
+    });
+  }
+
+  // Build projecao map: competencia "YYYY-MM" → fator_projetado
+  const projecaoMap = new Map<string, number>();
+  for (const r of projecaoRecords) {
+    projecaoMap.set(r.competencia.substring(0, 7), r.fator_projetado);
+  }
+
+  // For each calendar day in range, compute the accumulated IPCA factor
+  // Then derive the daily increment.
+  let prevAccumulatedFactor = 1.0;
+
+  for (const cal of sortedCal) {
+    if (cal.data < dataInicio || cal.data > dataCalculo) continue;
+
+    if (!cal.dia_util) {
+      // Non-business day: no IPCA accrual, mult = 1
+      result.set(cal.data, 1.0);
+      continue;
+    }
+
+    const calcDate = cal.data;
+    const calcMonth = calcDate.substring(0, 7); // "YYYY-MM"
+
+    // 1. Accumulate all CLOSED official months from dataInicio up to (but not including) current month
+    // Only count months whose data_publicacao <= calcDate (no look-ahead)
+    let accFatorFechado = 1.0;
+
+    // Find the month of dataInicio
+    const startMonth = dataInicio.substring(0, 7);
+
+    // Iterate months from startMonth to the month BEFORE calcMonth
+    let cursor = startMonth;
+    while (cursor < calcMonth) {
+      const ofRec = oficialMap.get(cursor);
+      if (ofRec && ofRec.pubDate && ofRec.pubDate <= calcDate) {
+        accFatorFechado *= ofRec.fator;
+      } else {
+        // Official not yet published for this date — use projection
+        const proj = projecaoMap.get(cursor);
+        if (proj) {
+          accFatorFechado *= proj;
+        }
+        // If neither, treat as 1.0 (no data)
+      }
+      // Advance cursor to next month
+      const [cy, cm] = cursor.split("-").map(Number);
+      const nextM = cm === 12 ? 1 : cm + 1;
+      const nextY = cm === 12 ? cy + 1 : cy;
+      cursor = `${nextY}-${String(nextM).padStart(2, "0")}`;
+    }
+
+    // 2. Pro-rata projection for the CURRENT month
+    const currentMonthBiz = monthBizDays.get(calcMonth) || [];
+    const duTotal = currentMonthBiz.length;
+    // Count business days elapsed in the current month up to and including calcDate
+    let duDecorridos = 0;
+    for (const d of currentMonthBiz) {
+      if (d <= calcDate) duDecorridos++;
+    }
+
+    // Get the IPCA factor for the current month
+    let fatorMesCorrente: number;
+    const ofCurrent = oficialMap.get(calcMonth);
+    if (ofCurrent && ofCurrent.pubDate && ofCurrent.pubDate <= calcDate) {
+      // Official already published — use it fully (pro-rata still applies since month isn't over in accrual terms)
+      fatorMesCorrente = ofCurrent.fator;
+    } else {
+      // Use projection
+      fatorMesCorrente = projecaoMap.get(calcMonth) ?? 1.0;
+    }
+
+    const proRataFator = duTotal > 0
+      ? Math.pow(fatorMesCorrente, duDecorridos / duTotal)
+      : 1.0;
+
+    // 3. Total accumulated factor for this date
+    const totalAccumulated = accFatorFechado * proRataFator;
+
+    // 4. Daily increment = totalAccumulated / prevAccumulatedFactor
+    const dailyMult = totalAccumulated / prevAccumulatedFactor;
+    result.set(cal.data, dailyMult);
+
+    prevAccumulatedFactor = totalAccumulated;
   }
 
   return result;
