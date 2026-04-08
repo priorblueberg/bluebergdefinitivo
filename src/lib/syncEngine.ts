@@ -884,12 +884,26 @@ export async function reprocessMovimentacoesForCodigo(
     .order("data", { ascending: true })
     .order("created_at", { ascending: true });
 
-  if (!manualMovs || manualMovs.length === 0) return;
+   if (!manualMovs || manualMovs.length === 0) return;
 
   // 3. Fetch custodia base info from Aplicação Inicial
   const aplicacaoInicial = manualMovs.find(
     (m) => m.tipo_movimentacao === "Aplicação Inicial"
   ) || manualMovs[0];
+
+  // Check category to decide engine
+  const { data: catInfo } = await supabase
+    .from("categorias")
+    .select("nome")
+    .eq("id", aplicacaoInicial.categoria_id)
+    .single();
+  const isMoedasReprocess = catInfo?.nome === "Moedas";
+
+  if (isMoedasReprocess) {
+    // Moedas: no PU reprocessing needed, just sync custodia
+    await syncCustodiaFromMovimentacao(aplicacaoInicial.id, refDate);
+    return;
+  }
 
   const baseInfo = {
     dataInicio: aplicacaoInicial.data,
@@ -957,12 +971,10 @@ export async function reprocessMovimentacoesForCodigo(
     let newQuantidade: number | null;
 
     if (isNoVencimento) {
-      // Pagamento "No Vencimento": uses Preço Unitário and QTD Aplicação / QTD Resgate
       if (isAplicacao) {
         newPU = rowDia.precoUnitario;
         newQuantidade = rowDia.qtdAplicacaoPU > 0 ? rowDia.qtdAplicacaoPU : (newPU > 0 ? Number(mov.valor) / newPU : null);
       } else if (isResgateTotalMov) {
-        // On resgate_total day: use QTD Resgate (2)
         newPU = rowDia.precoUnitario;
         newQuantidade = rowDia.qtdResgate2 > 0 ? rowDia.qtdResgate2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
       } else {
@@ -970,7 +982,6 @@ export async function reprocessMovimentacoesForCodigo(
         newQuantidade = rowDia.qtdResgatePU > 0 ? rowDia.qtdResgatePU : (newPU > 0 ? Number(mov.valor) / newPU : null);
       }
     } else {
-      // Other pagamento types: uses PU Juros Periódicos and QTD Aplicação (2) / QTD Resgate (2)
       if (isAplicacao) {
         newPU = rowDia.puJurosPeriodicos;
         newQuantidade = rowDia.qtdAplicacao2 > 0 ? rowDia.qtdAplicacao2 : (newPU > 0 ? Number(mov.valor) / newPU : null);
