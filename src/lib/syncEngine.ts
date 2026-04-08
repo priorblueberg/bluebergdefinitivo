@@ -550,6 +550,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   // Derive estrategia from modalidade + indexador
   const derivedEstrategia = (() => {
+    if (isMoedas) return "Câmbio";
     const mod = aplicacaoInicial.modalidade;
     const idx = aplicacaoInicial.indexador;
     if (mod === "Poupança") return "Poupança";
@@ -558,6 +559,20 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     if (mod === "Mista" && idx === "CDI") return "Pós Fixado CDI + Taxa";
     return null;
   })();
+
+  // Compute total quantity for Moedas
+  let totalQuantidade = aplicacaoInicial.quantidade;
+  if (isMoedas) {
+    let qtyAccum = 0;
+    for (const m of allMovs || []) {
+      if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
+        qtyAccum += Number(m.quantidade || 0);
+      } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
+        qtyAccum -= Number(m.quantidade || 0);
+      }
+    }
+    totalQuantidade = Math.max(qtyAccum, 0);
+  }
 
   const custodiaData = {
     codigo_custodia: mov.codigo_custodia,
@@ -570,7 +585,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     taxa: aplicacaoInicial.taxa,
     valor_investido: valorInvestidoLiquido,
     preco_unitario: aplicacaoInicial.preco_unitario,
-    quantidade: aplicacaoInicial.quantidade,
+    quantidade: totalQuantidade,
     vencimento: aplicacaoInicial.vencimento,
     emissor_id: aplicacaoInicial.emissor_id,
     pagamento: aplicacaoInicial.pagamento,
@@ -578,7 +593,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     categoria_id: aplicacaoInicial.categoria_id,
     user_id: mov.user_id,
     data_limite: dataLimite,
-    alocacao_patrimonial: "Renda Fixa",
+    alocacao_patrimonial: isMoedas ? "Câmbio" : "Renda Fixa",
     multiplicador: categoriaNome || null,
     resgate_total: resgateTotal,
     data_calculo: dataCalculo,
