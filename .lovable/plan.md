@@ -1,42 +1,30 @@
 
 
-## Plano: Corrigir status da carteira quando Poupança está ativa
+## Plan: Fix Boleta de Aplicação/Resgate para Moedas
 
-### Problema
-A Poupança tem `data_limite = 2040-12-31` (correto), mas `computeResgateTotal` retorna `null` para ela (sem vencimento, sem movimentação de "Resgate Total"). Na lógica de `syncControleCarteiras`, resultados `null` são ignorados (`if (rt) resgateDates.push(rt)`), então o `resgateTotal` da carteira fica como `2025-12-30` (último resgate dos outros ativos). Como `2025-12-30 <= hoje`, a carteira é marcada como "Encerrada".
+### Problem
 
-A `data_limite = 2040-12-31` está sendo gravada corretamente na custódia e refletida na coluna `data_limite` da carteira. Porém, a coluna `resgate_total` da carteira é calculada apenas a partir de `computeResgateTotal`, que depende de vencimento ou movimentação de "Resgate Total" — nenhum dos quais existe para a Poupança ativa.
+Two bugs prevent the Dólar application flow from working:
 
-### Solução
-Alterar a lógica de status em `syncControleCarteiras` (linhas 710-734 do `syncEngine.ts`):
+1. **Product reset on tipo change**: When the user selects "Moedas", the product "Dólar" is auto-selected (single product). But when they then select "Aplicação", line 1042 resets `produtoId` to `""` (only Poupança is excluded from the reset). Since the `useEffect` that auto-selects depends on `[categoriaId]`, it won't re-fire.
 
-**Se qualquer ativo da categoria NÃO tem resgate total (retorno null de computeResgateTotal), significa que esse ativo ainda está ativo e sem data de encerramento. Nesse caso, a carteira deve ser considerada "Ativa".**
+2. **Circular visibility**: `showDolarFields` requires `isDolar` (needs `produtoId` set), but the product selector is rendered inside the `showDolarFields` block — so it can never appear if `produtoId` is empty.
 
-Lógica proposta:
-1. Contar quantos ativos retornaram `null` de `computeResgateTotal`
-2. Se algum ativo retornou `null` (Poupança ativa sem resgate), a carteira permanece "Ativa" e `resgate_total` da carteira fica `null`
-3. Só quando TODOS os ativos tiverem uma data de resgate definida é que se usa o maior resgate para determinar o status
+### Fix — `src/pages/CadastrarTransacaoPage.tsx`
 
-### Alteração
+**Change 1 — Don't reset produtoId for Moedas** (line ~1042):
+Change `if (!isPoupanca) setProdutoId("")` to `if (!isPoupanca && !isMoedas) setProdutoId("")`. This preserves the auto-selected "Dólar" when switching tipo, same pattern as Poupança.
 
-**`src/lib/syncEngine.ts`** — função `syncControleCarteiras` (~linha 710):
+**Change 2 — Show product selector before `showDolarFields`**:
+Add a product selector block for `isMoedas && isAplicacao && !isDolar` (when product isn't selected yet), so the user can manually pick "Dólar" if auto-select didn't fire. This mirrors the Renda Fixa pattern where the product selector is shown independently.
 
-```text
-ANTES:
-  resgateDates = [] (apenas datas não-null)
-  resgateTotal = último da lista ordenada
-  status baseado apenas em resgateTotal vs refDate
+Alternatively (simpler): move the `showDolarFields` condition to not depend on `isDolar` for the product selector portion — show the selector when `isMoedas && isAplicacao`, then gate the remaining fields on `isDolar`.
 
-DEPOIS:
-  Se algum ativo retornou null → resgateTotal = null, carteira "Ativa"
-  Se todos retornaram data → resgateTotal = maior data, lógica normal
-```
+**Change 3 — Resgate flow for Moedas**: Verify `showResgateFields` works. It's `showTipoMovimentacao && isResgate && !isEditing` — this should work since `showTipoMovimentacao = !!categoriaId && (isRendaFixa || isMoedas)`. The custodia items load via useEffect on `isResgate && categoriaId`. This path looks correct.
 
-A mesma correção deve ser aplicada à função `syncCarteiraGeral` (que segue lógica idêntica nas linhas 780-784).
+### Summary of edits
 
-### Impacto
-- A carteira "Renda Fixa" ficará "Ativa" enquanto a Poupança estiver sem resgate total
-- A coluna `resgate_total` da carteira ficará vazia (null/—) quando houver ativo ativo sem resgate
-- Nenhum impacto em cálculos — apenas no status de exibição da carteira
-- Ativos já encerrados continuam sendo tratados normalmente
+- **File**: `src/pages/CadastrarTransacaoPage.tsx`
+  - Line ~1042: Add `!isMoedas` to the produtoId reset condition
+  - Line ~613: Change `showDolarFields` to not require `isDolar` for initial visibility, or restructure the Dólar block to show the product selector unconditionally when `isMoedas && isAplicacao`
 
