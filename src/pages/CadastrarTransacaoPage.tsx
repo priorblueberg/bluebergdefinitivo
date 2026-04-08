@@ -713,13 +713,16 @@ export default function CadastrarTransacaoPage() {
         const fmtBR = (v: number) =>
           v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // For Dólar resgate: calculate USD quantity from BRL value
+        // For Moedas resgate: calculate currency quantity from BRL value
         const isMoedasResgate = categoriaSelecionada?.nome === "Moedas";
         let resgateQty: number | null = null;
         let resgatePU: number | null = null;
         if (isMoedasResgate) {
+          // Determine which cotação table to use based on the product
+          const resgateProdutoNome = produtos.find(p => p.id === selectedCustodia.produto_id)?.nome || "";
+          const cotacaoTable = resgateProdutoNome.toLowerCase().includes("euro") ? "historico_euro" : "historico_dolar";
           const { data: cotRow } = await supabase
-            .from("historico_dolar")
+            .from(cotacaoTable)
             .select("cotacao_venda")
             .eq("data", data)
             .maybeSingle();
