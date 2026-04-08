@@ -978,6 +978,7 @@ export async function reprocessMovimentacoesForCodigo(
 
   // 5. Fetch CDI if needed
   const cdiRecordsReprocess = await fetchCdiIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
+  const ipcaRecordsReprocess = await fetchIpcaIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
 
   // 6. For each movimentação, compute engine and update PU/Qty from calculator columns
   for (let i = 0; i < manualMovs.length; i++) {
@@ -1007,6 +1008,7 @@ export async function reprocessMovimentacoesForCodigo(
       vencimento: baseInfo.vencimento,
       indexador: aplicacaoInicial.indexador,
       cdiRecords: cdiRecordsReprocess,
+      ipcaRecords: ipcaRecordsReprocess,
     });
 
     const rowDia = rows.find((r) => r.data === mov.data);
