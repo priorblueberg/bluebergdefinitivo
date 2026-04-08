@@ -68,7 +68,8 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     setInputValue(format(clamped, "dd/MM/yyyy"));
     setIsRecalculating(true);
     try {
-      await recalculateAllForDataReferencia(user.id, format(clamped, "yyyy-MM-dd"));
+      // Lightweight: only update data_calculo fields, no destructive rebuild
+      await updateDataReferenciaOnly(user.id, format(clamped, "yyyy-MM-dd"));
       applyDataReferencia();
       toast.success("Data de referência aplicada com sucesso");
     } catch (err) {
