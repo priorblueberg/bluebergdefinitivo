@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import {
   Dialog,
   DialogContent,
@@ -280,11 +281,81 @@ export default function BoletaCustodiaDialog({
         setLoadingCota(false);
         setLoadingSaldo(false);
       }
-    } else {
-      // Non-engine products (e.g. Poupança): use valor_investido as saldo
-      if (tipo === "Resgate") {
+    } else if (isPoupancaProduct && tipo === "Resgate") {
+      // Poupança: use poupança engine to get updated balance
+      setLoadingSaldo(true);
+      try {
+        const calQuery = supabase
+          .from("calendario_dias_uteis")
+          .select("data, dia_util")
+          .gte("data", row.data_inicio)
+          .lte("data", dateISO)
+          .order("data");
+        const movQuery = supabase
+          .from("movimentacoes")
+          .select("data, tipo_movimentacao, valor")
+          .eq("codigo_custodia", row.codigo_custodia)
+          .eq("user_id", userId)
+          .order("data");
+        const selicQuery = supabase
+          .from("historico_selic")
+          .select("data, taxa_anual")
+          .gte("data", row.data_inicio)
+          .lte("data", dateISO)
+          .order("data");
+        const trQuery = supabase
+          .from("historico_tr")
+          .select("data, taxa_mensal")
+          .gte("data", row.data_inicio)
+          .lte("data", dateISO)
+          .order("data");
+        const poupRendQuery = supabase
+          .from("historico_poupanca_rendimento")
+          .select("data, rendimento_mensal")
+          .gte("data", row.data_inicio)
+          .lte("data", dateISO)
+          .order("data");
+
+        const [calRes, movRes, selicRes, trRes, poupRendRes] = await Promise.all([
+          calQuery, movQuery, selicQuery, trQuery, poupRendQuery,
+        ]);
+
+        const calendario = calRes.data || [];
+        const movimentacoes = (movRes.data || []).map((m: any) => ({
+          data: m.data,
+          tipo_movimentacao: m.tipo_movimentacao,
+          valor: Number(m.valor),
+        }));
+        const selicRecords = (selicRes.data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) }));
+        const trRecords = (trRes.data || []).map((r: any) => ({ data: r.data, taxa_mensal: Number(r.taxa_mensal) }));
+        const poupancaRendimentoRecords = (poupRendRes.data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
+        const lotes = buildPoupancaLotesFromMovs(movimentacoes);
+
+        const rows = calcularPoupancaDiario({
+          dataInicio: row.data_inicio,
+          dataCalculo: dateISO,
+          calendario,
+          movimentacoes,
+          lotes,
+          selicRecords,
+          trRecords,
+          poupancaRendimentoRecords,
+          dataResgateTotal: row.resgate_total,
+        });
+
+        const rowDia = rows.find((r) => r.data === dateISO);
+        if (rowDia) {
+          setSaldoDisponivel(rowDia.liquido);
+        } else {
+          setSaldoDisponivel(row.valor_investido);
+        }
+      } catch {
         setSaldoDisponivel(row.valor_investido);
+      } finally {
+        setLoadingSaldo(false);
       }
+    } else if (tipo === "Resgate") {
+      setSaldoDisponivel(row.valor_investido);
     }
   };
 
@@ -405,16 +476,17 @@ export default function BoletaCustodiaDialog({
     onClose();
   };
 
+  const isPoupanca = row.modalidade === "Poupança";
   const readonlyFields = [
     { label: "Nome", value: fmtReadonly(row.nome) },
     { label: "Categoria", value: row.categoria },
     { label: "Produto", value: row.produto },
     { label: "Instituição", value: fmtReadonly(row.instituicao) },
     { label: "Emissor", value: fmtReadonly(row.emissor) },
-    { label: "Modalidade", value: fmtReadonly(row.modalidade) },
+    { label: "Modalidade", value: isPoupanca ? "—" : fmtReadonly(row.modalidade) },
     { label: "Indexador", value: fmtReadonly(row.indexador) },
     { label: "Taxa", value: fmtTaxa(row.taxa) },
-    { label: "Pagamento", value: fmtReadonly(row.pagamento) },
+    { label: "Pagamento", value: isPoupanca ? "—" : fmtReadonly(row.pagamento) },
     { label: "Vencimento", value: fmtDate(row.vencimento) },
   ];
 
