@@ -330,12 +330,16 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // Multiplicador
     let dailyMult: number;
     if (isPosFixadoIPCA) {
-      // IPCA + Taxa: fator_ipca_diario * fator_taxa_real_diario - 1
-      // IPCA accrues on ALL calendar days (not just business days).
-      // The real rate (taxa) also compounds daily on calendar days for IPCA products.
+      // CDB IPCA: ipcaDailyFactorMap contains the daily inflation increment
+      // (1.0 on non-business days, >1 on business days).
+      // Combine with taxa real factor (which also only applies on business days).
       if (ipcaDailyFactorMap) {
         const ipcaFator = ipcaDailyFactorMap.get(cal.data) || 1;
-        dailyMult = ipcaFator * ipcaTaxaRealFactor - 1;
+        if (diaUtil) {
+          dailyMult = ipcaFator * ipcaTaxaRealFactor - 1;
+        } else {
+          dailyMult = 0; // No accrual on non-business days for CDB IPCA
+        }
       } else {
         dailyMult = 0;
       }
