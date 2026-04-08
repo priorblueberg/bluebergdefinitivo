@@ -7,7 +7,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
-import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
+import { recalculateAllForDataReferencia, updateDataReferenciaOnly } from "@/lib/syncEngine";
+import { invalidateAllCaches } from "@/lib/dataCache";
+import { invalidateEngineCache } from "@/lib/engineCache";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -44,6 +46,8 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     setIsForceRecalculating(true);
     setIsRecalculating(true);
     try {
+      invalidateAllCaches();
+      invalidateEngineCache();
       await recalculateAllForDataReferencia(user.id, format(dataReferencia, "yyyy-MM-dd"));
       applyDataReferencia();
       toast.success("Reprocessamento completo realizado com sucesso");
@@ -64,7 +68,8 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     setInputValue(format(clamped, "dd/MM/yyyy"));
     setIsRecalculating(true);
     try {
-      await recalculateAllForDataReferencia(user.id, format(clamped, "yyyy-MM-dd"));
+      // Lightweight: only update data_calculo fields, no destructive rebuild
+      await updateDataReferenciaOnly(user.id, format(clamped, "yyyy-MM-dd"));
       applyDataReferencia();
       toast.success("Data de referência aplicada com sucesso");
     } catch (err) {

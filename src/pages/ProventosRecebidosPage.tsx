@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
@@ -6,6 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
+import {
+  cacheRFResult, getCachedRFResult, buildMovsHash,
+} from "@/lib/engineCache";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -40,9 +43,12 @@ export default function ProventosRecebidosPage() {
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>("data");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const calcVersionRef = useRef(0);
 
   useEffect(() => {
     if (!user) return;
+    calcVersionRef.current += 1;
+    const myVersion = calcVersionRef.current;
     (async () => {
       setLoading(true);
 
@@ -113,25 +119,49 @@ export default function ProventosRecebidosPage() {
 
       // 1. Renda Fixa — pagamento de juros periódicos
       const ipcaData = await fetchIpcaRecordsBatch(withPayment, dataReferenciaISO);
+      // Cancellation check
+      if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
+
       for (const prod of withPayment) {
         const endDate = (prod as any).data_calculo || dataReferenciaISO;
+        const productMovs = movByCodigo.get(prod.codigo_custodia) || [];
+        const movsHash = buildMovsHash(productMovs);
 
-        const engineRows = calcularRendaFixaDiario({
+        const cacheParams = {
           dataInicio: prod.data_inicio,
-          dataCalculo: endDate,
           taxa: prod.taxa || 0,
           modalidade: prod.modalidade || "Prefixado",
           puInicial: prod.preco_unitario || 1000,
-          calendario,
-          movimentacoes: movByCodigo.get(prod.codigo_custodia) || [],
-          dataResgateTotal: prod.resgate_total,
           pagamento: prod.pagamento,
           vencimento: prod.vencimento,
-          calendarioSorted: true,
           indexador: (prod as any).indexador,
-          ipcaOficialRecords: (prod as any).indexador === "IPCA" ? ipcaData?.oficial : undefined,
-          ipcaProjecaoRecords: (prod as any).indexador === "IPCA" ? ipcaData?.projecao : undefined,
-        });
+          dataResgateTotal: prod.resgate_total,
+          dataLimite: null,
+          movsHash,
+        };
+
+        let engineRows = getCachedRFResult(prod.codigo_custodia, endDate, cacheParams);
+
+        if (!engineRows) {
+          const fullRows = calcularRendaFixaDiario({
+            dataInicio: prod.data_inicio,
+            dataCalculo: endDate,
+            taxa: prod.taxa || 0,
+            modalidade: prod.modalidade || "Prefixado",
+            puInicial: prod.preco_unitario || 1000,
+            calendario,
+            movimentacoes: productMovs,
+            dataResgateTotal: prod.resgate_total,
+            pagamento: prod.pagamento,
+            vencimento: prod.vencimento,
+            calendarioSorted: true,
+            indexador: (prod as any).indexador,
+            ipcaOficialRecords: (prod as any).indexador === "IPCA" ? ipcaData?.oficial : undefined,
+            ipcaProjecaoRecords: (prod as any).indexador === "IPCA" ? ipcaData?.projecao : undefined,
+          });
+          cacheRFResult(prod.codigo_custodia, fullRows, cacheParams);
+          engineRows = fullRows;
+        }
 
         for (const row of engineRows) {
           if (row.pagamentoJuros > 0.01) {
@@ -179,6 +209,8 @@ export default function ProventosRecebidosPage() {
         }
       }
 
+      // Only update if still the latest request
+      if (myVersion !== calcVersionRef.current) return;
       setRows(allProventos);
       setLoading(false);
     })();

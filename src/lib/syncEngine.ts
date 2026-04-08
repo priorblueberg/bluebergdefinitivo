@@ -7,6 +7,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import { fetchIpcaRecords } from "@/lib/ipcaHelper";
+import { invalidateEngineCache } from "@/lib/engineCache";
 
 /** Fetch CDI records if the product uses CDI indexador */
 async function fetchCdiIfNeeded(
@@ -1040,8 +1041,8 @@ export async function fullSyncAfterMovimentacao(
   userId: string,
   dataReferencia?: string
 ) {
+  invalidateEngineCache();
   if (movimentacaoId) {
-    // Get the codigo_custodia for this movimentação
     const { data: mov } = await supabase
       .from("movimentacoes")
       .select("codigo_custodia")
@@ -1064,6 +1065,7 @@ export async function fullSyncAfterDelete(
   userId: string,
   dataReferencia?: string
 ) {
+  invalidateEngineCache();
   if (codigoCustodia) {
     // Check if there are remaining movimentações for this codigo
     const { data: remaining } = await supabase
@@ -1091,9 +1093,57 @@ export async function fullSyncAfterDelete(
 /** Guard to prevent concurrent full recalculations */
 let _isRecalculating = false;
 
+/**
+ * Lightweight date-only update: updates data_calculo on custodia and controle_de_carteiras
+ * WITHOUT destructive rebuild or engine re-runs.
+ * Use this when only the reference date changes (no movimentação changes).
+ */
+export async function updateDataReferenciaOnly(userId: string, dataReferencia: string) {
+  if (_isRecalculating) {
+    console.warn("updateDataReferenciaOnly: recalculation in progress, skipping");
+    return;
+  }
+  _isRecalculating = true;
+
+  try {
+    // 1. Fetch all custodia records
+    const { data: allCustodia } = await supabase
+      .from("custodia")
+      .select("id, codigo_custodia, data_inicio, data_limite, vencimento, resgate_total, categoria_id")
+      .eq("user_id", userId);
+
+    if (!allCustodia || allCustodia.length === 0) {
+      _isRecalculating = false;
+      return;
+    }
+
+    // 2. Batch update data_calculo on each custodia
+    const categoriaIds = new Set<string>();
+
+    for (const cust of allCustodia) {
+      categoriaIds.add(cust.categoria_id);
+      const newDataCalculo = computeDataCalculo(dataReferencia, cust.resgate_total, cust.data_limite);
+      await supabase.from("custodia").update({ data_calculo: newDataCalculo }).eq("id", cust.id);
+    }
+
+    // 3. Sync controle_de_carteiras for each category (lightweight: just status/dates)
+    const catUpdates: Promise<any>[] = [];
+    for (const catId of categoriaIds) {
+      catUpdates.push(syncControleCarteiras(catId, userId, dataReferencia));
+    }
+    await Promise.all(catUpdates);
+
+    // 4. Sync carteira geral
+    await syncCarteiraGeral(userId, dataReferencia);
+  } finally {
+    _isRecalculating = false;
+  }
+}
+
 /** Recalculate ALL custodia and controle_de_carteiras for a user based on a new data_referencia.
  *  Destructive-reconstructive: wipes custodia, controle_de_carteiras, and automatic movimentacoes,
  *  then replays every unique codigo_custodia once.
+ *  Use for "force reprocess" or after movimentação changes.
  */
 export async function recalculateAllForDataReferencia(userId: string, dataReferencia: string) {
   if (_isRecalculating) {
@@ -1103,6 +1153,7 @@ export async function recalculateAllForDataReferencia(userId: string, dataRefere
   _isRecalculating = true;
 
   try {
+    invalidateEngineCache();
     // 1. Delete all custodia for the user
     await supabase.from("custodia").delete().eq("user_id", userId);
 

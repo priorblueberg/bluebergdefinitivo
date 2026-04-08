@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,6 +8,11 @@ import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { calcularCambioDiario, type CambioDailyRow } from "@/lib/cambioEngine";
+import {
+  cacheRFResult, getCachedRFResult, buildMovsHash,
+  cachePoupancaResult, getCachedPoupancaResult,
+  cacheCambioResult, getCachedCambioResult,
+} from "@/lib/engineCache";
 
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
@@ -74,6 +79,7 @@ export default function PosicaoConsolidadaPage() {
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const calcVersionRef = useRef(0);
 
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -85,11 +91,12 @@ export default function PosicaoConsolidadaPage() {
   useEffect(() => {
     if (!user) return;
     if (_cachedVersion === appliedVersion) return;
-    calculate();
+    calcVersionRef.current += 1;
+    calculate(calcVersionRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, appliedVersion]);
 
-  async function calculate() {
+  async function calculate(requestVersion: number) {
     setLoading(true);
     try {
       const { data: products } = await supabase
@@ -163,6 +170,9 @@ export default function PosicaoConsolidadaPage() {
           : Promise.resolve({ data: [] }),
       ]);
 
+      // Cancellation check: if a newer calculation was requested, abort
+      if (requestVersion !== calcVersionRef.current) { setLoading(false); return; }
+
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
       const cdiRecords = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
       const cdiMap = new Map<string, number>();
@@ -190,26 +200,51 @@ export default function PosicaoConsolidadaPage() {
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
         const isEncerrado = product.resgate_total ? product.resgate_total <= dataReferenciaISO : product.vencimento ? product.vencimento <= dataReferenciaISO : false;
         const calcEnd = dataFim > dataReferenciaISO ? dataReferenciaISO : dataFim;
+        const productMovs = movByCodigo.get(product.codigo_custodia) || [];
+        const movsHash = buildMovsHash(productMovs);
 
-        const engineRows = calcularRendaFixaDiario({
+        const cacheParams = {
           dataInicio: product.data_inicio,
-          dataCalculo: calcEnd,
           taxa: product.taxa || 0,
           modalidade: product.modalidade || "",
           puInicial: product.preco_unitario || 1000,
-          calendario,
-          movimentacoes: movByCodigo.get(product.codigo_custodia) || [],
-          dataResgateTotal: product.resgate_total,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
           indexador: product.indexador,
-          cdiRecords,
+          dataResgateTotal: product.resgate_total,
           dataLimite: product.data_limite,
-          precomputedCdiMap: cdiMap,
-          calendarioSorted: true,
-          ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
-          ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
-        });
+          movsHash,
+        };
+
+        // Try cache first
+        let engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams);
+
+        if (!engineRows) {
+          // Cache miss: compute for the max possible date and cache
+          const maxCalcEnd = dataFim > dataReferenciaISO ? dataFim : dataReferenciaISO;
+          const fullRows = calcularRendaFixaDiario({
+            dataInicio: product.data_inicio,
+            dataCalculo: maxCalcEnd,
+            taxa: product.taxa || 0,
+            modalidade: product.modalidade || "",
+            puInicial: product.preco_unitario || 1000,
+            calendario,
+            movimentacoes: productMovs,
+            dataResgateTotal: product.resgate_total,
+            pagamento: product.pagamento,
+            vencimento: product.vencimento,
+            indexador: product.indexador,
+            cdiRecords,
+            dataLimite: product.data_limite,
+            precomputedCdiMap: cdiMap,
+            calendarioSorted: true,
+            ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
+            ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
+          });
+          cacheRFResult(product.codigo_custodia, fullRows, cacheParams);
+          // Slice to requested date
+          engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams) || fullRows;
+        }
 
         allProductRows.push(engineRows);
 
@@ -320,6 +355,9 @@ export default function PosicaoConsolidadaPage() {
         });
       }
 
+      // Cancellation check before expensive carteira computation
+      if (requestVersion !== calcVersionRef.current) { setLoading(false); return; }
+
       // Compute TWR for total rentabilidade using carteira engine
       if (allProductRows.length > 0) {
         const carteiraRows = calcularCarteiraRendaFixa({
@@ -336,6 +374,9 @@ export default function PosicaoConsolidadaPage() {
         setCarteiraRentabilidade(0);
         _cachedRentabilidade = 0;
       }
+
+      // Only update state if this is still the latest request
+      if (requestVersion !== calcVersionRef.current) return;
 
       setRows(posicaoRows);
       _cachedRows = posicaoRows;
@@ -508,7 +549,7 @@ export default function PosicaoConsolidadaPage() {
           row={dialogRow}
           userId={user.id}
           dataReferenciaISO={dataReferenciaISO}
-          onSuccess={() => { calculate(); applyDataReferencia(); }}
+          onSuccess={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
         />
       )}
 
@@ -520,7 +561,7 @@ export default function PosicaoConsolidadaPage() {
           data={getDetalheData(detalheRow)}
           userId={user.id}
           dataReferenciaISO={dataReferenciaISO}
-          onDataChanged={() => { calculate(); applyDataReferencia(); }}
+          onDataChanged={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
         />
       )}
 
