@@ -212,14 +212,17 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 // ── Main engine ──
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite, precomputedCdiMap, calendarioSorted } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite, precomputedCdiMap, calendarioSorted, ipcaRecords } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
   const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
   const isMistaCDI = modalidade === "Mista" && indexador === "CDI";
+  const isPosFixadoIPCA = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "IPCA";
   // Pre-compute fixed spread for Mista: (1+taxa)^(1/252)
   const mistaSpreadFactor = isMistaCDI ? Math.pow(1 + taxa / 100, 1 / 252) : 1;
+  // Pre-compute taxa real factor for IPCA: (1+taxa)^(1/252)
+  const ipcaTaxaRealFactor = isPosFixadoIPCA ? Math.pow(1 + taxa / 100, 1 / 252) : 1;
 
   // Build CDI map: reuse pre-computed if available
   let cdiMap: Map<string, number>;
@@ -233,6 +236,42 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       }
     }
   }
+
+  // Build IPCA daily factor map: month -> fator diário
+  // Each month's factor is distributed across its business days
+  let ipcaDailyFactorMap: Map<string, number> | null = null;
+  if (isPosFixadoIPCA && ipcaRecords && ipcaRecords.length > 0) {
+    ipcaDailyFactorMap = new Map<string, number>();
+    const sortedCal = calendarioSorted ? calendario : [...calendario].sort((a, b) => a.data.localeCompare(b.data));
+    
+    // Count business days per month
+    const bizDaysByMonth = new Map<string, number>();
+    for (const c of sortedCal) {
+      if (!c.dia_util) continue;
+      const monthKey = c.data.substring(0, 7); // "YYYY-MM"
+      bizDaysByMonth.set(monthKey, (bizDaysByMonth.get(monthKey) || 0) + 1);
+    }
+
+    // Map competencia -> fator_mensal
+    const ipcaByCompetencia = new Map<string, number>();
+    for (const rec of ipcaRecords) {
+      const key = rec.competencia.substring(0, 7); // "YYYY-MM"
+      ipcaByCompetencia.set(key, rec.fator_mensal);
+    }
+
+    // For each business day, compute its daily IPCA factor
+    for (const c of sortedCal) {
+      if (!c.dia_util) continue;
+      const monthKey = c.data.substring(0, 7);
+      const fatorMensal = ipcaByCompetencia.get(monthKey);
+      const bizDays = bizDaysByMonth.get(monthKey) || 1;
+      if (fatorMensal && fatorMensal > 0) {
+        const fatorDiario = Math.pow(fatorMensal, 1 / bizDays);
+        ipcaDailyFactorMap.set(c.data, fatorDiario);
+      }
+    }
+  }
+
   const movMap = buildMovMap(movimentacoes);
 
   const sorted = calendarioSorted ? calendario : [...calendario].sort((a, b) => a.data.localeCompare(b.data));
