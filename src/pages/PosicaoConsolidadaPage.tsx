@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,6 +8,11 @@ import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { calcularCambioDiario, type CambioDailyRow } from "@/lib/cambioEngine";
+import {
+  cacheRFResult, getCachedRFResult, buildMovsHash,
+  cachePoupancaResult, getCachedPoupancaResult,
+  cacheCambioResult, getCachedCambioResult,
+} from "@/lib/engineCache";
 
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { Input } from "@/components/ui/input";
