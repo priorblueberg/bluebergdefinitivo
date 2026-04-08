@@ -178,15 +178,13 @@ function getFirstAnniversaryAfter(dataInicio: string, anniversaryDay: number): s
 // ─── Cycle-based daily factor map ────────────────────────────────────
 
 /**
- * Builds a Map<date, dailyIpcaFactor> for every business day in [dataInicio, dataCalculo].
+ * Builds a Map<date, dailyIpcaFactor> for EVERY calendar day in [dataInicio, dataCalculo].
  *
- * For each business day:
- * 1. Determine anniversary cycle bounds
- * 2. Select the correct IPCA factor (official or projection, no look-ahead bias)
- * 3. Determine divisor:
- *    - STUB period (before first anniversary after issue): CALENDAR DAYS in cycle
- *    - Normal cycles: BUSINESS DAYS in cycle
- * 4. Compute: fatorDiario = POWER(fatorCiclo, 1 / divisor)
+ * IPCA correction uses CALENDAR DAYS (dias corridos) as the divisor for all cycles.
+ * The factor is emitted for every day (business days AND non-business days alike)
+ * so that the engine can apply IPCA correction consistently on all days.
+ *
+ * dailyFactor = POWER(fatorCiclo, 1 / calendarDaysInCycle)
  */
 export function buildIpcaCycleDailyFactorMap(
   dataInicio: string,
@@ -199,41 +197,23 @@ export function buildIpcaCycleDailyFactorMap(
   const annDay = getAnniversaryDay(vencimento);
   const result = new Map<string, number>();
 
-  // Sort calendar once
+  // Build a set of all calendar dates in range for iteration (including non-business days)
   const sortedCal = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
-
-  // Determine the first anniversary boundary after the issue date
-  const firstAnniversary = getFirstAnniversaryAfter(dataInicio, annDay);
 
   // Cache: cycle key → { factor, divisor }
   const cycleCache = new Map<string, { factor: number; divisor: number }>();
 
   for (const cal of sortedCal) {
     if (cal.data < dataInicio || cal.data > dataCalculo) continue;
-    if (!cal.dia_util) continue;
+    // DO NOT skip non-business days — IPCA accrues on all calendar days
 
     const bounds = getAnniversaryBounds(cal.data, annDay);
     const cacheKey = bounds.lastAnniversary;
 
     let cycleInfo = cycleCache.get(cacheKey);
     if (!cycleInfo) {
-      // Determine if this cycle is the initial stub (before first anniversary)
-      const isStubCycle = bounds.nextAnniversary <= firstAnniversary;
-
-      let divisor: number;
-      if (isStubCycle) {
-        // Stub period: use CALENDAR DAYS in the cycle
-        divisor = calendarDaysBetween(bounds.lastAnniversary, bounds.nextAnniversary);
-      } else {
-        // Normal cycle: use BUSINESS DAYS
-        divisor = 0;
-        for (const c of sortedCal) {
-          if (c.data <= bounds.lastAnniversary) continue;
-          if (c.data > bounds.nextAnniversary) break;
-          if (c.dia_util) divisor++;
-        }
-      }
-      if (divisor === 0) divisor = 1;
+      // Always use CALENDAR DAYS as divisor for IPCA cycles
+      const divisor = calendarDaysBetween(bounds.lastAnniversary, bounds.nextAnniversary) || 1;
 
       // Select factor with look-ahead bias protection
       const factor = selectIpcaFactor(
