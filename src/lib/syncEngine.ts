@@ -605,6 +605,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     if (mod === "Poupança") return "Poupança";
     if (mod === "Prefixado") return "Prefixado";
     if ((mod === "Pos Fixado" || mod === "Pós Fixado") && idx === "CDI") return "Pós Fixado CDI";
+    if ((mod === "Pos Fixado" || mod === "Pós Fixado") && idx === "IPCA") return "Pós Fixado IPCA + Taxa";
     if (mod === "Mista" && idx === "CDI") return "Pós Fixado CDI + Taxa";
     return null;
   })();
