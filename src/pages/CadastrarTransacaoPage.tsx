@@ -234,6 +234,8 @@ export default function CadastrarTransacaoPage() {
   const isRendaFixa = categoriaSelecionada?.nome === "Renda Fixa";
   const isMoedas = categoriaSelecionada?.nome === "Moedas";
   const isDolar = produtoSelecionado?.nome === "Dólar";
+  const isEuro = produtoSelecionado?.nome === "Euro";
+  const isMoeda = isDolar || isEuro;
   const isPoupanca = produtoSelecionado?.nome === "Poupança";
   const isPosFixado = modalidade === "Pós Fixado";
   const isEditing = !!editId;
@@ -241,10 +243,10 @@ export default function CadastrarTransacaoPage() {
   const isAplicacao = tipoMovimentacao === "Aplicação";
   const selectedCustodia = custodiaItems.find((c) => c.id === selectedCustodiaId);
 
-  // Dólar-specific state
-  const [cotacaoDolar, setCotacaoDolar] = useState<number | null>(null);
+  // Moeda-specific state (Dólar or Euro)
+  const [cotacaoMoeda, setCotacaoMoeda] = useState<number | null>(null);
   const [cotacaoLoading, setCotacaoLoading] = useState(false);
-  const [quantidadeUSD, setQuantidadeUSD] = useState<number | null>(null);
+  const [quantidadeMoeda, setQuantidadeMoeda] = useState<number | null>(null);
 
   // Load categorias on mount — only Renda Fixa (Poupança is now a product within RF)
   useEffect(() => {
