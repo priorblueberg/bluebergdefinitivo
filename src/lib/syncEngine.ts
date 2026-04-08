@@ -162,6 +162,7 @@ async function syncManualResgatesTotais(
         vencimento: custodiaRecord.vencimento,
         indexador: custodiaRecord.indexador,
         cdiRecords,
+        ipcaRecords,
       });
 
       const rowDia = rows[rows.length - 1];
