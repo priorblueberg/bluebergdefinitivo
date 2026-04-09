@@ -203,8 +203,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       // Credit yield on anniversary date regardless of business day
       if (isAniversario(date, lote.diaAniversario)) {
         // Preferred: use série 195 (rendimento direto da poupança do BCB)
-        const dataBaseTR = getDataBaseTR(date, lote.diaAniversario);
-        const serie195 = poupRendMap.get(dataBaseTR);
+        // A Série 195 é indexada pela própria data do aniversário, não pelo mês anterior.
+        const serie195 = poupRendMap.get(date);
 
         let rendBruto: number;
         if (serie195 !== undefined) {
@@ -213,8 +213,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         } else {
           // Fallback: calcular a partir de Selic + TR
           const selicHoje = selicMap.get(date) ?? lastSelic;
-          const trDataBase = trMap.get(dataBaseTR) ?? 0;
-          rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trDataBase);
+          const trHoje = trMap.get(date) ?? 0;
+          rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trHoje);
         }
 
         // Manter 8 casas decimais no intermediário (padrão B3/CETIP)
