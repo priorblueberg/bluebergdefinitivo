@@ -79,6 +79,7 @@ export default function PosicaoConsolidadaPage() {
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [rentSort, setRentSort] = useState<"none" | "asc" | "desc">("none");
   const calcVersionRef = useRef(0);
 
   // Dialog states
