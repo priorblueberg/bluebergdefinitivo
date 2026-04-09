@@ -283,7 +283,7 @@ async function computeSaldoDisponivel(
         puInicial: custodia.preco_unitario,
         calendario,
         movimentacoes,
-        dataResgateTotal: results[2].data?.resgate_total ?? null,
+        dataResgateTotal: qResults[2].data?.resgate_total ?? null,
         pagamento: custodia.pagamento,
         vencimento: custodia.vencimento,
         indexador: custodia.indexador,
