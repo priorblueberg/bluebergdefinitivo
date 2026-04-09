@@ -50,13 +50,17 @@ export default function ProventosRecebidosPage() {
     calcVersionRef.current += 1;
     const myVersion = calcVersionRef.current;
     (async () => {
+      const t0 = performance.now();
+      console.log("[PERF][Proventos] ▶ calculate START");
       setLoading(true);
 
       // Load all custodia products for this user
+      const tFetch = performance.now();
       const { data: custodias } = await supabase
         .from("custodia")
         .select("codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, categoria_id, categorias(nome)")
         .eq("user_id", user.id);
+      console.log(`[PERF][Proventos]   fetch custodia: ${(performance.now()-tFetch).toFixed(0)}ms`);
 
       if (!custodias || custodias.length === 0) {
         setRows([]);
@@ -90,6 +94,7 @@ export default function ProventosRecebidosPage() {
       const allCodigos = allProducts.map((p: any) => p.codigo_custodia);
       const poupancaCodigos = poupancaProducts.map((p: any) => p.codigo_custodia);
 
+      const tHist = performance.now();
       const [calRes, allMovRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
           .gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
@@ -98,7 +103,7 @@ export default function ProventosRecebidosPage() {
         poupancaCodigos.length > 0
           ? supabase.from("historico_selic").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
-        Promise.resolve({ data: [] }), // lotes now built from movimentações
+        Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_tr").select("data, taxa_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
@@ -106,6 +111,7 @@ export default function ProventosRecebidosPage() {
           ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
       ]);
+      console.log(`[PERF][Proventos]   fetch históricos: ${(performance.now()-tHist).toFixed(0)}ms`);
 
       const calendario = (calRes.data || []).map((d: any) => ({ data: d.data, dia_util: d.dia_util }));
       const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
@@ -118,10 +124,14 @@ export default function ProventosRecebidosPage() {
       const allProventos: ProventoRow[] = [];
 
       // 1. Renda Fixa — pagamento de juros periódicos
+      const tIpca = performance.now();
       const ipcaData = await fetchIpcaRecordsBatch(withPayment, dataReferenciaISO);
+      console.log(`[PERF][Proventos]   fetch IPCA: ${(performance.now()-tIpca).toFixed(0)}ms`);
       // Cancellation check
       if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
+      const tRF = performance.now();
+      let rfHits = 0, rfMisses = 0;
       for (const prod of withPayment) {
         const endDate = (prod as any).data_calculo || dataReferenciaISO;
         const productMovs = movByCodigo.get(prod.codigo_custodia) || [];
@@ -143,6 +153,8 @@ export default function ProventosRecebidosPage() {
         let engineRows = getCachedRFResult(prod.codigo_custodia, endDate, cacheParams);
 
         if (!engineRows) {
+          rfMisses++;
+          const tEng = performance.now();
           const fullRows = calcularRendaFixaDiario({
             dataInicio: prod.data_inicio,
             dataCalculo: endDate,
@@ -159,8 +171,11 @@ export default function ProventosRecebidosPage() {
             ipcaOficialRecords: (prod as any).indexador === "IPCA" ? ipcaData?.oficial : undefined,
             ipcaProjecaoRecords: (prod as any).indexador === "IPCA" ? ipcaData?.projecao : undefined,
           });
+          console.log(`[PERF][Proventos]     engine RF cod=${prod.codigo_custodia} (${fullRows.length} rows): ${(performance.now()-tEng).toFixed(0)}ms`);
           cacheRFResult(prod.codigo_custodia, fullRows, cacheParams);
           engineRows = fullRows;
+        } else {
+          rfHits++;
         }
 
         for (const row of engineRows) {
@@ -174,8 +189,10 @@ export default function ProventosRecebidosPage() {
           }
         }
       }
+      console.log(`[PERF][Proventos]   RF total (${withPayment.length} prods, hits=${rfHits} misses=${rfMisses}): ${(performance.now()-tRF).toFixed(0)}ms`);
 
       // 2. Poupança — rendimentos de aniversário
+      const tPoup = performance.now();
       const selicRecords = ((selicRes as any).data || []).map((s: any) => ({ data: s.data, taxa_anual: Number(s.taxa_anual) }));
       const trRecords = ((trRes as any).data || []).map((t: any) => ({ data: t.data, taxa_mensal: Number(t.taxa_mensal) }));
       const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
@@ -208,11 +225,13 @@ export default function ProventosRecebidosPage() {
           }
         }
       }
+      console.log(`[PERF][Proventos]   Poupança (${poupancaProducts.length} prods): ${(performance.now()-tPoup).toFixed(0)}ms`);
 
       // Only update if still the latest request
       if (myVersion !== calcVersionRef.current) return;
       setRows(allProventos);
       setLoading(false);
+      console.log(`[PERF][Proventos] ■ calculate TOTAL: ${(performance.now()-t0).toFixed(0)}ms`);
     })();
   }, [user, appliedVersion, dataReferenciaISO]);
 

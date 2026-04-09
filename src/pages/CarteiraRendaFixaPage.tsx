@@ -129,7 +129,11 @@ export default function CarteiraRendaFixaPage() {
     calcVersionRef.current += 1;
     const myVersion = calcVersionRef.current;
     (async () => {
+      const t0 = performance.now();
+      console.log("[PERF][CarteiraRF] ▶ calculate START");
       setLoading(true);
+
+      const tFetch = performance.now();
       const [{ data: cartData }, { data: custodiaData }] = await Promise.all([
         supabase
           .from("controle_de_carteiras")
@@ -142,6 +146,7 @@ export default function CarteiraRendaFixaPage() {
           .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
           .eq("user_id", user.id),
       ]);
+      console.log(`[PERF][CarteiraRF]   fetch custodia+carteira: ${(performance.now()-tFetch).toFixed(0)}ms`);
 
       // Store all custodia for category allocation (active, no resgate_total)
       setAllCustodiaForCategoria((custodiaData || [])
@@ -216,6 +221,7 @@ export default function CarteiraRendaFixaPage() {
       const poupancaProds = rfProducts.filter(p => p.modalidade === "Poupança");
       const poupancaCodigos = poupancaProds.map(p => p.codigo_custodia);
 
+      const tHist = performance.now();
       const [calRes, cdiRes, ibovRes, selicRes, trRes, poupRendRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
           .gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data"),
@@ -233,6 +239,7 @@ export default function CarteiraRendaFixaPage() {
           ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(dataInicio, 5)).lte("data", maxEndDate).order("data")
           : Promise.resolve({ data: [] }),
       ]);
+      console.log(`[PERF][CarteiraRF]   fetch históricos: ${(performance.now()-tHist).toFixed(0)}ms`);
 
       const calendario = (calRes.data || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
       const cdiRaw = (cdiRes.data || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
@@ -255,12 +262,14 @@ export default function CarteiraRendaFixaPage() {
       const poupancaRendimentoRecords = ((poupRendRes as any).data || []).map((r: any) => ({ data: r.data, rendimento_mensal: Number(r.rendimento_mensal) }));
 
       const allCodigos = rfProducts.map(p => p.codigo_custodia);
+      const tMovs = performance.now();
       const { data: allMovData } = await supabase
         .from("movimentacoes")
         .select("data, tipo_movimentacao, valor, codigo_custodia")
         .in("codigo_custodia", allCodigos)
         .eq("user_id", user!.id)
         .order("data");
+      console.log(`[PERF][CarteiraRF]   fetch movimentações: ${(performance.now()-tMovs).toFixed(0)}ms`);
 
       const movByCodigo = new Map<number, { data: string; tipo_movimentacao: string; valor: number }[]>();
       for (const m of (allMovData || [])) {
@@ -270,15 +279,19 @@ export default function CarteiraRendaFixaPage() {
       }
 
       const allProdRows: DailyRow[][] = [];
-      const prodRowProducts: CustodiaProduct[] = []; // parallel array to track which product each row set belongs to
+      const prodRowProducts: CustodiaProduct[] = [];
 
       // Fetch IPCA if any product uses it
+      const tIpca = performance.now();
       const ipcaData = await fetchIpcaRecordsBatch(rfProducts.filter(p => p.modalidade !== "Poupança"), dataCalculo);
+      console.log(`[PERF][CarteiraRF]   fetch IPCA: ${(performance.now()-tIpca).toFixed(0)}ms`);
 
       // Cancellation check after heavy DB fetches
       if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
       // Renda Fixa products — use engine cache
+      const tRF = performance.now();
+      let rfHits = 0, rfMisses = 0;
       for (const product of rfProducts.filter(p => p.modalidade !== "Poupança")) {
         const dataFim = product.resgate_total || product.vencimento || dataCalculo;
         const calcEnd = dataFim > dataCalculo ? dataCalculo : dataFim;
@@ -301,6 +314,8 @@ export default function CarteiraRendaFixaPage() {
         let engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams);
 
         if (!engineRows) {
+          rfMisses++;
+          const tEng = performance.now();
           const maxEnd = dataFim > dataCalculo ? dataFim : dataCalculo;
           const fullRows = calcularRendaFixaDiario({
             dataInicio: product.data_inicio,
@@ -321,15 +336,20 @@ export default function CarteiraRendaFixaPage() {
             ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
             ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
           });
+          console.log(`[PERF][CarteiraRF]     engine RF cod=${product.codigo_custodia} (${fullRows.length} rows): ${(performance.now()-tEng).toFixed(0)}ms`);
           cacheRFResult(product.codigo_custodia, fullRows, cacheParams);
           engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams) || fullRows;
+        } else {
+          rfHits++;
         }
 
         allProdRows.push(engineRows);
         prodRowProducts.push(product);
       }
+      console.log(`[PERF][CarteiraRF]   RF engine total (${rfProducts.filter(p=>p.modalidade!=="Poupança").length} prods, hits=${rfHits} misses=${rfMisses}): ${(performance.now()-tRF).toFixed(0)}ms`);
 
       // Poupança products
+      const tPoup = performance.now();
       for (const product of poupancaProds) {
         const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
         const lotesForEngine = buildPoupancaLotesFromMovs(allMovsForProduct);
@@ -348,6 +368,7 @@ export default function CarteiraRendaFixaPage() {
         }));
         prodRowProducts.push(product);
       }
+      console.log(`[PERF][CarteiraRF]   Poupança engine (${poupancaProds.length} prods): ${(performance.now()-tPoup).toFixed(0)}ms`);
 
       setAllProductRows(allProdRows);
 
@@ -396,12 +417,14 @@ export default function CarteiraRendaFixaPage() {
       // Cancellation check before final computation
       if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
+      const tCarteira = performance.now();
       const result = calcularCarteiraRendaFixa({
         productRows: allProdRows,
         calendario,
         dataInicio,
         dataCalculo,
       });
+      console.log(`[PERF][CarteiraRF]   carteira TWR: ${(performance.now()-tCarteira).toFixed(0)}ms`);
 
       // Only update state if still the latest request
       if (myVersion !== calcVersionRef.current) return;
@@ -410,6 +433,7 @@ export default function CarteiraRendaFixaPage() {
       _cartRFCachedVersion = appliedVersion;
       _cartRFCached = { carteiraInfo: info, carteiraRows: result, allProductRows: allProdRows, cdiRecords: mergedCdi, ibovespaData: ibovRaw, productList: pList, allCustodiaForCategoria: (custodiaData || []).filter((r: any) => !r.resgate_total).map((r: any) => ({ categoria_nome: r.categorias?.nome || "Outros", valor_investido: Number(r.valor_investido), custodia_no_dia: r.custodia_no_dia != null ? Number(r.custodia_no_dia) : null })) };
       setLoading(false);
+      console.log(`[PERF][CarteiraRF] ■ calculate TOTAL: ${(performance.now()-t0).toFixed(0)}ms`);
     })();
   }, [user, appliedVersion]);
 
