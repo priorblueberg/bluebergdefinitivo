@@ -63,6 +63,81 @@ describe("poupancaEngine", () => {
     expect(lotes.map((lote) => lote.dia_aniversario)).toEqual([28, 1, 1, 1]);
   });
 
+  it("aplicação em dia 29 não rende no primeiro dia 1, só no segundo", () => {
+    const rows = calcularPoupancaDiario({
+      dataInicio: "2024-01-29",
+      dataCalculo: "2024-03-01",
+      calendario: [
+        { data: "2024-01-29", dia_util: true },
+        { data: "2024-02-01", dia_util: true },
+        { data: "2024-03-01", dia_util: true },
+      ],
+      movimentacoes: [{ data: "2024-01-29", tipo_movimentacao: "Aplicação Inicial", valor: 100000 }],
+      lotes: buildPoupancaLotesFromMovs([
+        { data: "2024-01-29", tipo_movimentacao: "Aplicação Inicial", valor: 100000 },
+      ]),
+      selicRecords: [],
+      trRecords: [],
+      poupancaRendimentoRecords: [
+        { data: "2024-01-29", rendimento_mensal: 0.617 },
+      ],
+    });
+
+    // 01/02 NÃO deve ter rendimento (ciclo incompleto)
+    expect(rows.find((r) => r.data === "2024-02-01")?.ganhoDiario).toBe(0);
+    // 01/03 DEVE ter rendimento
+    expect(rows.find((r) => r.data === "2024-03-01")?.ganhoDiario).toBeGreaterThan(0);
+    expect(rows.find((r) => r.data === "2024-03-01")?.liquido).toBeCloseTo(100617, 0);
+  });
+
+  it("aplicação em dia 30 não rende no primeiro dia 1, só no segundo", () => {
+    const rows = calcularPoupancaDiario({
+      dataInicio: "2024-01-30",
+      dataCalculo: "2024-03-01",
+      calendario: [
+        { data: "2024-01-30", dia_util: true },
+        { data: "2024-02-01", dia_util: true },
+        { data: "2024-03-01", dia_util: true },
+      ],
+      movimentacoes: [{ data: "2024-01-30", tipo_movimentacao: "Aplicação Inicial", valor: 100000 }],
+      lotes: buildPoupancaLotesFromMovs([
+        { data: "2024-01-30", tipo_movimentacao: "Aplicação Inicial", valor: 100000 },
+      ]),
+      selicRecords: [],
+      trRecords: [],
+      poupancaRendimentoRecords: [
+        { data: "2024-01-30", rendimento_mensal: 0.617 },
+      ],
+    });
+
+    expect(rows.find((r) => r.data === "2024-02-01")?.ganhoDiario).toBe(0);
+    expect(rows.find((r) => r.data === "2024-03-01")?.ganhoDiario).toBeGreaterThan(0);
+  });
+
+  it("aplicação em dia 31 não rende no primeiro dia 1, só no segundo", () => {
+    const rows = calcularPoupancaDiario({
+      dataInicio: "2024-01-31",
+      dataCalculo: "2024-03-01",
+      calendario: [
+        { data: "2024-01-31", dia_util: true },
+        { data: "2024-02-01", dia_util: true },
+        { data: "2024-03-01", dia_util: true },
+      ],
+      movimentacoes: [{ data: "2024-01-31", tipo_movimentacao: "Aplicação Inicial", valor: 100000 }],
+      lotes: buildPoupancaLotesFromMovs([
+        { data: "2024-01-31", tipo_movimentacao: "Aplicação Inicial", valor: 100000 },
+      ]),
+      selicRecords: [],
+      trRecords: [],
+      poupancaRendimentoRecords: [
+        { data: "2024-01-31", rendimento_mensal: 0.617 },
+      ],
+    });
+
+    expect(rows.find((r) => r.data === "2024-02-01")?.ganhoDiario).toBe(0);
+    expect(rows.find((r) => r.data === "2024-03-01")?.ganhoDiario).toBeGreaterThan(0);
+  });
+
   it("usa fallback Selic+TR pela data de início do ciclo", () => {
     const rows = calcularPoupancaDiario({
       dataInicio: "2024-01-02",

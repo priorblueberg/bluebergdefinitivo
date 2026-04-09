@@ -42,6 +42,7 @@ interface LoteState {
   id: string;
   dataAplicacao: string;
   diaAniversario: number;
+  offsetPrimeiroCiclo: boolean;
   valorPrincipal: number;
   valorAtual: number;
   rendimentoAcumulado: number;
@@ -163,16 +164,20 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   // Initialize lote states (only active lotes)
   const loteStates: LoteState[] = lotes
     .filter(l => l.status === "ativo" || l.data_resgate !== null)
-    .map(l => ({
-      id: l.id,
-      dataAplicacao: l.data_aplicacao,
-      diaAniversario: Number(l.dia_aniversario),
-      valorPrincipal: Number(l.valor_principal),
-      valorAtual: Number(l.valor_principal), // Start from principal, will accumulate
-      rendimentoAcumulado: 0,
-      ultimoAniversario: null,
-      status: "ativo",
-    }));
+    .map(l => {
+      const diaOriginal = new Date(l.data_aplicacao + "T00:00:00").getDate();
+      return {
+        id: l.id,
+        dataAplicacao: l.data_aplicacao,
+        diaAniversario: Number(l.dia_aniversario),
+        offsetPrimeiroCiclo: diaOriginal >= 29,
+        valorPrincipal: Number(l.valor_principal),
+        valorAtual: Number(l.valor_principal),
+        rendimentoAcumulado: 0,
+        ultimoAniversario: null,
+        status: "ativo",
+      };
+    });
 
   const rows: DailyRow[] = [];
   let rentAcum2 = 0;
@@ -206,6 +211,16 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       );
 
       if (dataTeoricaAniversario !== date) continue;
+
+      // Para aplicações nos dias 29-31, o primeiro aniversário válido é dia 1
+      // do segundo mês seguinte (ciclo completo). Ex: 29/01 → primeiro em 01/03.
+      if (lote.offsetPrimeiroCiclo && lote.ultimoAniversario === null) {
+        const appDate = new Date(lote.dataAplicacao + "T00:00:00");
+        const appMonth = appDate.getFullYear() * 12 + appDate.getMonth();
+        const curDate = new Date(date + "T00:00:00");
+        const curMonth = curDate.getFullYear() * 12 + curDate.getMonth();
+        if (curMonth < appMonth + 2) continue;
+      }
 
       // Início do ciclo = último aniversário (ou data aplicação se primeiro ciclo)
       const dataInicioCiclo = lote.ultimoAniversario ?? lote.dataAplicacao;
