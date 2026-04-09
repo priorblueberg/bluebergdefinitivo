@@ -521,7 +521,17 @@ export default function PosicaoConsolidadaPage() {
                 <TableHead className="min-w-[250px]">Ativo</TableHead>
                 <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
                 <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
-                <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
+                <TableHead className="min-w-[110px]">
+                  <button
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => setRentSort(prev => prev === "none" ? "desc" : prev === "desc" ? "asc" : "none")}
+                  >
+                    Rentabilidade
+                    {rentSort === "none" && <ArrowUpDown size={14} />}
+                    {rentSort === "desc" && <ArrowDown size={14} />}
+                    {rentSort === "asc" && <ArrowUp size={14} />}
+                  </button>
+                </TableHead>
                 <TableHead className="min-w-[150px]">Custodiante</TableHead>
                 <TableHead className="min-w-[110px] text-right">% do Portfólio</TableHead>
                 <TableHead className="min-w-[180px] text-right">Ações</TableHead>
