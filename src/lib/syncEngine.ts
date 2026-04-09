@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import { fetchIpcaRecords } from "@/lib/ipcaHelper";
 import { invalidateEngineCache } from "@/lib/engineCache";
+import { getDiaAniversarioPoupanca } from "@/lib/poupancaEngine";
 
 /** Fetch CDI records if the product uses CDI indexador */
 async function fetchCdiIfNeeded(
@@ -354,7 +355,7 @@ async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodi
 
   for (const m of allMovs) {
     if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
-      const dia = new Date(m.data + "T00:00:00").getDate();
+      const dia = getDiaAniversarioPoupanca(m.data);
       lotes.push({
         data_aplicacao: m.data,
         dia_aniversario: dia,
