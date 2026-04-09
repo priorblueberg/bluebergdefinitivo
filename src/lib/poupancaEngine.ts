@@ -182,6 +182,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   const rows: DailyRow[] = [];
   let rentAcum2 = 0;
   let ganhoAcumulado = 0;
+  let totalAplicacoes = 0;
+  let totalResgates = 0;
 
   // Pre-sort lotes by application date for efficient filtering
   const sortedLoteStates = [...loteStates].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
@@ -292,12 +294,18 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     // Ganho diário
     const ganhoDiario = rendimentoDia;
     ganhoAcumulado += ganhoDiario;
+    totalAplicacoes += mov.aplicacoes;
+    totalResgates += mov.resgates;
 
-    // Rentabilidade diária %
-    const prevLiquido = idx > 0 ? rows[idx - 1].liquido : 0;
-    const base = prevLiquido + mov.aplicacoes - mov.resgates;
-    const rentDiariaPct = base > 0.01 ? ganhoDiario / base : 0;
-    rentAcum2 = (1 + rentAcum2) * (1 + rentDiariaPct) - 1;
+    // Rentabilidade acumulada % — Poupança usa retorno simples sobre aporte líquido
+    const aporteLiquido = totalAplicacoes - totalResgates;
+    rentAcum2 = aporteLiquido > 0.01 ? ganhoAcumulado / aporteLiquido : 0;
+
+    // Rentabilidade diária % (derivada da variação do acumulado)
+    const prevRentAcum = idx > 0 ? rows[idx - 1].rentAcumulada2 : 0;
+    const rentDiariaPct = (1 + prevRentAcum) > 0.0000001
+      ? (1 + rentAcum2) / (1 + prevRentAcum) - 1
+      : 0;
 
     const row: DailyRow = {
       data: date,
