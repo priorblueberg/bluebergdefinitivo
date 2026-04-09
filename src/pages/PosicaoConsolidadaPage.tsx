@@ -414,10 +414,18 @@ export default function PosicaoConsolidadaPage() {
   }
 
   const filteredRows = useMemo(() => {
-    if (!search.trim()) return rows;
-    const term = search.toLowerCase();
-    return rows.filter((r) => r.nome.toLowerCase().includes(term));
-  }, [rows, search]);
+    let result = rows;
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      result = result.filter((r) => r.nome.toLowerCase().includes(term));
+    }
+    if (rentSort !== "none") {
+      result = [...result].sort((a, b) =>
+        rentSort === "asc" ? a.rentabilidade - b.rentabilidade : b.rentabilidade - a.rentabilidade
+      );
+    }
+    return result;
+  }, [rows, search, rentSort]);
 
   const totalValor = useMemo(() => filteredRows.reduce((s, r) => s + r.valorAtualizado, 0), [filteredRows]);
   const totalGanho = useMemo(() => filteredRows.reduce((s, r) => s + r.ganhoFinanceiro, 0), [filteredRows]);
