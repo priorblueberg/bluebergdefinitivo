@@ -333,7 +333,7 @@ export function buildPoupancaLotesFromMovs(
     .map((m, idx) => ({
       id: `derived-${idx}`,
       data_aplicacao: m.data,
-      dia_aniversario: new Date(m.data + "T00:00:00").getDate(),
+      dia_aniversario: getDiaAniversarioPoupanca(m.data),
       valor_principal: m.valor,
       valor_atual: m.valor,
       rendimento_acumulado: 0,
