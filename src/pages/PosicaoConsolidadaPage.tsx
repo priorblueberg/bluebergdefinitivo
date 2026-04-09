@@ -97,12 +97,16 @@ export default function PosicaoConsolidadaPage() {
   }, [user, appliedVersion]);
 
   async function calculate(requestVersion: number) {
+    const t0 = performance.now();
+    console.log("[PERF][PosConsolidada] ▶ calculate START");
     setLoading(true);
     try {
+      const tFetch = performance.now();
       const { data: products } = await supabase
         .from("custodia")
         .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
         .eq("user_id", user!.id);
+      console.log(`[PERF][PosConsolidada]   fetch custodia: ${(performance.now()-tFetch).toFixed(0)}ms (${products?.length || 0} rows)`);
 
       if (!products || products.length === 0) { setRows([]); _cachedRows = []; _cachedVersion = appliedVersion; setLoading(false); return; }
 
@@ -149,6 +153,7 @@ export default function PosicaoConsolidadaPage() {
       const poupancaCodigos = poupancaProducts.map((p) => p.codigo_custodia);
       const cambioCodigos = cambioProducts.map((p) => p.codigo_custodia);
 
+      const tHist = performance.now();
       const [calRes, cdiRes, movRes, selicRes, lotesRes, trRes, poupRendRes, dolarRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
@@ -169,6 +174,7 @@ export default function PosicaoConsolidadaPage() {
           ? supabase.from("historico_dolar").select("data, cotacao_venda").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
       ]);
+      console.log(`[PERF][PosConsolidada]   fetch históricos (parallel): ${(performance.now()-tHist).toFixed(0)}ms`);
 
       // Cancellation check: if a newer calculation was requested, abort
       if (requestVersion !== calcVersionRef.current) { setLoading(false); return; }
@@ -194,8 +200,13 @@ export default function PosicaoConsolidadaPage() {
       const allProductRows: DailyRow[][] = [];
 
       // Fetch IPCA if any product uses it
+      const tIpca = performance.now();
       const ipcaData = await fetchIpcaRecordsBatch(rfProducts, dataReferenciaISO);
+      console.log(`[PERF][PosConsolidada]   fetch IPCA: ${(performance.now()-tIpca).toFixed(0)}ms`);
 
+      const tRF = performance.now();
+      let rfCacheHits = 0;
+      let rfCacheMisses = 0;
       for (const product of rfProducts) {
         const dataFim = product.resgate_total || product.vencimento || product.data_calculo || "2099-12-31";
         const isEncerrado = product.resgate_total ? product.resgate_total <= dataReferenciaISO : product.vencimento ? product.vencimento <= dataReferenciaISO : false;
@@ -220,6 +231,8 @@ export default function PosicaoConsolidadaPage() {
         let engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams);
 
         if (!engineRows) {
+          rfCacheMisses++;
+          const tEngine = performance.now();
           // Cache miss: compute for the max possible date and cache
           const maxCalcEnd = dataFim > dataReferenciaISO ? dataFim : dataReferenciaISO;
           const fullRows = calcularRendaFixaDiario({
@@ -241,9 +254,12 @@ export default function PosicaoConsolidadaPage() {
             ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
             ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
           });
+          console.log(`[PERF][PosConsolidada]     engine RF cod=${product.codigo_custodia} (${fullRows.length} rows): ${(performance.now()-tEngine).toFixed(0)}ms`);
           cacheRFResult(product.codigo_custodia, fullRows, cacheParams);
           // Slice to requested date
           engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams) || fullRows;
+        } else {
+          rfCacheHits++;
         }
 
         allProductRows.push(engineRows);
@@ -263,8 +279,10 @@ export default function PosicaoConsolidadaPage() {
           });
         }
       }
+      console.log(`[PERF][PosConsolidada]   RF engine total (${rfProducts.length} prods, cache hits=${rfCacheHits} misses=${rfCacheMisses}): ${(performance.now()-tRF).toFixed(0)}ms`);
 
       // Poupança products — FIFO (single row) or per-certificate
+      const tPoup = performance.now();
       for (const product of poupancaProducts) {
         const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
         const lotesForEngine = buildPoupancaLotesFromMovs(allMovsForProduct);
@@ -302,8 +320,10 @@ export default function PosicaoConsolidadaPage() {
           }
         }
       }
+      console.log(`[PERF][PosConsolidada]   Poupança engine (${poupancaProducts.length} prods): ${(performance.now()-tPoup).toFixed(0)}ms`);
 
       // Câmbio products
+      const tCambio = performance.now();
       const dolarRecords = ((dolarRes as any).data || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
 
       // Fetch Euro cotações if needed
@@ -342,6 +362,7 @@ export default function PosicaoConsolidadaPage() {
           });
         }
       }
+      console.log(`[PERF][PosConsolidada]   Câmbio engine (${cambioProducts.length} prods): ${(performance.now()-tCambio).toFixed(0)}ms`);
 
       for (const product of otherProducts) {
         posicaoRows.push({
@@ -359,6 +380,7 @@ export default function PosicaoConsolidadaPage() {
       if (requestVersion !== calcVersionRef.current) { setLoading(false); return; }
 
       // Compute TWR for total rentabilidade using carteira engine
+      const tCarteira = performance.now();
       if (allProductRows.length > 0) {
         const carteiraRows = calcularCarteiraRendaFixa({
           productRows: allProductRows,
@@ -374,6 +396,7 @@ export default function PosicaoConsolidadaPage() {
         setCarteiraRentabilidade(0);
         _cachedRentabilidade = 0;
       }
+      console.log(`[PERF][PosConsolidada]   carteira TWR: ${(performance.now()-tCarteira).toFixed(0)}ms`);
 
       // Only update state if this is still the latest request
       if (requestVersion !== calcVersionRef.current) return;
@@ -381,6 +404,7 @@ export default function PosicaoConsolidadaPage() {
       setRows(posicaoRows);
       _cachedRows = posicaoRows;
       _cachedVersion = appliedVersion;
+      console.log(`[PERF][PosConsolidada] ■ calculate TOTAL: ${(performance.now()-t0).toFixed(0)}ms`);
     } catch (err) {
       console.error("Erro ao calcular posição consolidada:", err);
     } finally {

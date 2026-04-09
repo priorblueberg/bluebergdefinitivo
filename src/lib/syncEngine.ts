@@ -1099,6 +1099,8 @@ let _isRecalculating = false;
  * Use this when only the reference date changes (no movimentação changes).
  */
 export async function updateDataReferenciaOnly(userId: string, dataReferencia: string) {
+  const t0 = performance.now();
+  console.log("[PERF][syncEngine] ▶ updateDataReferenciaOnly START");
   if (_isRecalculating) {
     console.warn("updateDataReferenciaOnly: recalculation in progress, skipping");
     return;
@@ -1107,36 +1109,46 @@ export async function updateDataReferenciaOnly(userId: string, dataReferencia: s
 
   try {
     // 1. Fetch all custodia records
+    const t1 = performance.now();
     const { data: allCustodia } = await supabase
       .from("custodia")
       .select("id, codigo_custodia, data_inicio, data_limite, vencimento, resgate_total, categoria_id")
       .eq("user_id", userId);
+    console.log(`[PERF][syncEngine]   fetch custodia: ${(performance.now()-t1).toFixed(0)}ms (${allCustodia?.length || 0} rows)`);
 
     if (!allCustodia || allCustodia.length === 0) {
       _isRecalculating = false;
+      console.log(`[PERF][syncEngine] ■ updateDataReferenciaOnly END (no custodia) ${(performance.now()-t0).toFixed(0)}ms`);
       return;
     }
 
     // 2. Batch update data_calculo on each custodia
     const categoriaIds = new Set<string>();
+    const t2 = performance.now();
 
     for (const cust of allCustodia) {
       categoriaIds.add(cust.categoria_id);
       const newDataCalculo = computeDataCalculo(dataReferencia, cust.resgate_total, cust.data_limite);
       await supabase.from("custodia").update({ data_calculo: newDataCalculo }).eq("id", cust.id);
     }
+    console.log(`[PERF][syncEngine]   update data_calculo (${allCustodia.length} items): ${(performance.now()-t2).toFixed(0)}ms`);
 
     // 3. Sync controle_de_carteiras for each category (lightweight: just status/dates)
+    const t3 = performance.now();
     const catUpdates: Promise<any>[] = [];
     for (const catId of categoriaIds) {
       catUpdates.push(syncControleCarteiras(catId, userId, dataReferencia));
     }
     await Promise.all(catUpdates);
+    console.log(`[PERF][syncEngine]   syncControleCarteiras (${categoriaIds.size} cats): ${(performance.now()-t3).toFixed(0)}ms`);
 
     // 4. Sync carteira geral
+    const t4 = performance.now();
     await syncCarteiraGeral(userId, dataReferencia);
+    console.log(`[PERF][syncEngine]   syncCarteiraGeral: ${(performance.now()-t4).toFixed(0)}ms`);
   } finally {
     _isRecalculating = false;
+    console.log(`[PERF][syncEngine] ■ updateDataReferenciaOnly TOTAL: ${(performance.now()-t0).toFixed(0)}ms`);
   }
 }
 
