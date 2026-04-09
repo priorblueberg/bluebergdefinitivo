@@ -60,32 +60,19 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     }
   };
 
-  const handleApply = async () => {
+  const handleApply = () => {
     if (!user || isStagedSameAsApplied) return;
     const t0 = performance.now();
-    console.log("[PERF][Header] ▶ handleApply START");
+    console.log("[PERF][Header] ▶ handleApply START (local-only)");
     const clamped = clampDate(stagedDate);
     setDataReferencia(clamped);
     setStagedDate(clamped);
     setInputValue(format(clamped, "dd/MM/yyyy"));
-    setIsRecalculating(true);
-    try {
-      const t1 = performance.now();
-      console.log(`[PERF][Header] → updateDataReferenciaOnly START (+${(t1-t0).toFixed(0)}ms)`);
-      await updateDataReferenciaOnly(user.id, format(clamped, "yyyy-MM-dd"));
-      const t2 = performance.now();
-      console.log(`[PERF][Header] ✓ updateDataReferenciaOnly END (${(t2-t1).toFixed(0)}ms, total +${(t2-t0).toFixed(0)}ms)`);
-      applyDataReferencia();
-      const t3 = performance.now();
-      console.log(`[PERF][Header] ✓ applyDataReferencia called (total +${(t3-t0).toFixed(0)}ms)`);
-      toast.success("Data de referência aplicada com sucesso");
-    } catch (err) {
-      console.error("Erro ao aplicar data de referência", err);
-      toast.error("Erro ao aplicar data de referência");
-    } finally {
-      setIsRecalculating(false);
-      console.log(`[PERF][Header] ■ handleApply COMPLETE (${(performance.now()-t0).toFixed(0)}ms total)`);
-    }
+    // Pure local state change — no DB writes.
+    // Pages react to appliedVersion and use engineCache to slice results.
+    applyDataReferencia();
+    console.log(`[PERF][Header] ■ handleApply COMPLETE (${(performance.now()-t0).toFixed(0)}ms total)`);
+    toast.success("Data de referência aplicada com sucesso");
   };
 
   const stageDate = (date: Date) => {
