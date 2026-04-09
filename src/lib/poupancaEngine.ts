@@ -223,7 +223,14 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       }
 
       // Início do ciclo = último aniversário (ou data aplicação se primeiro ciclo)
-      const dataInicioCiclo = lote.ultimoAniversario ?? lote.dataAplicacao;
+      // Para lotes com offset (dias 29-31), o primeiro ciclo efetivo
+      // inicia no dia 1 do mês seguinte à aplicação.
+      let dataInicioCiclo = lote.ultimoAniversario ?? lote.dataAplicacao;
+      if (lote.offsetPrimeiroCiclo && lote.ultimoAniversario === null) {
+        const appDate = new Date(lote.dataAplicacao + "T00:00:00");
+        const nxt = new Date(appDate.getFullYear(), appDate.getMonth() + 1, 1);
+        dataInicioCiclo = `${nxt.getFullYear()}-${String(nxt.getMonth() + 1).padStart(2, "0")}-01`;
+      }
       const serie195 = poupRendMap.get(dataInicioCiclo);
 
       let rendBruto: number | null = null;
