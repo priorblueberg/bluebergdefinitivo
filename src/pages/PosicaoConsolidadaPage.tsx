@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
@@ -79,6 +79,7 @@ export default function PosicaoConsolidadaPage() {
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [rentSort, setRentSort] = useState<"none" | "asc" | "desc">("none");
   const calcVersionRef = useRef(0);
 
   // Dialog states
@@ -413,10 +414,18 @@ export default function PosicaoConsolidadaPage() {
   }
 
   const filteredRows = useMemo(() => {
-    if (!search.trim()) return rows;
-    const term = search.toLowerCase();
-    return rows.filter((r) => r.nome.toLowerCase().includes(term));
-  }, [rows, search]);
+    let result = rows;
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      result = result.filter((r) => r.nome.toLowerCase().includes(term));
+    }
+    if (rentSort !== "none") {
+      result = [...result].sort((a, b) =>
+        rentSort === "asc" ? a.rentabilidade - b.rentabilidade : b.rentabilidade - a.rentabilidade
+      );
+    }
+    return result;
+  }, [rows, search, rentSort]);
 
   const totalValor = useMemo(() => filteredRows.reduce((s, r) => s + r.valorAtualizado, 0), [filteredRows]);
   const totalGanho = useMemo(() => filteredRows.reduce((s, r) => s + r.ganhoFinanceiro, 0), [filteredRows]);
@@ -512,7 +521,17 @@ export default function PosicaoConsolidadaPage() {
                 <TableHead className="min-w-[250px]">Ativo</TableHead>
                 <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
                 <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
-                <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
+                <TableHead className="min-w-[110px]">
+                  <button
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => setRentSort(prev => prev === "none" ? "desc" : prev === "desc" ? "asc" : "none")}
+                  >
+                    Rentabilidade
+                    {rentSort === "none" && <ArrowUpDown size={14} />}
+                    {rentSort === "desc" && <ArrowDown size={14} />}
+                    {rentSort === "asc" && <ArrowUp size={14} />}
+                  </button>
+                </TableHead>
                 <TableHead className="min-w-[150px]">Custodiante</TableHead>
                 <TableHead className="min-w-[110px] text-right">% do Portfólio</TableHead>
                 <TableHead className="min-w-[180px] text-right">Ações</TableHead>
