@@ -68,41 +68,37 @@ function calcRendimentoMensal(valorAtual: number, selicAnual: number, trMensal: 
 }
 
 /**
- * Retorna a data-base da TR para o aniversário: dia do aniversário do mês anterior.
- * Ex: aniversário em 04/04/2024 → data-base = 04/03/2024.
+ * Calcula o dia de aniversário correto da poupança a partir da data de aplicação.
+ * Regra BCB:
+ * - Aplicações nos dias 1 a 28: aniversário no mesmo dia de cada mês.
+ * - Aplicações nos dias 29, 30 ou 31: aniversário no dia 1 do mês seguinte.
+ *
+ * Essa função é a fonte única da regra e deve ser usada em todo o fluxo.
  */
-function getDataBaseTR(aniversarioISO: string, diaAniversario: number): string {
-  const [y, m] = aniversarioISO.split("-").map(Number);
-  // Mês anterior (0-indexed for getAniversarioNoMes)
-  let prevMonth = m - 2; // m is 1-indexed, we need 0-indexed minus 1
-  let prevYear = y;
-  if (prevMonth < 0) {
-    prevMonth = 11;
-    prevYear -= 1;
-  }
-  return getAniversarioNoMes(prevYear, prevMonth, diaAniversario);
+export function getDiaAniversarioPoupanca(dataAplicacao: string): number {
+  const dia = new Date(dataAplicacao + "T00:00:00").getDate();
+  // Dias 29, 30, 31 → aniversário tratado como dia 1 (do mês seguinte)
+  return dia >= 29 ? 1 : dia;
 }
 
 /**
- * Calcula a data do próximo aniversário a partir de uma data base.
- * Ajusta para o último dia do mês quando necessário (ex: dia 31 em fevereiro → dia 28).
- */
-function getAniversarioNoMes(year: number, month: number, diaAniversario: number): string {
-  // month is 0-indexed
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const dia = Math.min(diaAniversario, lastDay);
-  const m = String(month + 1).padStart(2, "0");
-  const d = String(dia).padStart(2, "0");
-  return `${year}-${m}-${d}`;
-}
-
-/**
- * Verifica se uma data ISO é dia de aniversário de um lote.
+ * Retorna true quando `dataISO` é dia de aniversário para um lote cujo
+ * `diaAniversario` já foi calculado via `getDiaAniversarioPoupanca`.
+ *
+ * Para dia_aniversario == 1 (originado de aplicações em 29/30/31),
+ * o aniversário é sempre no dia 1.
+ * Para outros valores, ajusta ao último dia do mês quando necessário.
  */
 function isAniversario(dataISO: string, diaAniversario: number): boolean {
+  const diaDoMes = new Date(dataISO + "T00:00:00").getDate();
+  if (diaAniversario === 1) {
+    return diaDoMes === 1;
+  }
+  // Para dias 2-28, verificar considerando meses curtos
   const [y, m] = dataISO.split("-").map(Number);
-  const expected = getAniversarioNoMes(y, m - 1, diaAniversario);
-  return dataISO === expected;
+  const lastDay = new Date(y, m, 0).getDate(); // último dia do mês m (1-indexed)
+  const expected = Math.min(diaAniversario, lastDay);
+  return diaDoMes === expected;
 }
 
 /**
