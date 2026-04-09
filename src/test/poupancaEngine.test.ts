@@ -79,15 +79,15 @@ describe("poupancaEngine", () => {
       selicRecords: [],
       trRecords: [],
       poupancaRendimentoRecords: [
-        { data: "2024-01-29", rendimento_mensal: 0.617 },
+        { data: "2024-02-01", rendimento_mensal: 0.5079 },
       ],
     });
 
     // 01/02 NÃO deve ter rendimento (ciclo incompleto)
     expect(rows.find((r) => r.data === "2024-02-01")?.ganhoDiario).toBe(0);
-    // 01/03 DEVE ter rendimento
+    // 01/03 DEVE ter rendimento — taxa buscada pela data efetiva do ciclo (01/02)
     expect(rows.find((r) => r.data === "2024-03-01")?.ganhoDiario).toBeGreaterThan(0);
-    expect(rows.find((r) => r.data === "2024-03-01")?.liquido).toBeCloseTo(100617, 0);
+    expect(rows.find((r) => r.data === "2024-03-01")?.liquido).toBeCloseTo(100507.9, 0);
   });
 
   it("aplicação em dia 30 não rende no primeiro dia 1, só no segundo", () => {
@@ -106,7 +106,7 @@ describe("poupancaEngine", () => {
       selicRecords: [],
       trRecords: [],
       poupancaRendimentoRecords: [
-        { data: "2024-01-30", rendimento_mensal: 0.617 },
+        { data: "2024-02-01", rendimento_mensal: 0.5079 },
       ],
     });
 
@@ -130,7 +130,7 @@ describe("poupancaEngine", () => {
       selicRecords: [],
       trRecords: [],
       poupancaRendimentoRecords: [
-        { data: "2024-01-31", rendimento_mensal: 0.617 },
+        { data: "2024-02-01", rendimento_mensal: 0.5079 },
       ],
     });
 
