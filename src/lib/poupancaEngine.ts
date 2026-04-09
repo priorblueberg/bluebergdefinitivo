@@ -8,6 +8,8 @@
  * - Selic > 8.5% a.a. → 0.5% ao mês + TR (TR = 0 no MVP)
  * - Selic ≤ 8.5% a.a. → 70% da Selic ao mês + TR
  * - Rendimento ocorre apenas no "aniversário" (dia do mês da aplicação)
+ * - Se o aniversário cair em fim de semana ou feriado, o crédito é
+ *   deslocado para o próximo dia útil
  * - Resgate segue FIFO (First In, First Out)
  */
 
@@ -82,23 +84,65 @@ export function getDiaAniversarioPoupanca(dataAplicacao: string): number {
 }
 
 /**
- * Retorna true quando `dataISO` é dia de aniversário para um lote cujo
- * `diaAniversario` já foi calculado via `getDiaAniversarioPoupanca`.
- *
- * Para dia_aniversario == 1 (originado de aplicações em 29/30/31),
- * o aniversário é sempre no dia 1.
- * Para outros valores, ajusta ao último dia do mês quando necessário.
+ * Retorna a data teórica do aniversário em um dado mês/ano,
+ * ajustando para o último dia do mês quando necessário (ex: fevereiro).
  */
-function isAniversario(dataISO: string, diaAniversario: number): boolean {
-  const diaDoMes = new Date(dataISO + "T00:00:00").getDate();
-  if (diaAniversario === 1) {
-    return diaDoMes === 1;
+function getDataTeóricaAniversario(year: number, month: number, diaAniversario: number): string {
+  const lastDay = new Date(year, month, 0).getDate(); // último dia do mês (month is 1-indexed here)
+  const dia = Math.min(diaAniversario, lastDay);
+  return `${year}-${String(month).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+/**
+ * Calcula a data efetiva de crédito do aniversário para um dado mês.
+ * Se a data teórica do aniversário não for dia útil, avança até o próximo dia útil.
+ *
+ * @param year - Ano do aniversário
+ * @param month - Mês do aniversário (1-indexed)
+ * @param diaAniversario - Dia nominal do aniversário (já calculado via getDiaAniversarioPoupanca)
+ * @param diasUteisSet - Set de datas (ISO string) que são dias úteis
+ * @param allDatesSet - Set de todas as datas no calendário (para avançar além do range)
+ * @returns Data efetiva ISO ou null se não encontrada no calendário
+ */
+function getDataEfetivaAniversario(
+  year: number,
+  month: number,
+  diaAniversario: number,
+  diasUteisSet: Set<string>,
+  sortedCalDates: string[]
+): string | null {
+  const dataTeórica = getDataTeóricaAniversario(year, month, diaAniversario);
+
+  // Se a data teórica é dia útil, retornar ela mesma
+  if (diasUteisSet.has(dataTeórica)) return dataTeórica;
+
+  // Avançar para o próximo dia útil após a data teórica
+  // Use binary search on sortedCalDates to find the starting point
+  let startIdx = 0;
+  for (let i = 0; i < sortedCalDates.length; i++) {
+    if (sortedCalDates[i] >= dataTeórica) {
+      startIdx = i;
+      break;
+    }
   }
-  // Para dias 2-28, verificar considerando meses curtos
-  const [y, m] = dataISO.split("-").map(Number);
-  const lastDay = new Date(y, m, 0).getDate(); // último dia do mês m (1-indexed)
-  const expected = Math.min(diaAniversario, lastDay);
-  return diaDoMes === expected;
+  for (let i = startIdx; i < sortedCalDates.length; i++) {
+    if (diasUteisSet.has(sortedCalDates[i])) return sortedCalDates[i];
+  }
+
+  return null;
+}
+
+/**
+ * Busca o último valor disponível em um array ordenado por data.
+ * Usado para TR e Selic quando não há valor exato para a data.
+ */
+function getLastAvailableValue(sortedRecords: { data: string; value: number }[], date: string): number | null {
+  let last: number | null = null;
+  for (const r of sortedRecords) {
+    if (r.data > date) break;
+    last = r.value;
+  }
+  return last;
 }
 
 /**
@@ -130,11 +174,18 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     }
   }
 
+  // Build sorted arrays for "last available value" lookups
+  const sortedSelicForLookup = [...selicRecords]
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .map(r => ({ data: r.data, value: r.taxa_anual }));
+  const sortedTrForLookup = trRecords
+    ? [...trRecords].sort((a, b) => a.data.localeCompare(b.data)).map(r => ({ data: r.data, value: r.taxa_mensal }))
+    : [];
+
   // Get latest Selic for fallback
   let lastSelic = 13.75; // fallback
-  const sortedSelic = [...selicRecords].sort((a, b) => a.data.localeCompare(b.data));
-  if (sortedSelic.length > 0) {
-    lastSelic = sortedSelic[sortedSelic.length - 1].taxa_anual;
+  if (sortedSelicForLookup.length > 0) {
+    lastSelic = sortedSelicForLookup[sortedSelicForLookup.length - 1].value;
   }
 
   // Build movimentações map
@@ -156,6 +207,18 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
   if (sortedCal.length === 0) return [];
 
+  // Build business day set and sorted date list for anniversary displacement
+  const diasUteisSet = new Set<string>();
+  const sortedCalDates: string[] = [];
+  for (const c of sortedCal) {
+    sortedCalDates.push(c.data);
+    if (c.dia_util) diasUteisSet.add(c.data);
+  }
+
+  // Pre-compute effective anniversary dates for each lote for each month in range
+  // Key: "loteIdx-YYYY-MM" → effective date string
+  const effectiveAnivCache = new Map<string, string | null>();
+
   // Initialize lote states (only active lotes)
   const loteStates: LoteState[] = lotes
     .filter(l => l.status === "ativo" || l.data_resgate !== null)
@@ -173,11 +236,34 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   const rows: DailyRow[] = [];
   let rentAcum2 = 0;
   let ganhoAcumulado = 0;
-  let totalAplicacoes = 0;
-  let totalResgates = 0;
 
   // Pre-sort lotes by application date for efficient filtering
   const sortedLoteStates = [...loteStates].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
+
+  // Pre-compute all effective anniversary dates for all lotes across all months in the range
+  const [startY, startM] = dataInicio.split("-").map(Number);
+  const [endY, endM] = dataCalculo.split("-").map(Number);
+  for (let li = 0; li < sortedLoteStates.length; li++) {
+    const lote = sortedLoteStates[li];
+    // Iterate each month from start to end
+    let y = startY, m = startM;
+    while (y < endY || (y === endY && m <= endM)) {
+      const key = `${li}-${y}-${String(m).padStart(2, "0")}`;
+      effectiveAnivCache.set(key, getDataEfetivaAniversario(y, m, lote.diaAniversario, diasUteisSet, sortedCalDates));
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+  }
+
+  // Build a reverse map: date → list of lote indices that have their anniversary on that date
+  const anivDateToLotes = new Map<string, number[]>();
+  for (const [key, effDate] of effectiveAnivCache) {
+    if (!effDate) continue;
+    const li = parseInt(key.split("-")[0]);
+    const arr = anivDateToLotes.get(effDate) || [];
+    arr.push(li);
+    anivDateToLotes.set(effDate, arr);
+  }
 
   for (let idx = 0; idx < sortedCal.length; idx++) {
     const cal = sortedCal[idx];
@@ -187,23 +273,25 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     // Track latest Selic for fallback
     if (selicMap.has(date)) lastSelic = selicMap.get(date)!;
 
-    // Calculate rendimento for lotes that have anniversary today
+    // Calculate rendimento for lotes that have their effective anniversary today
     let rendimentoDia = 0;
     // Active lotes: those applied on or before this date and still active
-    // Since loteStates is sorted, we iterate once (no filter needed)
     const activeLotes: LoteState[] = [];
     for (const l of sortedLoteStates) {
-      if (l.dataAplicacao > date) break; // sorted, no more can match
+      if (l.dataAplicacao > date) break;
       if (l.status === "ativo") activeLotes.push(l);
     }
 
-    for (const lote of activeLotes) {
-      if (date <= lote.dataAplicacao) continue;
+    // Check which lotes have their effective anniversary on this date
+    const anivLoteIndices = anivDateToLotes.get(date);
+    if (anivLoteIndices) {
+      for (const li of anivLoteIndices) {
+        const lote = sortedLoteStates[li];
+        if (lote.status !== "ativo") continue;
+        if (date <= lote.dataAplicacao) continue;
 
-      // Credit yield on anniversary date regardless of business day
-      if (isAniversario(date, lote.diaAniversario)) {
         // Preferred: use série 195 (rendimento direto da poupança do BCB)
-        // A Série 195 é indexada pela própria data do aniversário, não pelo mês anterior.
+        // Busca pela data efetiva do aniversário (que é `date`)
         const serie195 = poupRendMap.get(date);
 
         let rendBruto: number;
@@ -212,13 +300,13 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
           rendBruto = lote.valorAtual * (serie195 / 100);
         } else {
           // Fallback: calcular a partir de Selic + TR
-          const selicHoje = selicMap.get(date) ?? lastSelic;
-          const trHoje = trMap.get(date) ?? 0;
+          // Usar "last available value" — nunca assumir 0
+          const selicHoje = selicMap.get(date) ?? getLastAvailableValue(sortedSelicForLookup, date) ?? lastSelic;
+          const trHoje = trMap.get(date) ?? getLastAvailableValue(sortedTrForLookup, date) ?? 0;
           rendBruto = calcRendimentoMensal(lote.valorAtual, selicHoje, trHoje);
         }
 
         // Manter 8 casas decimais no intermediário (padrão B3/CETIP)
-        // para evitar drift de arredondamento ao longo dos meses
         const rend = Math.round(rendBruto * 1e8) / 1e8;
         lote.valorAtual += rend;
         lote.rendimentoAcumulado += rend;
@@ -229,8 +317,6 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
     // Process movimentações
     const mov = movMap.get(date) || { aplicacoes: 0, resgates: 0 };
-    totalAplicacoes += mov.aplicacoes;
-    totalResgates += mov.resgates;
 
     // Process resgates: reduce lote values proportionally (FIFO within the single lote)
     if (mov.resgates > 0) {
@@ -242,14 +328,12 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         if (lote.valorAtual <= 0.01) continue;
 
         if (restante >= lote.valorAtual - 0.01) {
-          // Consume entire lote
           restante -= lote.valorAtual;
           lote.valorAtual = 0;
           lote.valorPrincipal = 0;
           lote.rendimentoAcumulado = 0;
           lote.status = "resgatado";
         } else {
-          // Partial consumption — reduce proportionally
           const proporcao = restante / lote.valorAtual;
           lote.valorPrincipal -= lote.valorPrincipal * proporcao;
           lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
