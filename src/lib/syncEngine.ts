@@ -354,7 +354,7 @@ async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodi
 
   for (const m of allMovs) {
     if (["Aplicação Inicial", "Aplicação"].includes(m.tipo_movimentacao)) {
-      const dia = new Date(m.data + "T00:00:00").getDate();
+      const dia = getDiaAniversarioPoupanca(m.data);
       lotes.push({
         data_aplicacao: m.data,
         dia_aniversario: dia,
