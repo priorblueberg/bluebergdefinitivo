@@ -271,10 +271,10 @@ async function computeSaldoDisponivel(
         ? supabase.from("historico_cdi").select("data, taxa_anual").gte("data", custodia.data_inicio).lte("data", dateISO).order("data")
         : null;
       const results = await Promise.all([calQ, movQ, custQ, ...(cdiQ ? [cdiQ] : [])]);
-      const results = await Promise.all(queries);
-      const calendario = results[0].data || [];
-      const movimentacoes = (results[1].data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) }));
-      const cdiRecords = isPosFixadoCDI && results[3] ? (results[3].data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) : undefined;
+      const qResults = results as any[];
+      const calendario = qResults[0].data || [];
+      const movimentacoes = (qResults[1].data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) }));
+      const cdiRecords = isPosFixadoCDI && qResults[3] ? (qResults[3].data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) : undefined;
       const rows = calcularRendaFixaDiario({
         dataInicio: custodia.data_inicio,
         dataCalculo: dateISO,
