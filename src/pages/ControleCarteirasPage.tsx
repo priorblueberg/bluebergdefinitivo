@@ -37,7 +37,7 @@ export default function ControleCarteirasPage() {
               data_inicio: r.data_inicio,
               data_limite: r.data_limite,
               resgate_total: r.resgate_total,
-              data_calculo: r.data_calculo,
+              data_calculo: dataReferenciaISO,
               status: r.status,
             }))
           );

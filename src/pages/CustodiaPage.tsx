@@ -93,7 +93,7 @@ export default function CustodiaPage() {
         nome_carteira: carteiraData.nome_carteira,
         status: carteiraData.status,
         data_inicio: carteiraData.data_inicio,
-        data_calculo: carteiraData.data_calculo,
+        data_calculo: dataReferenciaISO,
       };
       setCarteiraInfo(info);
       _custCachedCarteira = info;

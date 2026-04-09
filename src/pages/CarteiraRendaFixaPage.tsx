@@ -181,12 +181,16 @@ export default function CarteiraRendaFixaPage() {
           emissor_nome: r.emissores?.nome || "—",
         }));
 
-      if (rfProducts.length === 0 || !cartData || !cartData.data_inicio || !cartData.data_calculo || cartData.status === "Não Iniciada") {
+      // Use dataReferenciaISO from context as the effective data_calculo
+      // (DB field is no longer updated on date change — only on structural sync)
+      const effectiveDataCalculo = dataReferenciaISO;
+
+      if (rfProducts.length === 0 || !cartData || !cartData.data_inicio || cartData.status === "Não Iniciada") {
         setCarteiraInfo(cartData ? {
           nome_carteira: cartData.nome_carteira,
           status: cartData.status,
           data_inicio: cartData.data_inicio,
-          data_calculo: cartData.data_calculo,
+          data_calculo: effectiveDataCalculo,
           data_limite: cartData.data_limite,
           resgate_total: cartData.resgate_total,
         } : null);
@@ -204,14 +208,14 @@ export default function CarteiraRendaFixaPage() {
         nome_carteira: cartData.nome_carteira,
         status: cartData.status,
         data_inicio: cartData.data_inicio,
-        data_calculo: cartData.data_calculo,
+        data_calculo: effectiveDataCalculo,
         data_limite: cartData.data_limite,
         resgate_total: cartData.resgate_total,
       };
       setCarteiraInfo(info);
 
       const dataInicio = cartData.data_inicio;
-      const dataCalculo = cartData.data_calculo;
+      const dataCalculo = effectiveDataCalculo;
 
       const maxEndDate = rfProducts.reduce((max, p) => {
         const end = p.resgate_total || p.vencimento || dataCalculo;
