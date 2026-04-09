@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
-import { recalculateAllForDataReferencia, updateDataReferenciaOnly } from "@/lib/syncEngine";
+import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
 import { invalidateAllCaches } from "@/lib/dataCache";
 import { invalidateEngineCache } from "@/lib/engineCache";
 import { toast } from "sonner";
