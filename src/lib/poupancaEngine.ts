@@ -295,7 +295,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
     // Rentabilidade diária %
     const prevLiquido = idx > 0 ? rows[idx - 1].liquido : 0;
-    const base = prevLiquido + mov.aplicacoes;
+    const base = prevLiquido + mov.aplicacoes - mov.resgates;
     const rentDiariaPct = base > 0.01 ? ganhoDiario / base : 0;
     rentAcum2 = (1 + rentAcum2) * (1 + rentDiariaPct) - 1;
 
