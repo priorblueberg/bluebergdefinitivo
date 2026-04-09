@@ -311,6 +311,42 @@ export default function ProventosRecebidosPage() {
           </TableBody>
         </Table>
       </div>
+
+      {!loading && sortedRows.length > 0 && (() => {
+        const totalGeral = sortedRows.reduce((s, r) => s + r.valor, 0);
+        const totaisPorTipo = sortedRows.reduce<Record<string, number>>((acc, r) => {
+          acc[r.tipo] = (acc[r.tipo] || 0) + r.valor;
+          return acc;
+        }, {});
+        const tipos = Object.entries(totaisPorTipo).sort((a, b) => b[1] - a[1]);
+
+        return (
+          <div className="rounded-lg border bg-card overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tipos.map(([tipo, total]) => (
+                  <TableRow key={tipo}>
+                    <TableCell>{tipo}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">{fmtBrl(total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <tfoot>
+                <TableRow className="font-semibold bg-muted/50">
+                  <TableCell>Total Geral</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">{fmtBrl(totalGeral)}</TableCell>
+                </TableRow>
+              </tfoot>
+            </Table>
+          </div>
+        );
+      })()}
     </div>
   );
 }
