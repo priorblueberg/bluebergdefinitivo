@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import { fetchIpcaRecords } from "@/lib/ipcaHelper";
 import { invalidateEngineCache } from "@/lib/engineCache";
+import { getDiaAniversarioPoupanca } from "@/lib/poupancaEngine";
 
 /** Fetch CDI records if the product uses CDI indexador */
 async function fetchCdiIfNeeded(
