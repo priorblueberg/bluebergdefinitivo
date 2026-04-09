@@ -207,13 +207,15 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
       if (dataTeoricaAniversario !== date) continue;
 
-      const serie195 = poupRendMap.get(dataTeoricaAniversario);
+      // Início do ciclo = último aniversário (ou data aplicação se primeiro ciclo)
+      const dataInicioCiclo = lote.ultimoAniversario ?? lote.dataAplicacao;
+      const serie195 = poupRendMap.get(dataInicioCiclo);
 
       let rendBruto: number | null = null;
       if (serie195 !== undefined) {
         rendBruto = lote.valorAtual * (serie195 / 100);
       } else {
-        const fallbackRates = getFallbackRatesOnDate(dataTeoricaAniversario, selicMap, trMap);
+        const fallbackRates = getFallbackRatesOnDate(dataInicioCiclo, selicMap, trMap);
         if (fallbackRates) {
           rendBruto = calcRendimentoMensal(
             lote.valorAtual,
