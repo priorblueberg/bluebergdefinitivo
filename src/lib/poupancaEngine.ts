@@ -257,13 +257,13 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
   // Build a reverse map: date → list of lote indices that have their anniversary on that date
   const anivDateToLotes = new Map<string, number[]>();
-  for (const [key, effDate] of effectiveAnivCache) {
-    if (!effDate) continue;
+  effectiveAnivCache.forEach((effDate, key) => {
+    if (!effDate) return;
     const li = parseInt(key.split("-")[0]);
     const arr = anivDateToLotes.get(effDate) || [];
     arr.push(li);
     anivDateToLotes.set(effDate, arr);
-  }
+  });
 
   for (let idx = 0; idx < sortedCal.length; idx++) {
     const cal = sortedCal[idx];
