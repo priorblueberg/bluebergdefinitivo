@@ -264,14 +264,13 @@ async function computeSaldoDisponivel(
   if (isEngine) {
     try {
       const isPosFixadoCDI = (["Pos Fixado", "Pós Fixado"].includes(custodia.modalidade) && custodia.indexador === "CDI") || (custodia.modalidade === "Mista" && custodia.indexador === "CDI");
-      const queries: Promise<any>[] = [
-        supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", custodia.data_inicio).lte("data", dateISO).order("data"),
-        supabase.from("movimentacoes").select("data, tipo_movimentacao, valor").eq("codigo_custodia", custodia.codigo_custodia).eq("user_id", userId).order("data"),
-        supabase.from("custodia").select("resgate_total").eq("codigo_custodia", custodia.codigo_custodia).eq("user_id", userId).maybeSingle(),
-      ];
-      if (isPosFixadoCDI) {
-        queries.push(supabase.from("historico_cdi").select("data, taxa_anual").gte("data", custodia.data_inicio).lte("data", dateISO).order("data"));
-      }
+      const calQ = supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", custodia.data_inicio).lte("data", dateISO).order("data");
+      const movQ = supabase.from("movimentacoes").select("data, tipo_movimentacao, valor").eq("codigo_custodia", custodia.codigo_custodia).eq("user_id", userId).order("data");
+      const custQ = supabase.from("custodia").select("resgate_total").eq("codigo_custodia", custodia.codigo_custodia).eq("user_id", userId).maybeSingle();
+      const cdiQ = isPosFixadoCDI
+        ? supabase.from("historico_cdi").select("data, taxa_anual").gte("data", custodia.data_inicio).lte("data", dateISO).order("data")
+        : null;
+      const results = await Promise.all([calQ, movQ, custQ, ...(cdiQ ? [cdiQ] : [])]);
       const results = await Promise.all(queries);
       const calendario = results[0].data || [];
       const movimentacoes = (results[1].data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) }));
