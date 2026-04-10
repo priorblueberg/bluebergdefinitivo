@@ -224,7 +224,7 @@ export default function AdminPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    await loadRefData();
+    const refData = await loadRefData();
 
     const buffer = await file.arrayBuffer();
     const wb = read(buffer, { type: "array" });
@@ -254,8 +254,7 @@ export default function AdminPage() {
 
     setRawRows(parsed);
 
-    // Validate
-    const validated = await validateRows(parsed);
+    const validated = await validateRows(parsed, refData);
     setValidatedRows(validated);
     setPhase("preview");
     setResults([]);
