@@ -245,7 +245,15 @@ export default function ProventosRecebidosPage() {
     }
   };
 
-  const sortedRows = [...rows].sort((a, b) => {
+  const nomesUnicos = [...new Set(rows.map((r) => r.nome))].sort((a, b) =>
+    a.localeCompare(b, "pt-BR")
+  );
+
+  const filteredRows = filtroAtivo
+    ? rows.filter((r) => r.nome === filtroAtivo)
+    : rows;
+
+  const sortedRows = [...filteredRows].sort((a, b) => {
     const valA = a[sortField] ?? "";
     const valB = b[sortField] ?? "";
     if (typeof valA === "number" && typeof valB === "number") {
@@ -261,12 +269,64 @@ export default function ProventosRecebidosPage() {
   const fmtBrl = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  const totalGeral = sortedRows.reduce((s, r) => s + r.valor, 0);
+  const totaisPorTipo = sortedRows.reduce<Record<string, number>>((acc, r) => {
+    acc[r.tipo] = (acc[r.tipo] || 0) + r.valor;
+    return acc;
+  }, {});
+  const tipos = Object.entries(totaisPorTipo).sort((a, b) => b[1] - a[1]);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-lg font-semibold text-foreground">Proventos Recebidos</h1>
         <p className="text-xs text-muted-foreground">Pagamentos de juros periódicos e rendimentos dos seus títulos</p>
       </div>
+
+      {/* Totalizador no topo */}
+      {!loading && sortedRows.length > 0 && (
+        <div className="rounded-lg border bg-card overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tipos.map(([tipo, total]) => (
+                <TableRow key={tipo}>
+                  <TableCell>{tipo}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">{fmtBrl(total)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <tfoot>
+              <TableRow className="font-semibold bg-muted/50">
+                <TableCell>Total Geral</TableCell>
+                <TableCell className="text-right whitespace-nowrap">{fmtBrl(totalGeral)}</TableCell>
+              </TableRow>
+            </tfoot>
+          </Table>
+        </div>
+      )}
+
+      {/* Filtro por ativo */}
+      {!loading && nomesUnicos.length > 1 && (
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-muted-foreground whitespace-nowrap">Filtrar por ativo:</label>
+          <select
+            value={filtroAtivo}
+            onChange={(e) => setFiltroAtivo(e.target.value)}
+            className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Todos</option>
+            {nomesUnicos.map((nome) => (
+              <option key={nome} value={nome}>{nome}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="rounded-lg border bg-card overflow-x-auto">
         <Table>
@@ -312,42 +372,6 @@ export default function ProventosRecebidosPage() {
           </TableBody>
         </Table>
       </div>
-
-      {!loading && sortedRows.length > 0 && (() => {
-        const totalGeral = sortedRows.reduce((s, r) => s + r.valor, 0);
-        const totaisPorTipo = sortedRows.reduce<Record<string, number>>((acc, r) => {
-          acc[r.tipo] = (acc[r.tipo] || 0) + r.valor;
-          return acc;
-        }, {});
-        const tipos = Object.entries(totaisPorTipo).sort((a, b) => b[1] - a[1]);
-
-        return (
-          <div className="rounded-lg border bg-card overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tipos.map(([tipo, total]) => (
-                  <TableRow key={tipo}>
-                    <TableCell>{tipo}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap">{fmtBrl(total)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              <tfoot>
-                <TableRow className="font-semibold bg-muted/50">
-                  <TableCell>Total Geral</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">{fmtBrl(totalGeral)}</TableCell>
-                </TableRow>
-              </tfoot>
-            </Table>
-          </div>
-        );
-      })()}
     </div>
   );
 }
