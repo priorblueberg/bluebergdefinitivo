@@ -201,19 +201,23 @@ export default function AdminPage() {
   const [refLoaded, setRefLoaded] = useState(false);
 
   const loadRefData = useCallback(async () => {
-    if (refLoaded) return;
     const [catRes, prodRes, instRes, emisRes] = await Promise.all([
       supabase.from("categorias").select("id, nome").eq("ativa", true),
       supabase.from("produtos").select("id, nome, categoria_id").eq("ativo", true),
       supabase.from("instituicoes").select("id, nome").eq("ativa", true),
       supabase.from("emissores").select("id, nome").eq("ativo", true),
     ]);
-    setCategorias(catRes.data || []);
-    setProdutos(prodRes.data || []);
-    setInstituicoes(instRes.data || []);
-    setEmissores(emisRes.data || []);
+    const catData = catRes.data || [];
+    const prodData = prodRes.data || [];
+    const instData = instRes.data || [];
+    const emisData = emisRes.data || [];
+    setCategorias(catData);
+    setProdutos(prodData);
+    setInstituicoes(instData);
+    setEmissores(emisData);
     setRefLoaded(true);
-  }, [refLoaded]);
+    return { categorias: catData, produtos: prodData, instituicoes: instData, emissores: emisData };
+  }, []);
 
   // ── Parse Excel ──
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
