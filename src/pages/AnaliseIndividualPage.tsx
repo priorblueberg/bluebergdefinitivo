@@ -342,7 +342,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
               v != null ? `${v.toFixed(2)}%` : "—";
 
             let patrimonioDisplayValue: number | null = null;
-            if (isPrefixado && engineRows.length > 0) {
+            if (hasEngine && engineRows.length > 0) {
               for (let i = engineRows.length - 1; i >= 0; i--) {
                 if (engineRows[i].data <= dataReferenciaISO) {
                   patrimonioDisplayValue = engineRows[i].liquido;
@@ -353,7 +353,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
 
             const useRentAcum2ForCard = product.pagamento != null && product.pagamento !== "No Vencimento";
             let rentValue = topRow.rentAcumulado;
-            if (isPrefixado && engineRows.length > 0) {
+            if (hasEngine && engineRows.length > 0) {
               for (let i = engineRows.length - 1; i >= 0; i--) {
                 if (engineRows[i].data <= dataReferenciaISO) {
                   const rawRent = useRentAcum2ForCard ? engineRows[i].rentAcumulada2 : engineRows[i].rentabilidadeAcumuladaPct;
@@ -364,7 +364,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
             }
 
             let ganhoValue = ganho;
-            if (isPrefixado && engineRows.length > 0) {
+            if (hasEngine && engineRows.length > 0) {
               let targetRow: DailyRow | undefined;
               for (let i = engineRows.length - 1; i >= 0; i--) {
                 if (engineRows[i].data <= dataReferenciaISO) { targetRow = engineRows[i]; break; }
