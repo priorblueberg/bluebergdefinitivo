@@ -747,9 +747,10 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
 
   // Compute resgate_total from custodia for this category
   // Get the most recent resgate_total (vencimento or fechamento date) from custodia
+  const isMoedasCategory = categoriaNome === "Moedas";
   const { data: custodiaResgateRows } = await supabase
     .from("custodia")
-    .select("vencimento, codigo_custodia")
+    .select("vencimento, codigo_custodia, modalidade")
     .eq("categoria_id", categoriaId)
     .eq("user_id", userId);
 
@@ -758,7 +759,9 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
   if (custodiaResgateRows && custodiaResgateRows.length > 0) {
     const resgateDates: string[] = [];
     for (const row of custodiaResgateRows) {
-      const rt = await computeResgateTotal(row.codigo_custodia, userId, row.vencimento);
+      // Poupança and Moedas: pass null as vencimento so they stay active unless manually closed
+      const isPoupancaOrMoedas = (row as any).modalidade === "Poupança" || isMoedasCategory;
+      const rt = await computeResgateTotal(row.codigo_custodia, userId, isPoupancaOrMoedas ? null : row.vencimento);
       if (rt) {
         resgateDates.push(rt);
       } else {
