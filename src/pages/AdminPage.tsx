@@ -282,7 +282,7 @@ export default function AdminPage() {
       const errors: string[] = [];
 
       // Category
-      const cat = categorias.find(c => c.nome.toLowerCase() === row.categoria.toLowerCase());
+      const cat = cats.find(c => c.nome.toLowerCase() === row.categoria.toLowerCase());
       if (!cat) errors.push(`Categoria "${row.categoria}" não encontrada`);
       const isRendaFixa = cat?.nome === "Renda Fixa";
       if (cat && !isRendaFixa) errors.push(`Categoria "${row.categoria}" não suportada nesta importação`);
@@ -298,7 +298,7 @@ export default function AdminPage() {
       }
 
       // Corretora
-      const inst = instituicoes.find(i => i.nome.toLowerCase() === row.corretora.toLowerCase());
+      const inst = insts.find(i => i.nome.toLowerCase() === row.corretora.toLowerCase());
       if (!inst) errors.push(`Corretora "${row.corretora}" não encontrada`);
 
       // Modalidade
@@ -329,8 +329,8 @@ export default function AdminPage() {
       }
 
       // Emissor
-      const emis = emissores.find(e => e.nome.toLowerCase() === row.emissor.toLowerCase());
-      if (!emis) errors.push(`Emissor "${row.emissor}" não encontrado`);
+      const emissor = emis.find(e => e.nome.toLowerCase() === row.emissor.toLowerCase());
+      if (!emissor) errors.push(`Emissor "${row.emissor}" não encontrado`);
 
       // Pagamento
       const pagamento = row.pagamento || "No Vencimento";
@@ -342,7 +342,7 @@ export default function AdminPage() {
 
       // Produto
       const produtoNomeRaw = row.produto || "CDB";
-      const prod = cat ? produtos.find(p =>
+      const prod = cat ? prods.find(p =>
         p.categoria_id === cat.id && sigla(p.nome).toLowerCase() === produtoNomeRaw.toLowerCase()
       ) : null;
       if (cat && !prod) errors.push(`Produto "${produtoNomeRaw}" não encontrado na categoria`);
