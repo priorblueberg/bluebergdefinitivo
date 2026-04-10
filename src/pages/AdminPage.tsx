@@ -201,26 +201,30 @@ export default function AdminPage() {
   const [refLoaded, setRefLoaded] = useState(false);
 
   const loadRefData = useCallback(async () => {
-    if (refLoaded) return;
     const [catRes, prodRes, instRes, emisRes] = await Promise.all([
       supabase.from("categorias").select("id, nome").eq("ativa", true),
       supabase.from("produtos").select("id, nome, categoria_id").eq("ativo", true),
       supabase.from("instituicoes").select("id, nome").eq("ativa", true),
       supabase.from("emissores").select("id, nome").eq("ativo", true),
     ]);
-    setCategorias(catRes.data || []);
-    setProdutos(prodRes.data || []);
-    setInstituicoes(instRes.data || []);
-    setEmissores(emisRes.data || []);
+    const catData = catRes.data || [];
+    const prodData = prodRes.data || [];
+    const instData = instRes.data || [];
+    const emisData = emisRes.data || [];
+    setCategorias(catData);
+    setProdutos(prodData);
+    setInstituicoes(instData);
+    setEmissores(emisData);
     setRefLoaded(true);
-  }, [refLoaded]);
+    return { categorias: catData, produtos: prodData, instituicoes: instData, emissores: emisData };
+  }, []);
 
   // ── Parse Excel ──
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    await loadRefData();
+    const refData = await loadRefData();
 
     const buffer = await file.arrayBuffer();
     const wb = read(buffer, { type: "array" });
@@ -250,14 +254,14 @@ export default function AdminPage() {
 
     setRawRows(parsed);
 
-    // Validate
-    const validated = await validateRows(parsed);
+    const validated = await validateRows(parsed, refData);
     setValidatedRows(validated);
     setPhase("preview");
     setResults([]);
   };
 
-  const validateRows = async (rows: RawRow[]): Promise<ValidatedRow[]> => {
+  const validateRows = async (rows: RawRow[], refData: { categorias: Categoria[]; produtos: Produto[]; instituicoes: Instituicao[]; emissores: Emissor[] }): Promise<ValidatedRow[]> => {
+    const { categorias: cats, produtos: prods, instituicoes: insts, emissores: emis } = refData;
     // Load business-day calendar for validation
     const allDates = rows.map(r => parseExcelDate(r.data)).filter(Boolean) as string[];
     let calMap = new Map<string, boolean>();
@@ -278,7 +282,7 @@ export default function AdminPage() {
       const errors: string[] = [];
 
       // Category
-      const cat = categorias.find(c => c.nome.toLowerCase() === row.categoria.toLowerCase());
+      const cat = cats.find(c => c.nome.toLowerCase() === row.categoria.toLowerCase());
       if (!cat) errors.push(`Categoria "${row.categoria}" não encontrada`);
       const isRendaFixa = cat?.nome === "Renda Fixa";
       if (cat && !isRendaFixa) errors.push(`Categoria "${row.categoria}" não suportada nesta importação`);
@@ -294,7 +298,7 @@ export default function AdminPage() {
       }
 
       // Corretora
-      const inst = instituicoes.find(i => i.nome.toLowerCase() === row.corretora.toLowerCase());
+      const inst = insts.find(i => i.nome.toLowerCase() === row.corretora.toLowerCase());
       if (!inst) errors.push(`Corretora "${row.corretora}" não encontrada`);
 
       // Modalidade
@@ -325,8 +329,8 @@ export default function AdminPage() {
       }
 
       // Emissor
-      const emis = emissores.find(e => e.nome.toLowerCase() === row.emissor.toLowerCase());
-      if (!emis) errors.push(`Emissor "${row.emissor}" não encontrado`);
+      const emissor = emis.find(e => e.nome.toLowerCase() === row.emissor.toLowerCase());
+      if (!emissor) errors.push(`Emissor "${row.emissor}" não encontrado`);
 
       // Pagamento
       const pagamento = row.pagamento || "No Vencimento";
@@ -338,7 +342,7 @@ export default function AdminPage() {
 
       // Produto
       const produtoNomeRaw = row.produto || "CDB";
-      const prod = cat ? produtos.find(p =>
+      const prod = cat ? prods.find(p =>
         p.categoria_id === cat.id && sigla(p.nome).toLowerCase() === produtoNomeRaw.toLowerCase()
       ) : null;
       if (cat && !prod) errors.push(`Produto "${produtoNomeRaw}" não encontrado na categoria`);
@@ -351,8 +355,8 @@ export default function AdminPage() {
         indexadorToSave = "CDI";
       }
 
-      const nomeAtivo = (prod && emis)
-        ? buildNomeAtivo(prod.nome, emis.nome, modalidadeToSave, String(taxaNum), vencISO || "", indexadorToSave || "")
+      const nomeAtivo = (prod && emissor)
+        ? buildNomeAtivo(prod.nome, emissor.nome, modalidadeToSave, String(taxaNum), vencISO || "", indexadorToSave || "")
         : "";
 
       return {
@@ -361,7 +365,7 @@ export default function AdminPage() {
         categoriaId: cat?.id || "",
         produtoId: prod?.id || "",
         instituicaoId: inst?.id || "",
-        emissorId: emis?.id || "",
+        emissorId: emissor?.id || "",
         dataISO: dataISO || "",
         vencimentoISO: vencISO || "",
         taxaNum,
