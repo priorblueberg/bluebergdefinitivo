@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { AiChatDialog } from "@/components/AiChatDialog";
 import { format, parse, isValid, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bell, CalendarIcon, ChevronDown, RefreshCw, Plus, MessageCircle } from "lucide-react";
@@ -223,6 +224,8 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
           />
         </div>
       )}
+
+      <AiChatDialog open={chatOpen} onOpenChange={setChatOpen} />
     </div>
   );
 }
