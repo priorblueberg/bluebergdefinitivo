@@ -995,7 +995,7 @@ export async function reprocessMovimentacoesForCodigo(
   const updates: Promise<any>[] = [];
   const isNoVencimento = baseInfo.pagamento === "No Vencimento";
 
-  for (const mov of manualMovs) {
+  for (const mov of sourceMovs) {
     const rowDia = rowByDate.get(mov.data);
     if (!rowDia) continue;
 
