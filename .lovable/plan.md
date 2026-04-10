@@ -1,36 +1,69 @@
 
 
-# Correção: Importação Excel não valida corretamente os dados de referência
+# Integração do Chat com o webhook n8n
 
-## Causa raiz
+## Contexto
 
-Bug clássico de **stale closure** no React:
+O chat já funciona como um painel lateral (Sheet) que sobrepõe qualquer página — ele não depende de rota. Basta usar o `useAuth()` dentro do componente para obter o token de sessão do usuário logado e enviá-lo no header `Authorization`.
 
-1. `handleFile` chama `await loadRefData()` que executa `setCategorias(...)`, `setInstituicoes(...)`, etc.
-2. Porém `setState` no React é assíncrono — os arrays `categorias`, `instituicoes`, `emissores` capturados no escopo da função **ainda estão vazios** quando `validateRows` é chamado logo em seguida
-3. Resultado: toda busca por nome retorna `undefined` → "não encontrada"
+## Como funciona a linkagem
 
-## Solução
+O `AiChatDialog` é renderizado dentro do `AppHeader`, que está presente em **todas as rotas protegidas**. Ao clicar "Converse com a IA", o Sheet abre por cima da página atual. Não há necessidade de navegar para outra URL — o componente já tem acesso ao contexto de autenticação via `useAuth()` e ao token da sessão ativa via `supabase.auth.getSession()`.
 
-Alterar `loadRefData` para **retornar** os dados carregados diretamente, e passar esses dados para `validateRows` em vez de depender do state do React.
+## Plano de implementação
 
-### Arquivo: `src/pages/AdminPage.tsx`
+### 1. Criar Edge Function proxy (`supabase/functions/ai-chat/index.ts`)
 
-1. **`loadRefData`** passa a retornar `{ categorias, produtos, instituicoes, emissores }` além de fazer o `set*`
-2. **`handleFile`** captura o retorno: `const refData = await loadRefData()`
-3. **`validateRows`** recebe `refData` como parâmetro e usa esses arrays diretamente em vez de ler do state
+A chamada ao webhook n8n não pode ser feita diretamente do navegador porque:
+- Exporia a URL do webhook no client-side
+- Problemas de CORS com o n8n
 
-### Mudança conceitual
+A Edge Function vai:
+- Receber `{ input: string }` do frontend
+- Validar o JWT do usuário (extraindo do header Authorization)
+- Fazer o POST para `https://blueberg.app.n8n.cloud/webhook-test/Blueberg` passando o token do usuário
+- Retornar a resposta da IA ao frontend
 
+### 2. Adicionar secret da URL do webhook
+
+Usar `add_secret` para armazenar a URL do webhook n8n como `N8N_WEBHOOK_URL` para que não fique hardcoded.
+
+### 3. Atualizar `AiChatDialog.tsx`
+
+- Importar `useAuth` e `supabase`
+- No `handleSend`, após adicionar a mensagem do usuário:
+  - Adicionar mensagem placeholder "digitando..." do assistente
+  - Obter o access token via `supabase.auth.getSession()`
+  - Chamar a Edge Function via `supabase.functions.invoke('ai-chat', { body: { input } })`
+  - Substituir o placeholder pela resposta real
+  - Tratar erros com toast
+- Adicionar estado `loading` para desabilitar o botão enquanto aguarda resposta
+- Renderizar respostas da IA com `react-markdown` para suportar formatação
+
+### 4. Instalar `react-markdown`
+
+Necessário para renderizar as respostas formatadas da IA.
+
+## Detalhes técnicos
+
+**Edge Function (`ai-chat/index.ts`)**:
 ```text
-ANTES:
-  loadRefData() → setState (async)
-  validateRows() → lê state (vazio!)
-
-DEPOIS:
-  loadRefData() → setState + return data
-  validateRows(data) → usa data direto (correto!)
+POST { input: string }
+→ Valida JWT
+→ Extrai access_token da sessão
+→ POST n8n webhook com Authorization: Bearer <token>
+→ Retorna { output: string }
 ```
 
-Nenhuma alteração em lógica de negócio, validação ou processamento. Apenas a forma como os dados de referência são passados para a validação.
+**Frontend flow**:
+```text
+User digita → handleSend()
+→ Adiciona msg user no state
+→ setState loading=true
+→ supabase.functions.invoke('ai-chat', { body: { input } })
+→ Adiciona msg assistant no state
+→ setState loading=false
+```
+
+O chat não precisa de rota própria — funciona como overlay global em qualquer página da aplicação.
 
