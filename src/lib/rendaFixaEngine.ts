@@ -151,28 +151,28 @@ export function gerarDatasPagamentoJuros(
   }
 
   const result = new Set<string>();
-  let cursor = new Date(vencDate);
+  const vencYear = vencDate.getFullYear();
+  const vencMonthIndex = vencDate.getMonth();
+  let step = 0;
 
   while (true) {
-    const year = cursor.getFullYear();
-    const month = cursor.getMonth();
-    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const totalMonths = vencYear * 12 + vencMonthIndex - step * meses;
+    const year = Math.floor(totalMonths / 12);
+    const monthIndex = totalMonths % 12;
+    const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
     const targetDay = Math.min(diaBase, lastDayOfMonth);
-    const targetStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
+    const targetStr = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
 
     if (targetStr < dataInicio) break;
 
-    if (dataCalculo && targetStr > dataCalculo) {
-      cursor.setMonth(cursor.getMonth() - meses);
-      continue;
+    if (!dataCalculo || targetStr <= dataCalculo) {
+      const adjusted = ajustarParaDiaUtil(targetStr);
+      if (adjusted && adjusted >= dataInicio) {
+        result.add(adjusted);
+      }
     }
 
-    const adjusted = ajustarParaDiaUtil(targetStr);
-    if (adjusted && adjusted >= dataInicio) {
-      result.add(adjusted);
-    }
-
-    cursor.setMonth(cursor.getMonth() - meses);
+    step++;
   }
 
   return result;
