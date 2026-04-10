@@ -186,11 +186,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   const dominantOffset = sortedByDate.length > 0 ? sortedByDate[0].offsetPrimeiroCiclo : false;
   const dominantDataAplicacao = sortedByDate.length > 0 ? sortedByDate[0].dataAplicacao : dataInicio;
 
-  // Override all lots to use the dominant anniversary
-  for (const l of loteStates) {
-    l.diaAniversario = dominantDia;
-    l.offsetPrimeiroCiclo = dominantOffset;
-  }
+  // NÃO sobrescrevemos os aniversários aqui — cada lote mantém seu dia original
+  // até que um resgate dispare a consolidação (efeito prospectivo).
 
   const rows: DailyRow[] = [];
   let rentAcum2 = 0;
