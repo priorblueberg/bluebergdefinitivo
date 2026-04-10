@@ -260,7 +260,8 @@ export default function AdminPage() {
     setResults([]);
   };
 
-  const validateRows = async (rows: RawRow[]): Promise<ValidatedRow[]> => {
+  const validateRows = async (rows: RawRow[], refData: { categorias: Categoria[]; produtos: Produto[]; instituicoes: Instituicao[]; emissores: Emissor[] }): Promise<ValidatedRow[]> => {
+    const { categorias: cats, produtos: prods, instituicoes: insts, emissores: emis } = refData;
     // Load business-day calendar for validation
     const allDates = rows.map(r => parseExcelDate(r.data)).filter(Boolean) as string[];
     let calMap = new Map<string, boolean>();
