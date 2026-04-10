@@ -326,6 +326,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         // Mesmo com um único lote remanescente, forçar aniversário dominante
         remaining[0].diaAniversario = dominantDia;
         remaining[0].offsetPrimeiroCiclo = dominantOffset;
+        remaining[0].ultimoAniversario = findLastDominantAniversario(date, dominantDia);
       }
     }
 
