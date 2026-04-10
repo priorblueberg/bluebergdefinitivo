@@ -162,6 +162,11 @@ export default function WelcomeOnboardingPage() {
         modalidadeToSave = "Poupança";
         indexadorToSave = null;
         valorExtrato = `R$ ${fmtBR(valorNum)}`;
+        // Auto-match emissor to instituição by name
+        const matchedEmissor = emissores.find((e) => e.nome === instNome);
+        if (matchedEmissor) {
+          setEmissorId(matchedEmissor.id);
+        }
       } else {
         const emissorNome = emissores.find((e) => e.id === emissorId)?.nome || "";
         nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
@@ -186,7 +191,7 @@ export default function WelcomeOnboardingPage() {
         valor: valorNum,
         preco_unitario: puNum,
         instituicao_id: instituicaoId,
-        emissor_id: isPoupanca ? null : emissorId,
+        emissor_id: emissorId || null,
         modalidade: modalidadeToSave,
         taxa: taxaNum,
         pagamento: isPoupanca ? "Mensal" : pagamento,
