@@ -113,11 +113,9 @@ export default function CarteiraCambioPage() {
         produto_nome: r.produtos?.nome || "",
       }));
 
-      // REGRA GLOBAL: ativo só existe se data_inicio <= dataRef e (sem data_fim ou dataRef <= data_fim)
+      // REGRA GLOBAL: ativo só aparece se data_inicio <= dataRef (liquidados continuam visíveis)
       const produtosValidos = mapped.filter(p => {
         if (dataReferenciaISO < p.data_inicio) return false;
-        const dataFim = p.resgate_total || null;
-        if (dataFim && dataReferenciaISO > dataFim) return false;
         return true;
       });
 
