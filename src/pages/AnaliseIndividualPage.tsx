@@ -126,7 +126,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
       setCdiRecords(merged);
       setDiasUteis(calendario.map(d => ({ data: d.data, dia_util: d.dia_util })));
 
-      // Run engine for Prefixado - use cache
+      // Run engine for Renda Fixa - use cache
       if (isPrefixado) {
         const productMovs = allMovs
           .filter(m => m.codigo_custodia === product.codigo_custodia)
@@ -182,11 +182,39 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           const sliced = getCachedRFResult(product.codigo_custodia, dataReferenciaISO, cacheParams);
           setEngineRows(sliced || fullRows);
         }
+      } else if (isPoupanca) {
+        // Run Poupança engine
+        const productMovs = allMovs
+          .filter(m => m.codigo_custodia === product.codigo_custodia)
+          .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor }));
+
+        const lotes = buildPoupancaLotesFromMovs(productMovs);
+        if (lotes.length > 0) {
+          const [selicData, trData, poupRendData] = await Promise.all([
+            fetchSelic(user.id, appliedVersion, getDateMinus(product.data_inicio, 5), calendarEndDate),
+            fetchTr(user.id, appliedVersion, getDateMinus(product.data_inicio, 5), calendarEndDate),
+            fetchPoupancaRendimento(user.id, appliedVersion, getDateMinus(product.data_inicio, 5), calendarEndDate),
+          ]);
+          if (currentVersion !== calcVersionRef.current) return;
+
+          const poupRows = calcularPoupancaDiario({
+            dataInicio: lotes[0].data_aplicacao,
+            dataCalculo: dataReferenciaISO,
+            calendario: calendario.map(d => ({ data: d.data, dia_util: d.dia_util })),
+            movimentacoes: productMovs,
+            lotes,
+            selicRecords: selicData,
+            trRecords: trData,
+            poupancaRendimentoRecords: poupRendData,
+            dataResgateTotal: product.resgate_total,
+          });
+          setEngineRows(poupRows as unknown as DailyRow[]);
+        }
       }
 
       setLoading(false);
     })();
-  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado]);
+  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado, isPoupanca]);
 
   // Chart data: merge both series
   const chartData = useMemo(() => {
