@@ -113,14 +113,24 @@ export default function CarteiraCambioPage() {
         produto_nome: r.produtos?.nome || "",
       }));
 
-      setProducts(mapped);
+      // REGRA GLOBAL: ativo só existe se data_inicio <= dataRef e (sem data_fim ou dataRef <= data_fim)
+      const produtosValidos = mapped.filter(p => {
+        if (dataReferenciaISO < p.data_inicio) return false;
+        const dataFim = p.resgate_total || null;
+        if (dataFim && dataReferenciaISO > dataFim) return false;
+        return true;
+      });
 
-      const minDate = mapped.reduce((min, p) => p.data_inicio < min ? p.data_inicio : min, mapped[0].data_inicio);
-      const allCodigos = mapped.map(p => p.codigo_custodia);
+      setProducts(produtosValidos);
+
+      if (produtosValidos.length === 0) { setLoading(false); setProductAnalyses([]); return; }
+
+      const minDate = produtosValidos.reduce((min, p) => p.data_inicio < min ? p.data_inicio : min, produtosValidos[0].data_inicio);
+      const allCodigos = produtosValidos.map(p => p.codigo_custodia);
 
       // Check which currency tables we need
-      const needsDolar = mapped.some(p => !p.produto_nome.toLowerCase().includes("euro"));
-      const needsEuro = mapped.some(p => p.produto_nome.toLowerCase().includes("euro"));
+      const needsDolar = produtosValidos.some(p => !p.produto_nome.toLowerCase().includes("euro"));
+      const needsEuro = produtosValidos.some(p => p.produto_nome.toLowerCase().includes("euro"));
 
       const [calRes, dolarRes, euroRes, movRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", dataReferenciaISO).order("data"),
@@ -145,7 +155,7 @@ export default function CarteiraCambioPage() {
       }
 
       const analyses: ProductAnalysis[] = [];
-      for (const product of mapped) {
+      for (const product of produtosValidos) {
         const isEuro = product.produto_nome.toLowerCase().includes("euro");
         const cotacaoRecords = isEuro ? euroRecords : dolarRecords;
         const rows = calcularCambioDiario({

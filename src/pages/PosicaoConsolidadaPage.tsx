@@ -138,10 +138,18 @@ export default function PosicaoConsolidadaPage() {
         quantidade: r.quantidade != null ? Number(r.quantidade) : null,
       }));
 
-      const rfProducts = mapped.filter((p) => p.categoria_nome === "Renda Fixa" && p.modalidade !== "Poupança");
-      const poupancaProducts = mapped.filter((p) => p.modalidade === "Poupança");
-      const cambioProducts = mapped.filter((p) => p.categoria_nome === "Moedas");
-      const otherProducts = mapped.filter((p) => p.categoria_nome !== "Renda Fixa" && p.modalidade !== "Poupança" && p.categoria_nome !== "Moedas");
+      // REGRA GLOBAL: ativo só existe se data_inicio <= dataRef e (sem data_fim ou dataRef <= data_fim)
+      const produtosValidos = mapped.filter(p => {
+        if (dataReferenciaISO < p.data_inicio) return false;
+        const dataFim = p.resgate_total || p.vencimento;
+        if (dataFim && dataReferenciaISO > dataFim) return false;
+        return true;
+      });
+
+      const rfProducts = produtosValidos.filter((p) => p.categoria_nome === "Renda Fixa" && p.modalidade !== "Poupança");
+      const poupancaProducts = produtosValidos.filter((p) => p.modalidade === "Poupança");
+      const cambioProducts = produtosValidos.filter((p) => p.categoria_nome === "Moedas");
+      const otherProducts = produtosValidos.filter((p) => p.categoria_nome !== "Renda Fixa" && p.modalidade !== "Poupança" && p.categoria_nome !== "Moedas");
 
       const allCalcProducts = [...rfProducts, ...poupancaProducts, ...cambioProducts];
       const minDate = allCalcProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), allCalcProducts[0]?.data_inicio || dataReferenciaISO);
