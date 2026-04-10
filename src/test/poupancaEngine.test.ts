@@ -250,13 +250,14 @@ describe("poupancaEngine", () => {
       poupancaRendimentoRecords,
     });
 
-    // 02/02: ambos lotes rendem no dia 2 (dominante)
+    // Antes do resgate: cada lote com seu aniversário original
+    // 02/02: apenas lote A (100.000 * 0.617%) = 617
     const feb02 = rows.find(r => r.data === "2024-02-02");
-    expect(feb02?.ganhoDiario).toBeCloseTo(617 + 308.5, 1);
+    expect(feb02?.ganhoDiario).toBeCloseTo(617, 1);
 
-    // 10/02: sem rendimento (dia 10 não é aniversário dominante)
+    // 10/02: apenas lote B (50.000 * 0.617%) = 308.5
     const feb10 = rows.find(r => r.data === "2024-02-10");
-    expect(feb10?.ganhoDiario).toBe(0);
+    expect(feb10?.ganhoDiario).toBeCloseTo(308.5, 1);
 
     // Após resgate de 100.617: lote A zerado, lote B (50.308,50) permanece
     // Aniversário dominante continua dia 2
