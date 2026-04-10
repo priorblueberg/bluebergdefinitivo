@@ -179,6 +179,19 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       };
     });
 
+  // Aniversário dominante: o dia da primeira aplicação da posição.
+  // Nunca muda, independentemente de resgates ou novas aplicações.
+  const sortedByDate = [...loteStates].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
+  const dominantDia = sortedByDate.length > 0 ? sortedByDate[0].diaAniversario : 1;
+  const dominantOffset = sortedByDate.length > 0 ? sortedByDate[0].offsetPrimeiroCiclo : false;
+  const dominantDataAplicacao = sortedByDate.length > 0 ? sortedByDate[0].dataAplicacao : dataInicio;
+
+  // Override all lots to use the dominant anniversary
+  for (const l of loteStates) {
+    l.diaAniversario = dominantDia;
+    l.offsetPrimeiroCiclo = dominantOffset;
+  }
+
   const rows: DailyRow[] = [];
   let rentAcum2 = 0;
   let ganhoAcumulado = 0;
