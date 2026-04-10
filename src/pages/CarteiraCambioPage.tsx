@@ -113,9 +113,19 @@ export default function CarteiraCambioPage() {
         produto_nome: r.produtos?.nome || "",
       }));
 
-      setProducts(mapped);
+      // REGRA GLOBAL: ativo só existe se data_inicio <= dataRef e (sem data_fim ou dataRef <= data_fim)
+      const produtosValidos = mapped.filter(p => {
+        if (dataReferenciaISO < p.data_inicio) return false;
+        const dataFim = p.resgate_total || null;
+        if (dataFim && dataReferenciaISO > dataFim) return false;
+        return true;
+      });
 
-      const minDate = mapped.reduce((min, p) => p.data_inicio < min ? p.data_inicio : min, mapped[0].data_inicio);
+      setProducts(produtosValidos);
+
+      if (produtosValidos.length === 0) { setLoading(false); setProductAnalyses([]); return; }
+
+      const minDate = produtosValidos.reduce((min, p) => p.data_inicio < min ? p.data_inicio : min, produtosValidos[0].data_inicio);
       const allCodigos = produtosValidos.map(p => p.codigo_custodia);
 
       // Check which currency tables we need
