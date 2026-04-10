@@ -63,7 +63,7 @@ interface ImportResult {
 }
 
 // ── Helpers ──────────────────────────────────────────
-const PAGAMENTO_VALID = ["Mensal", "Bimestral", "Trimestral", "Quatrimestral", "Semestral", "No Vencimento"];
+const PAGAMENTO_VALID = ["Mensal", "Bimestral", "Trimestral", "Quadrimestral", "Semestral", "No Vencimento"];
 const MODALIDADE_VALID = ["Prefixado", "Pós Fixado"];
 
 function sigla(nome: string): string {
@@ -158,7 +158,7 @@ function downloadTemplate() {
     ["Valor", "Valor financeiro da aplicação em reais"],
     ["Vencimento", "Data de vencimento no formato dd/mm/aaaa"],
     ["Emissor", "Nome do emissor (deve existir no sistema)"],
-    ["Pagamento", "Mensal, Bimestral, Trimestral, Quatrimestral, Semestral ou No Vencimento"],
+    ["Pagamento", "Mensal, Bimestral, Trimestral, Quadrimestral, Semestral ou No Vencimento"],
     ["Preço de Emissão", "PU na data da emissão (preço unitário)"],
     ["Produto", "CDB, LCI, LCA, LF, LFS, LIG, LC, Debênture (se vazio, usa CDB)"],
     [""],
