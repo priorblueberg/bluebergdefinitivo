@@ -117,6 +117,22 @@ function getFallbackRatesOnDate(
  * Calcula a evolução diária da poupança, retornando DailyRow[] compatível
  * com o engine de renda fixa para integração com a carteira.
  */
+/**
+ * Dado uma data de resgate e o dia dominante, retorna a data do último
+ * aniversário dominante que já ocorreu (no mês corrente ou anterior).
+ */
+function findLastDominantAniversario(resgateDate: string, dominantDia: number): string {
+  const d = new Date(resgateDate + "T00:00:00");
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1; // 1-based
+  const teorica = getDataTeóricaAniversario(y, m, dominantDia);
+  if (teorica <= resgateDate) return teorica;
+  // Go to previous month
+  const pm = m === 1 ? 12 : m - 1;
+  const py = m === 1 ? y - 1 : y;
+  return getDataTeóricaAniversario(py, pm, dominantDia);
+}
+
 export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   const { dataInicio, dataCalculo, calendario, movimentacoes, lotes, selicRecords, trRecords, poupancaRendimentoRecords, dataResgateTotal } = input;
 
