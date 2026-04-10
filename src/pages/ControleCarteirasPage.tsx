@@ -43,7 +43,6 @@ export default function ControleCarteirasPage() {
             }))
             .filter((r: CarteiraRow) => {
               if (r.data_inicio && dataReferenciaISO < r.data_inicio) return false;
-              if (r.resgate_total && dataReferenciaISO > r.resgate_total) return false;
               return true;
             });
           setRows(filtered);

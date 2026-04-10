@@ -80,6 +80,7 @@ export default function PosicaoConsolidadaPage() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [rentSort, setRentSort] = useState<"none" | "asc" | "desc">("none");
+  const [statusFilter, setStatusFilter] = useState<"todos" | "custodia">("todos");
   const calcVersionRef = useRef(0);
 
   // Dialog states
@@ -138,13 +139,8 @@ export default function PosicaoConsolidadaPage() {
         quantidade: r.quantidade != null ? Number(r.quantidade) : null,
       }));
 
-      // REGRA GLOBAL: ativo só existe se data_inicio <= dataRef e (sem data_fim ou dataRef <= data_fim)
-      const produtosValidos = mapped.filter(p => {
-        if (dataReferenciaISO < p.data_inicio) return false;
-        const dataFim = p.resgate_total || p.vencimento;
-        if (dataFim && dataReferenciaISO > dataFim) return false;
-        return true;
-      });
+      // REGRA GLOBAL: ativo só aparece se data_inicio <= dataRef (liquidados continuam visíveis)
+      const produtosValidos = mapped.filter(p => dataReferenciaISO >= p.data_inicio);
 
       const rfProducts = produtosValidos.filter((p) => p.categoria_nome === "Renda Fixa" && p.modalidade !== "Poupança");
       const poupancaProducts = produtosValidos.filter((p) => p.modalidade === "Poupança");
@@ -432,6 +428,9 @@ export default function PosicaoConsolidadaPage() {
 
   const filteredRows = useMemo(() => {
     let result = rows;
+    if (statusFilter === "custodia") {
+      result = result.filter((r) => r.ativo);
+    }
     if (search.trim()) {
       const term = search.toLowerCase();
       result = result.filter((r) => r.nome.toLowerCase().includes(term));
@@ -442,7 +441,7 @@ export default function PosicaoConsolidadaPage() {
       );
     }
     return result;
-  }, [rows, search, rentSort]);
+  }, [rows, search, rentSort, statusFilter]);
 
   const totalValor = useMemo(() => filteredRows.reduce((s, r) => s + r.valorAtualizado, 0), [filteredRows]);
   const totalGanho = useMemo(() => filteredRows.reduce((s, r) => s + r.ganhoFinanceiro, 0), [filteredRows]);
@@ -513,10 +512,28 @@ export default function PosicaoConsolidadaPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Posição Consolidada</h1>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar ativo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <div className="flex items-center gap-1 rounded-md border border-input p-0.5">
+          <Button
+            variant={statusFilter === "todos" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs px-3"
+            onClick={() => setStatusFilter("todos")}
+          >
+            Todos
+          </Button>
+          <Button
+            variant={statusFilter === "custodia" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs px-3"
+            onClick={() => setStatusFilter("custodia")}
+          >
+            Em custódia
+          </Button>
         </div>
         <span className="text-sm text-muted-foreground">
           Data de referência:{" "}
