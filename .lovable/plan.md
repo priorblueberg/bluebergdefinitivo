@@ -1,55 +1,22 @@
 
 
-# Correção do Lookup da Série 195 no Engine de Poupança
+# Gerar Documento Word — Diagnóstico Poupança (Teste 12)
 
-## Diagnóstico Confirmado
+## Conteúdo
+Exportar a análise diagnóstica da divergência de R$ 7,79 no cálculo da poupança (Teste 12) para um arquivo .docx, incluindo:
 
-A Série 195 do BCB é indexada pela **data de início do ciclo** (data do depósito), não pela data do aniversário. Cada registro significa: "um depósito feito nesta data rende X% no próximo mês".
+1. Cenário do teste (operações, datas, valores)
+2. Fluxo de lotes após o resgate FIFO em 20/02/2024
+3. Tabela de aniversários com taxas aplicadas por lote
+4. Identificação do ponto de divergência (compounding do rendimento acumulado após resgate parcial)
+5. Impacto acumulado até 30/12/2025
 
-Exemplo concreto:
-- Aplicação em 02/01/2024 → taxa correta está em `2024-01-02` = **0,617%**
-- O código atual busca em `2024-02-02` (data do aniversário) = **0,5083%**
-- Isso explica a divergência: 100.000 × 0,617% = 617,00 (Gorila) vs 100.000 × 0,5083% = 508,30 (Blueberg)
+## Abordagem
+- Usar `docx` (já instalado no projeto) via script Node.js em `/tmp/`
+- Gerar o arquivo em `/mnt/documents/Blueberg_Diagnostico_Poupanca_Teste12.docx`
+- Formatação profissional com tabelas, cabeçalhos e cores do Blueberg
+- QA: converter para imagem e verificar cada página
 
-## Mudança Necessária
-
-**Arquivo:** `src/lib/poupancaEngine.ts`
-
-### Lógica atual (errada)
-No dia do aniversário, busca Série 195 pela própria data do aniversário:
-```
-const serie195 = poupRendMap.get(dataTeoricaAniversario)
-```
-
-### Lógica correta
-Buscar pela **data de início do ciclo**, que é:
-- Para o primeiro ciclo: a data de aplicação do lote
-- Para ciclos subsequentes: o aniversário anterior (= início do ciclo atual)
-
-```
-// Início do ciclo = último aniversário (ou data aplicação se primeiro ciclo)
-const dataInicioCiclo = lote.ultimoAniversario ?? lote.dataAplicacao;
-const serie195 = poupRendMap.get(dataInicioCiclo);
-```
-
-### Fallback (Selic + TR)
-Mesma correção: buscar Selic e TR pela data de início do ciclo, não pela data do aniversário.
-
-### Atualização do teste
-Atualizar `src/test/poupancaEngine.test.ts` para refletir que o lookup usa a data de início do ciclo.
-
-## O que NÃO muda
-- FIFO, resgate, estrutura de lotes — intactos
-- Regra de aniversário (dias 29-31 → dia 1) — intacta
-- `getDiaAniversarioPoupanca`, `getDataTeóricaAniversario` — intactas
-- `buildPoupancaLotesFromMovs` — intacta
-
-## Validação
-- Aplicação 02/01/2024 com 100.000
-- No aniversário 02/02/2024: lookup em `2024-01-02` → 0,617% → rendimento = 617,00
-- Saldo esperado: **100.617,00** (alinhado com Gorila)
-
-## Arquivos alterados
-1. `src/lib/poupancaEngine.ts` — lookup por `dataInicioCiclo` em vez de `dataTeoricaAniversario`
-2. `src/test/poupancaEngine.test.ts` — ajuste dos dados de teste
+## Arquivo gerado
+`/mnt/documents/Blueberg_Diagnostico_Poupanca_Teste12.docx`
 
