@@ -82,6 +82,8 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
     product.modalidade === "Pós Fixado" ||
     product.modalidade === "Mista"
   );
+  const isPoupanca = product.modalidade === "Poupança";
+  const hasEngine = isPrefixado || isPoupanca;
 
   // Compute max end date once (does not change with dataReferencia)
   const maxEndDate = useMemo(() => {
