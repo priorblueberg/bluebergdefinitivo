@@ -194,23 +194,21 @@ describe("poupancaEngine", () => {
       poupancaRendimentoRecords,
     });
 
-    // Com aniversário dominante (dia 2), ambos os lotes rendem no dia 2.
-    // 02/02: lote A (100.000 * 0.617%) = 617; lote B (50.000 * 0.617%) = 308.5
-    // → lote A: 100.617, lote B: 50.308,50
-    // Nota: lote B usa taxa do ciclo 10/01 (0.617%) mas rende no dia 2
+    // Antes do resgate, cada lote mantém seu aniversário original (efeito prospectivo).
+    // 02/02: apenas lote A (100.000 * 0.617%) = 617
     const feb02 = rows.find(r => r.data === "2024-02-02");
-    expect(feb02?.ganhoDiario).toBeCloseTo(617 + 308.5, 1);
+    expect(feb02?.ganhoDiario).toBeCloseTo(617, 1);
 
-    // 10/02: NÃO deve haver rendimento (aniversário dominante é dia 2)
+    // 10/02: apenas lote B (50.000 * 0.617%) = 308.5
     const feb10 = rows.find(r => r.data === "2024-02-10");
-    expect(feb10?.ganhoDiario).toBe(0);
+    expect(feb10?.ganhoDiario).toBeCloseTo(308.5, 1);
 
-    // Após resgate em 20/02, consolidação mantém aniversário dominante dia 2
+    // Após resgate em 20/02, consolidação aplica aniversário dominante dia 2
     // 02/03 deve ter rendimento (lote consolidado no dia 2)
     const mar02 = rows.find(r => r.data === "2024-03-02");
     expect(mar02?.ganhoDiario).toBeGreaterThan(0);
 
-    // 10/03: NÃO deve ter rendimento
+    // 10/03: NÃO deve ter rendimento (pós-consolidação, só dia 2)
     const mar10 = rows.find(r => r.data === "2024-03-10");
     expect(mar10?.ganhoDiario).toBe(0);
   });
@@ -252,13 +250,14 @@ describe("poupancaEngine", () => {
       poupancaRendimentoRecords,
     });
 
-    // 02/02: ambos lotes rendem no dia 2 (dominante)
+    // Antes do resgate: cada lote com seu aniversário original
+    // 02/02: apenas lote A (100.000 * 0.617%) = 617
     const feb02 = rows.find(r => r.data === "2024-02-02");
-    expect(feb02?.ganhoDiario).toBeCloseTo(617 + 308.5, 1);
+    expect(feb02?.ganhoDiario).toBeCloseTo(617, 1);
 
-    // 10/02: sem rendimento (dia 10 não é aniversário dominante)
+    // 10/02: apenas lote B (50.000 * 0.617%) = 308.5
     const feb10 = rows.find(r => r.data === "2024-02-10");
-    expect(feb10?.ganhoDiario).toBe(0);
+    expect(feb10?.ganhoDiario).toBeCloseTo(308.5, 1);
 
     // Após resgate de 100.617: lote A zerado, lote B (50.308,50) permanece
     // Aniversário dominante continua dia 2

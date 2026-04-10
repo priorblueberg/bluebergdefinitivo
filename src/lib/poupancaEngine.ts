@@ -117,6 +117,22 @@ function getFallbackRatesOnDate(
  * Calcula a evolução diária da poupança, retornando DailyRow[] compatível
  * com o engine de renda fixa para integração com a carteira.
  */
+/**
+ * Dado uma data de resgate e o dia dominante, retorna a data do último
+ * aniversário dominante que já ocorreu (no mês corrente ou anterior).
+ */
+function findLastDominantAniversario(resgateDate: string, dominantDia: number): string {
+  const d = new Date(resgateDate + "T00:00:00");
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1; // 1-based
+  const teorica = getDataTeóricaAniversario(y, m, dominantDia);
+  if (teorica <= resgateDate) return teorica;
+  // Go to previous month
+  const pm = m === 1 ? 12 : m - 1;
+  const py = m === 1 ? y - 1 : y;
+  return getDataTeóricaAniversario(py, pm, dominantDia);
+}
+
 export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   const { dataInicio, dataCalculo, calendario, movimentacoes, lotes, selicRecords, trRecords, poupancaRendimentoRecords, dataResgateTotal } = input;
 
@@ -186,11 +202,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   const dominantOffset = sortedByDate.length > 0 ? sortedByDate[0].offsetPrimeiroCiclo : false;
   const dominantDataAplicacao = sortedByDate.length > 0 ? sortedByDate[0].dataAplicacao : dataInicio;
 
-  // Override all lots to use the dominant anniversary
-  for (const l of loteStates) {
-    l.diaAniversario = dominantDia;
-    l.offsetPrimeiroCiclo = dominantOffset;
-  }
+  // NÃO sobrescrevemos os aniversários aqui — cada lote mantém seu dia original
+  // até que um resgate dispare a consolidação (efeito prospectivo).
 
   const rows: DailyRow[] = [];
   let rentAcum2 = 0;
@@ -320,13 +333,16 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         target.valorAtual = sumValor;
         target.valorPrincipal = sumPrincipal;
         target.rendimentoAcumulado = sumValor - sumPrincipal;
-        // Garantir aniversário dominante
+        // Garantir aniversário dominante e recalcular ultimoAniversario
         target.diaAniversario = dominantDia;
         target.offsetPrimeiroCiclo = dominantOffset;
+        // Resetar ultimoAniversario para o último aniversário dominante já ocorrido
+        target.ultimoAniversario = findLastDominantAniversario(date, dominantDia);
       } else if (remaining.length === 1) {
         // Mesmo com um único lote remanescente, forçar aniversário dominante
         remaining[0].diaAniversario = dominantDia;
         remaining[0].offsetPrimeiroCiclo = dominantOffset;
+        remaining[0].ultimoAniversario = findLastDominantAniversario(date, dominantDia);
       }
     }
 
