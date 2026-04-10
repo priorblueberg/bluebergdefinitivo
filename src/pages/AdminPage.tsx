@@ -355,8 +355,8 @@ export default function AdminPage() {
         indexadorToSave = "CDI";
       }
 
-      const nomeAtivo = (prod && emis)
-        ? buildNomeAtivo(prod.nome, emis.nome, modalidadeToSave, String(taxaNum), vencISO || "", indexadorToSave || "")
+      const nomeAtivo = (prod && emissor)
+        ? buildNomeAtivo(prod.nome, emissor.nome, modalidadeToSave, String(taxaNum), vencISO || "", indexadorToSave || "")
         : "";
 
       return {
@@ -365,7 +365,7 @@ export default function AdminPage() {
         categoriaId: cat?.id || "",
         produtoId: prod?.id || "",
         instituicaoId: inst?.id || "",
-        emissorId: emis?.id || "",
+        emissorId: emissor?.id || "",
         dataISO: dataISO || "",
         vencimentoISO: vencISO || "",
         taxaNum,
