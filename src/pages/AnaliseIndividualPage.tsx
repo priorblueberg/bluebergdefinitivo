@@ -223,7 +223,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
 
     const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, chartEndDate);
 
-    if (isPrefixado && engineRows.length > 0) {
+    if (hasEngine && engineRows.length > 0) {
       const useRentAcum2 = product.pagamento != null && product.pagamento !== "No Vencimento";
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
@@ -261,15 +261,15 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
       ...p,
       titulo_acumulado: p.cdi_acumulado,
     }));
-  }, [cdiRecords, engineRows, product, isPrefixado, dataReferenciaISO]);
+  }, [cdiRecords, engineRows, product, hasEngine, dataReferenciaISO]);
 
   // Detail table rows
   const detailRows = useMemo(() => {
-    if (isPrefixado && engineRows.length > 0) {
+    if (hasEngine && engineRows.length > 0) {
       return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio, product.pagamento);
     }
     return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio, product.pagamento);
-  }, [cdiRecords, engineRows, product, isPrefixado]);
+  }, [cdiRecords, engineRows, product, hasEngine]);
 
   const tituloLabel = "Rentabilidade";
 
