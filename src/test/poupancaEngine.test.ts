@@ -160,4 +160,71 @@ describe("poupancaEngine", () => {
     expect(row?.ganhoDiario).toBeGreaterThan(0);
     expect(row?.liquido).toBeGreaterThan(100000);
   });
+
+  it("consolida lotes após resgate parcial (Teste 12 — paridade Gorila)", () => {
+    // Cenário: 2 aplicações + 1 resgate parcial
+    // Após resgate, lotes devem ser consolidados em um único com dia_aniversario = 2
+    const movs = [
+      { data: "2024-01-02", tipo_movimentacao: "Aplicação Inicial", valor: 100000 },
+      { data: "2024-01-10", tipo_movimentacao: "Aplicação", valor: 50000 },
+      { data: "2024-02-20", tipo_movimentacao: "Resgate", valor: 80000 },
+    ];
+    const lotes = buildPoupancaLotesFromMovs(movs);
+
+    // Taxas série 195 para todos os ciclos necessários (dia 2 de cada mês)
+    const poupancaRendimentoRecords = [
+      { data: "2024-01-02", rendimento_mensal: 0.617 },
+      { data: "2024-01-10", rendimento_mensal: 0.617 },
+      { data: "2024-02-02", rendimento_mensal: 0.5083 },
+      { data: "2024-03-02", rendimento_mensal: 0.5975 },
+      { data: "2024-04-02", rendimento_mensal: 0.5928 },
+      { data: "2024-05-02", rendimento_mensal: 0.5374 },
+      { data: "2024-06-02", rendimento_mensal: 0.5399 },
+      { data: "2024-07-02", rendimento_mensal: 0.5577 },
+      { data: "2024-08-02", rendimento_mensal: 0.5696 },
+      { data: "2024-09-02", rendimento_mensal: 0.5656 },
+      { data: "2024-10-02", rendimento_mensal: 0.5765 },
+      { data: "2024-11-02", rendimento_mensal: 0.5203 },
+      { data: "2024-12-02", rendimento_mensal: 0.5327 },
+      { data: "2025-01-02", rendimento_mensal: 0.5458 },
+      { data: "2025-02-02", rendimento_mensal: 0.6054 },
+      { data: "2025-03-02", rendimento_mensal: 0.5246 },
+      { data: "2025-04-02", rendimento_mensal: 0.5612 },
+      { data: "2025-05-02", rendimento_mensal: 0.6219 },
+      { data: "2025-06-02", rendimento_mensal: 0.627 },
+      { data: "2025-07-02", rendimento_mensal: 0.5995 },
+      { data: "2025-08-02", rendimento_mensal: 0.6253 },
+      { data: "2025-09-02", rendimento_mensal: 0.5848 },
+      { data: "2025-10-02", rendimento_mensal: 0.5887 },
+      { data: "2025-11-02", rendimento_mensal: 0.5421 },
+      { data: "2025-12-02", rendimento_mensal: 0.5649 },
+    ];
+
+    // Gerar calendário completo de 02/01/2024 a 30/12/2025
+    const calendario: { data: string; dia_util: boolean }[] = [];
+    const start = new Date("2024-01-02T00:00:00");
+    const end = new Date("2025-12-30T00:00:00");
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      calendario.push({
+        data: d.toISOString().slice(0, 10),
+        dia_util: true,
+      });
+    }
+
+    const rows = calcularPoupancaDiario({
+      dataInicio: "2024-01-02",
+      dataCalculo: "2025-12-30",
+      calendario,
+      movimentacoes: movs,
+      lotes,
+      selicRecords: [],
+      trRecords: [],
+      poupancaRendimentoRecords,
+    });
+
+    const last = rows[rows.length - 1];
+    // Gorila: 81.166,42
+    expect(last.liquido).toBeCloseTo(81166.42, 0);
+    expect(last.ganhoAcumulado).toBeCloseTo(11166.42, 0);
+  });
 });
