@@ -43,6 +43,7 @@ export default function ProventosRecebidosPage() {
   const [loading, setLoading] = useState(true);
   const [sortField, setSortField] = useState<SortField>("data");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [filtroAtivo, setFiltroAtivo] = useState<string>("");
   const calcVersionRef = useRef(0);
 
   useEffect(() => {
