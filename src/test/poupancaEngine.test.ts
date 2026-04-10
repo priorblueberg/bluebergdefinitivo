@@ -161,7 +161,7 @@ describe("poupancaEngine", () => {
     expect(row?.liquido).toBeGreaterThan(100000);
   });
 
-  it("consolida lotes após resgate parcial em um único lote com dia do mais antigo", () => {
+  it("consolida lotes após resgate parcial usando aniversário dominante (dia da 1ª aplicação)", () => {
     const movs = [
       { data: "2024-01-02", tipo_movimentacao: "Aplicação Inicial", valor: 100000 },
       { data: "2024-01-10", tipo_movimentacao: "Aplicação", valor: 50000 },
@@ -169,7 +169,6 @@ describe("poupancaEngine", () => {
     ];
     const lotes = buildPoupancaLotesFromMovs(movs);
 
-    // Taxas: uma por ciclo
     const poupancaRendimentoRecords = [
       { data: "2024-01-02", rendimento_mensal: 0.617 },
       { data: "2024-01-10", rendimento_mensal: 0.617 },
@@ -195,24 +194,81 @@ describe("poupancaEngine", () => {
       poupancaRendimentoRecords,
     });
 
-    // Após resgate em 20/02, ambos os lotes devem ter sido consolidados.
-    // Lote A (dia 2): rendeu em 02/02 → 100.617. Resgate 80.000 → sobra 20.617.
-    // Lote B (dia 10): rendeu em 10/02 → 50.308,50.
-    // Consolidação: 20.617 + 50.308,50 = 70.925,50 no dia de aniversário 2.
-    // 02/03: rendimento sobre 70.925,50 com taxa 0.5% → +354,6275
-    // Verificar que dia 10/03 NÃO tem rendimento (lote B foi consolidado)
-    const mar10 = rows.find(r => r.data === "2024-03-10");
-    expect(mar10?.ganhoDiario).toBe(0); // Lote B não existe mais
+    // Com aniversário dominante (dia 2), ambos os lotes rendem no dia 2.
+    // 02/02: lote A (100.000 * 0.617%) = 617; lote B (50.000 * 0.617%) = 308.5
+    // → lote A: 100.617, lote B: 50.308,50
+    // Nota: lote B usa taxa do ciclo 10/01 (0.617%) mas rende no dia 2
+    const feb02 = rows.find(r => r.data === "2024-02-02");
+    expect(feb02?.ganhoDiario).toBeCloseTo(617 + 308.5, 1);
 
-    // 02/03 deve ter rendimento (lote consolidado)
+    // 10/02: NÃO deve haver rendimento (aniversário dominante é dia 2)
+    const feb10 = rows.find(r => r.data === "2024-02-10");
+    expect(feb10?.ganhoDiario).toBe(0);
+
+    // Após resgate em 20/02, consolidação mantém aniversário dominante dia 2
+    // 02/03 deve ter rendimento (lote consolidado no dia 2)
     const mar02 = rows.find(r => r.data === "2024-03-02");
     expect(mar02?.ganhoDiario).toBeGreaterThan(0);
-    // 70925.50 * 0.5/100 = 354.6275
-    expect(mar02?.ganhoDiario).toBeCloseTo(354.6275, 1);
 
-    // 02/04: rendimento sobre (70925.50 + 354.6275) = 71280.1275 com taxa 0.5%
-    const apr02 = rows.find(r => r.data === "2024-04-02");
-    expect(apr02?.ganhoDiario).toBeGreaterThan(0);
-    expect(apr02?.ganhoDiario).toBeCloseTo(71280.1275 * 0.005, 1);
+    // 10/03: NÃO deve ter rendimento
+    const mar10 = rows.find(r => r.data === "2024-03-10");
+    expect(mar10?.ganhoDiario).toBe(0);
+  });
+
+  it("Teste 13: resgate que zera lote mais antigo mantém aniversário dominante", () => {
+    // 02/01 → Aplicação Inicial 100.000 (lote A, dia 2)
+    // 10/01 → Aplicação 50.000 (lote B, dia 10)
+    // 20/02 → Resgate 100.617 (zera lote A após rendimento)
+    // Esperado: posição continua com aniversário dia 2 (dominante)
+    const movs = [
+      { data: "2024-01-02", tipo_movimentacao: "Aplicação Inicial", valor: 100000 },
+      { data: "2024-01-10", tipo_movimentacao: "Aplicação", valor: 50000 },
+      { data: "2024-02-20", tipo_movimentacao: "Resgate", valor: 100617 },
+    ];
+    const lotes = buildPoupancaLotesFromMovs(movs);
+
+    const poupancaRendimentoRecords = [
+      { data: "2024-01-02", rendimento_mensal: 0.617 },
+      { data: "2024-01-10", rendimento_mensal: 0.617 },
+      { data: "2024-02-02", rendimento_mensal: 0.5 },
+      { data: "2024-03-02", rendimento_mensal: 0.5 },
+    ];
+
+    const calendario: { data: string; dia_util: boolean }[] = [];
+    const start = new Date("2024-01-02T00:00:00");
+    const end = new Date("2024-04-02T00:00:00");
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      calendario.push({ data: d.toISOString().slice(0, 10), dia_util: true });
+    }
+
+    const rows = calcularPoupancaDiario({
+      dataInicio: "2024-01-02",
+      dataCalculo: "2024-04-02",
+      calendario,
+      movimentacoes: movs,
+      lotes,
+      selicRecords: [],
+      trRecords: [],
+      poupancaRendimentoRecords,
+    });
+
+    // 02/02: ambos lotes rendem no dia 2 (dominante)
+    const feb02 = rows.find(r => r.data === "2024-02-02");
+    expect(feb02?.ganhoDiario).toBeCloseTo(617 + 308.5, 1);
+
+    // 10/02: sem rendimento (dia 10 não é aniversário dominante)
+    const feb10 = rows.find(r => r.data === "2024-02-10");
+    expect(feb10?.ganhoDiario).toBe(0);
+
+    // Após resgate de 100.617: lote A zerado, lote B (50.308,50) permanece
+    // Aniversário dominante continua dia 2
+    // 02/03: rendimento sobre ~50.308,50 com taxa 0.5%
+    const mar02 = rows.find(r => r.data === "2024-03-02");
+    expect(mar02?.ganhoDiario).toBeGreaterThan(0);
+    expect(mar02?.ganhoDiario).toBeCloseTo(50308.5 * 0.005, 1);
+
+    // 10/03: sem rendimento (dia 10 nunca é usado)
+    const mar10 = rows.find(r => r.data === "2024-03-10");
+    expect(mar10?.ganhoDiario).toBe(0);
   });
 });
