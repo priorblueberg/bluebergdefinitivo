@@ -309,11 +309,20 @@ export default function PosicaoConsolidadaPage() {
           const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
           if (lastRow) {
             const isEncerrado = lastRow.liquido < 0.01;
+            // Use TWR (same logic as Total line) for Poupança rentabilidade
+            const poupCarteira = calcularCarteiraRendaFixa({
+              productRows: [engineRows],
+              calendario,
+              dataInicio: minDate,
+              dataCalculo: dataReferenciaISO,
+            });
+            const lastPoupCarteira = poupCarteira.length > 0 ? poupCarteira[poupCarteira.length - 1] : null;
+            const poupRentTWR = lastPoupCarteira ? lastPoupCarteira.rentAcumuladaPct * 100 : 0;
             posicaoRows.push({
               nome: product.nome || "Poupança",
               valorAtualizado: lastRow.liquido,
               ganhoFinanceiro: lastRow.ganhoAcumulado,
-              rentabilidade: lastRow.rentabilidadeAcumuladaPct * 100,
+              rentabilidade: poupRentTWR,
               custodiante: product.instituicao_nome,
               ativo: !isEncerrado,
               product,
