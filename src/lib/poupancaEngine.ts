@@ -317,9 +317,11 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         target.valorAtual = sumValor;
         target.valorPrincipal = sumPrincipal;
         target.rendimentoAcumulado = sumValor - sumPrincipal;
-        // Garantir aniversário dominante
+        // Garantir aniversário dominante e recalcular ultimoAniversario
         target.diaAniversario = dominantDia;
         target.offsetPrimeiroCiclo = dominantOffset;
+        // Resetar ultimoAniversario para o último aniversário dominante já ocorrido
+        target.ultimoAniversario = findLastDominantAniversario(date, dominantDia);
       } else if (remaining.length === 1) {
         // Mesmo com um único lote remanescente, forçar aniversário dominante
         remaining[0].diaAniversario = dominantDia;
