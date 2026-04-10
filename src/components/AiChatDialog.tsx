@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { MessageCircle, Send, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { MessageCircle, Send, Loader2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import {
   Sheet,
   SheetContent,
@@ -7,6 +8,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface AiChatDialogProps {
   open: boolean;
@@ -17,22 +20,65 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  loading?: boolean;
 }
 
 export function AiChatDialog({ open, onOpenChange }: AiChatDialogProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || sending) return;
+
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: input.trim(),
     };
-    setMessages((prev) => [...prev, userMsg]);
+
+    const placeholderId = crypto.randomUUID();
+    const placeholder: ChatMessage = {
+      id: placeholderId,
+      role: "assistant",
+      content: "",
+      loading: true,
+    };
+
+    setMessages((prev) => [...prev, userMsg, placeholder]);
+    const userInput = input.trim();
     setInput("");
-    // TODO: integrar com IA
+    setSending(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: { input: userInput },
+      });
+
+      if (error) throw error;
+
+      const output =
+        typeof data?.output === "string"
+          ? data.output
+          : JSON.stringify(data?.output ?? "Sem resposta");
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === placeholderId ? { ...m, content: output, loading: false } : m
+        )
+      );
+    } catch (err) {
+      console.error("Erro no chat IA", err);
+      toast.error("Erro ao enviar mensagem para a IA");
+      setMessages((prev) => prev.filter((m) => m.id !== placeholderId));
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -60,7 +106,7 @@ export function AiChatDialog({ open, onOpenChange }: AiChatDialogProps) {
                 Envie uma mensagem para começar a conversa.
               </p>
               <p className="text-xs text-muted-foreground/60 mt-1">
-                Em breve a IA poderá ajudar com seus investimentos.
+                A IA pode ajudar com seus investimentos.
               </p>
             </div>
           ) : (
@@ -77,10 +123,19 @@ export function AiChatDialog({ open, onOpenChange }: AiChatDialogProps) {
                         : "bg-muted text-foreground"
                     }`}
                   >
-                    {msg.content}
+                    {msg.loading ? (
+                      <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                    ) : msg.role === "assistant" ? (
+                      <div className="prose prose-sm prose-invert max-w-none [&>*]:m-0 [&>*+*]:mt-1.5">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}
+              <div ref={bottomRef} />
             </div>
           )}
         </ScrollArea>
@@ -93,15 +148,20 @@ export function AiChatDialog({ open, onOpenChange }: AiChatDialogProps) {
               onKeyDown={handleKeyDown}
               placeholder="Digite sua mensagem..."
               rows={1}
-              className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
+              disabled={sending}
+              className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim()}
+              disabled={!input.trim() || sending}
               className="rounded-md bg-primary p-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ transition: "all 120ms linear" }}
             >
-              <Send size={14} strokeWidth={1.5} />
+              {sending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Send size={14} strokeWidth={1.5} />
+              )}
             </button>
           </div>
         </div>
