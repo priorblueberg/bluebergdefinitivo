@@ -610,7 +610,14 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
     preco_unitario: aplicacaoInicial.preco_unitario,
     quantidade: totalQuantidade,
     vencimento: aplicacaoInicial.vencimento,
-    emissor_id: aplicacaoInicial.emissor_id,
+    emissor_id: aplicacaoInicial.emissor_id || (isPoupanca && aplicacaoInicial.instituicao_id ? await (async () => {
+      const { data: inst } = await supabase.from("instituicoes").select("nome").eq("id", aplicacaoInicial.instituicao_id).single();
+      if (inst?.nome) {
+        const { data: em } = await supabase.from("emissores").select("id").eq("nome", inst.nome).limit(1).single();
+        return em?.id || null;
+      }
+      return null;
+    })() : null),
     pagamento: aplicacaoInicial.pagamento,
     nome: aplicacaoInicial.nome_ativo,
     categoria_id: aplicacaoInicial.categoria_id,
