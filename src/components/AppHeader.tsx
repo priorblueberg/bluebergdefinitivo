@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { format, parse, isValid, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CalendarIcon, ChevronDown, RefreshCw, Plus } from "lucide-react";
+import { Bell, CalendarIcon, ChevronDown, RefreshCw, Plus, MessageCircle } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -35,6 +35,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
   // Staged date: what the user picked but hasn't applied yet
   const [stagedDate, setStagedDate] = useState<Date>(dataReferencia);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
@@ -147,6 +148,15 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
           >
             <Plus size={14} strokeWidth={1.5} />
             <span>Cadastrar Transação</span>
+          </button>
+
+          <button
+            onClick={() => setChatOpen(true)}
+            className="flex items-center gap-1 rounded-md border border-accent-foreground/20 px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground bg-background"
+            style={{ transition: "all 120ms linear" }}
+          >
+            <MessageCircle size={14} strokeWidth={1.5} />
+            <span>Converse com a IA</span>
           </button>
 
           <div className="flex items-center gap-2 text-xs">
