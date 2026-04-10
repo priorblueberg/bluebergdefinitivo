@@ -84,7 +84,7 @@ const PAGAMENTO_OPTIONS = [
   "Mensal",
   "Bimestral",
   "Trimestral",
-  "Quatrimestral",
+  "Quadrimestral",
   "Semestral",
   "No Vencimento",
 ];

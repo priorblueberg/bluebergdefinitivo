@@ -112,6 +112,7 @@ const PERIODICIDADE_MESES: Record<string, number> = {
   Bimestral: 2,
   Trimestral: 3,
   Quadrimestral: 4,
+  Quatrimestral: 4,
   Semestral: 6,
 };
 
