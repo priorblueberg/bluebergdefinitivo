@@ -30,8 +30,9 @@ export default function ControleCarteirasPage() {
       .order("nome_carteira")
       .then(({ data }) => {
         if (data) {
-          setRows(
-            data.map((r: any) => ({
+          // REGRA GLOBAL: carteira só aparece se data_inicio <= dataRef e (sem resgate_total ou dataRef <= resgate_total)
+          const filtered = data
+            .map((r: any) => ({
               id: r.id,
               nome_carteira: r.nome_carteira,
               data_inicio: r.data_inicio,
@@ -40,7 +41,12 @@ export default function ControleCarteirasPage() {
               data_calculo: dataReferenciaISO,
               status: r.status,
             }))
-          );
+            .filter((r: CarteiraRow) => {
+              if (r.data_inicio && dataReferenciaISO < r.data_inicio) return false;
+              if (r.resgate_total && dataReferenciaISO > r.resgate_total) return false;
+              return true;
+            });
+          setRows(filtered);
         }
         setLoading(false);
       });
