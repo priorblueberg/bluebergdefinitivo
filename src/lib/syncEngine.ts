@@ -904,22 +904,22 @@ export async function reprocessMovimentacoesForCodigo(
     .eq("user_id", userId)
     .eq("origem", "automatico");
 
-  // 2. Fetch all remaining manual movimentações ordered by date
-  const { data: manualMovs } = await supabase
+  // 2. Fetch all user-entered movimentações ordered by date
+  const { data: sourceMovs } = await supabase
     .from("movimentacoes")
     .select("*")
     .eq("codigo_custodia", codigoCustodia)
     .eq("user_id", userId)
-    .eq("origem", "manual")
+    .in("origem", ["manual", "importacao_lote"])
     .order("data", { ascending: true })
     .order("created_at", { ascending: true });
 
-   if (!manualMovs || manualMovs.length === 0) return;
+   if (!sourceMovs || sourceMovs.length === 0) return;
 
-  // 3. Fetch custodia base info from Aplicação Inicial
-  const aplicacaoInicial = manualMovs.find(
+   // 3. Fetch custodia base info from Aplicação Inicial
+  const aplicacaoInicial = sourceMovs.find(
     (m) => m.tipo_movimentacao === "Aplicação Inicial"
-  ) || manualMovs[0];
+  ) || sourceMovs[0];
 
   // Check category to decide engine
   const { data: catInfo } = await supabase
@@ -945,7 +945,7 @@ export async function reprocessMovimentacoesForCodigo(
   };
 
   // 4. Get the full calendar range needed
-  const lastDate = manualMovs[manualMovs.length - 1].data;
+  const lastDate = sourceMovs[sourceMovs.length - 1].data;
   const calEnd = baseInfo.vencimento && baseInfo.vencimento > lastDate ? baseInfo.vencimento : lastDate;
 
   const { data: calendario } = await supabase
@@ -963,7 +963,7 @@ export async function reprocessMovimentacoesForCodigo(
 
   // 6. Run engine ONCE with ALL movements to get PU/qty for each date
   //    This replaces N separate engine calls with a single one.
-  const allMovsForEngine = manualMovs.map((m) => ({
+  const allMovsForEngine = sourceMovs.map((m) => ({
     data: m.data,
     tipo_movimentacao: m.tipo_movimentacao,
     valor: Number(m.valor),
