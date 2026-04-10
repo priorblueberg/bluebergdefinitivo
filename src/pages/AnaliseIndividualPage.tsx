@@ -9,6 +9,8 @@ import {
   CdiRecord, DiaUtilRecord,
 } from "@/lib/cdiCalculations";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
+import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
+import { fetchSelic, fetchTr, fetchPoupancaRendimento } from "@/lib/dataCache";
 import { fetchIpcaRecords } from "@/lib/ipcaHelper";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
 import {
@@ -80,6 +82,8 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
     product.modalidade === "Pós Fixado" ||
     product.modalidade === "Mista"
   );
+  const isPoupanca = product.modalidade === "Poupança";
+  const hasEngine = isPrefixado || isPoupanca;
 
   // Compute max end date once (does not change with dataReferencia)
   const maxEndDate = useMemo(() => {
@@ -122,7 +126,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
       setCdiRecords(merged);
       setDiasUteis(calendario.map(d => ({ data: d.data, dia_util: d.dia_util })));
 
-      // Run engine for Prefixado - use cache
+      // Run engine for Renda Fixa - use cache
       if (isPrefixado) {
         const productMovs = allMovs
           .filter(m => m.codigo_custodia === product.codigo_custodia)
@@ -178,11 +182,39 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           const sliced = getCachedRFResult(product.codigo_custodia, dataReferenciaISO, cacheParams);
           setEngineRows(sliced || fullRows);
         }
+      } else if (isPoupanca) {
+        // Run Poupança engine
+        const productMovs = allMovs
+          .filter(m => m.codigo_custodia === product.codigo_custodia)
+          .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor }));
+
+        const lotes = buildPoupancaLotesFromMovs(productMovs);
+        if (lotes.length > 0) {
+          const [selicData, trData, poupRendData] = await Promise.all([
+            fetchSelic(user.id, appliedVersion, getDateMinus(product.data_inicio, 5), calendarEndDate),
+            fetchTr(user.id, appliedVersion, getDateMinus(product.data_inicio, 5), calendarEndDate),
+            fetchPoupancaRendimento(user.id, appliedVersion, getDateMinus(product.data_inicio, 5), calendarEndDate),
+          ]);
+          if (currentVersion !== calcVersionRef.current) return;
+
+          const poupRows = calcularPoupancaDiario({
+            dataInicio: lotes[0].data_aplicacao,
+            dataCalculo: dataReferenciaISO,
+            calendario: calendario.map(d => ({ data: d.data, dia_util: d.dia_util })),
+            movimentacoes: productMovs,
+            lotes,
+            selicRecords: selicData,
+            trRecords: trData,
+            poupancaRendimentoRecords: poupRendData,
+            dataResgateTotal: product.resgate_total,
+          });
+          setEngineRows(poupRows as unknown as DailyRow[]);
+        }
       }
 
       setLoading(false);
     })();
-  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado]);
+  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado, isPoupanca]);
 
   // Chart data: merge both series
   const chartData = useMemo(() => {
@@ -191,7 +223,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
 
     const cdiSeries = buildCdiSeries(cdiRecords, product.data_inicio, chartEndDate);
 
-    if (isPrefixado && engineRows.length > 0) {
+    if (hasEngine && engineRows.length > 0) {
       const useRentAcum2 = product.pagamento != null && product.pagamento !== "No Vencimento";
       const enginePoints: { data: string; label: string; titulo_acumulado: number }[] = [];
       for (const row of engineRows) {
@@ -229,15 +261,15 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
       ...p,
       titulo_acumulado: p.cdi_acumulado,
     }));
-  }, [cdiRecords, engineRows, product, isPrefixado, dataReferenciaISO]);
+  }, [cdiRecords, engineRows, product, hasEngine, dataReferenciaISO]);
 
   // Detail table rows
   const detailRows = useMemo(() => {
-    if (isPrefixado && engineRows.length > 0) {
+    if (hasEngine && engineRows.length > 0) {
       return buildDetailRowsFromEngine(engineRows, cdiRecords, product.data_inicio, product.pagamento);
     }
     return buildDetailRowsFromEngine([], cdiRecords, product.data_inicio, product.pagamento);
-  }, [cdiRecords, engineRows, product, isPrefixado]);
+  }, [cdiRecords, engineRows, product, hasEngine]);
 
   const tituloLabel = "Rentabilidade";
 
@@ -310,7 +342,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
               v != null ? `${v.toFixed(2)}%` : "—";
 
             let patrimonioDisplayValue: number | null = null;
-            if (isPrefixado && engineRows.length > 0) {
+            if (hasEngine && engineRows.length > 0) {
               for (let i = engineRows.length - 1; i >= 0; i--) {
                 if (engineRows[i].data <= dataReferenciaISO) {
                   patrimonioDisplayValue = engineRows[i].liquido;
@@ -321,7 +353,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
 
             const useRentAcum2ForCard = product.pagamento != null && product.pagamento !== "No Vencimento";
             let rentValue = topRow.rentAcumulado;
-            if (isPrefixado && engineRows.length > 0) {
+            if (hasEngine && engineRows.length > 0) {
               for (let i = engineRows.length - 1; i >= 0; i--) {
                 if (engineRows[i].data <= dataReferenciaISO) {
                   const rawRent = useRentAcum2ForCard ? engineRows[i].rentAcumulada2 : engineRows[i].rentabilidadeAcumuladaPct;
@@ -332,7 +364,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
             }
 
             let ganhoValue = ganho;
-            if (isPrefixado && engineRows.length > 0) {
+            if (hasEngine && engineRows.length > 0) {
               let targetRow: DailyRow | undefined;
               for (let i = engineRows.length - 1; i >= 0; i--) {
                 if (engineRows[i].data <= dataReferenciaISO) { targetRow = engineRows[i]; break; }

@@ -953,7 +953,11 @@ export default function CadastrarTransacaoPage() {
           valor: valorNum,
           preco_unitario: noFields ? (isMoedas ? puNum : null) : puNum,
           instituicao_id: instituicaoId,
-          emissor_id: noFields ? null : emissorId || null,
+          emissor_id: isPoupanca ? (() => {
+            const instNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
+            const matched = emissores.find((e) => e.nome === instNome);
+            return matched?.id || null;
+          })() : (noFields ? null : emissorId || null),
           modalidade: modalidadeToSave,
           taxa: noFields ? null : taxaNum,
           pagamento: isPoupanca ? "Mensal" : (isMoedas ? null : pagamento),
