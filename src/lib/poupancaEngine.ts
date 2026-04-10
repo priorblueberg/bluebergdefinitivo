@@ -285,6 +285,28 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
           restante = 0;
         }
       }
+
+      // Consolidação pós-resgate: fundir lotes ativos remanescentes em um único
+      const remaining = sortedLoteStates.filter(l => l.status === "ativo" && l.valorAtual > 0.01);
+      if (remaining.length > 1) {
+        // Lote mais antigo herda tudo
+        const oldest = remaining.sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao))[0];
+        let sumValor = 0;
+        let sumPrincipal = 0;
+        for (const l of remaining) {
+          sumValor += l.valorAtual;
+          sumPrincipal += l.valorPrincipal;
+          if (l !== oldest) {
+            l.valorAtual = 0;
+            l.valorPrincipal = 0;
+            l.rendimentoAcumulado = 0;
+            l.status = "consolidado";
+          }
+        }
+        oldest.valorAtual = sumValor;
+        oldest.valorPrincipal = sumPrincipal;
+        oldest.rendimentoAcumulado = sumValor - sumPrincipal;
+      }
     }
 
     // Calculate totals
