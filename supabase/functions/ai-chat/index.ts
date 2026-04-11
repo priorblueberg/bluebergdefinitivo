@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
 Deno.serve(async (req) => {
@@ -11,7 +11,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Validate JWT
     const authHeader = req.headers.get('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -27,15 +26,14 @@ Deno.serve(async (req) => {
     )
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token)
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Parse input
     const { input } = await req.json()
     if (!input || typeof input !== 'string' || input.trim().length === 0) {
       return new Response(JSON.stringify({ error: 'Input is required' }), {
@@ -44,7 +42,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Forward to n8n webhook
     const webhookUrl = Deno.env.get('N8N_WEBHOOK_URL')
     if (!webhookUrl) {
       throw new Error('N8N_WEBHOOK_URL is not configured')
@@ -68,9 +65,19 @@ Deno.serve(async (req) => {
       })
     }
 
-    const data = await n8nResponse.json()
+    const responseText = await n8nResponse.text()
+    let data: unknown
+    try {
+      data = JSON.parse(responseText)
+    } catch {
+      data = { output: responseText }
+    }
 
-    return new Response(JSON.stringify({ output: data.output ?? data }), {
+    const output = typeof data === 'object' && data !== null && 'output' in data
+      ? (data as Record<string, unknown>).output
+      : data
+
+    return new Response(JSON.stringify({ output }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
