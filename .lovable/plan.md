@@ -1,69 +1,33 @@
 
 
-# Integração do Chat com o webhook n8n
+# Correção do Edge Function ai-chat
 
-## Contexto
+## Problemas identificados
 
-O chat já funciona como um painel lateral (Sheet) que sobrepõe qualquer página — ele não depende de rota. Basta usar o `useAuth()` dentro do componente para obter o token de sessão do usuário logado e enviá-lo no header `Authorization`.
+Analisando os logs, existem **dois problemas distintos**:
 
-## Como funciona a linkagem
+### 1. Erro no codigo da Edge Function
+O metodo `supabase.auth.getClaims(token)` **nao existe** no Supabase JS client. Isso causa o crash `SyntaxError: Unexpected end of JSON input`. Precisa ser substituido por `supabase.auth.getUser(token)`.
 
-O `AiChatDialog` é renderizado dentro do `AppHeader`, que está presente em **todas as rotas protegidas**. Ao clicar "Converse com a IA", o Sheet abre por cima da página atual. Não há necessidade de navegar para outra URL — o componente já tem acesso ao contexto de autenticação via `useAuth()` e ao token da sessão ativa via `supabase.auth.getSession()`.
+### 2. Webhook n8n retornando 404
+Os logs mostram duas situacoes:
+- **URL de teste** (`webhook-test/Blueberg`): so funciona quando voce clica "Execute workflow" no editor do n8n e ele fica escutando. Apos receber uma chamada, para de escutar.
+- **URL de producao** (`webhook/Blueberg` sem `-test`): so funciona quando o workflow esta **ativo** (toggle ligado no canto superior direito do editor n8n).
 
-## Plano de implementação
+## O que voce precisa me enviar
 
-### 1. Criar Edge Function proxy (`supabase/functions/ai-chat/index.ts`)
+Depende do cenario:
 
-A chamada ao webhook n8n não pode ser feita diretamente do navegador porque:
-- Exporia a URL do webhook no client-side
-- Problemas de CORS com o n8n
+- **Para testes**: continue com `https://blueberg.app.n8n.cloud/webhook-test/Blueberg` (a URL ja esta configurada), mas precisa clicar "Execute workflow" no n8n antes de cada teste
+- **Para producao**: me envie a URL de producao: `https://blueberg.app.n8n.cloud/webhook/Blueberg` (sem o `-test`) e ative o workflow no n8n
 
-A Edge Function vai:
-- Receber `{ input: string }` do frontend
-- Validar o JWT do usuário (extraindo do header Authorization)
-- Fazer o POST para `https://blueberg.app.n8n.cloud/webhook-test/Blueberg` passando o token do usuário
-- Retornar a resposta da IA ao frontend
+## Correcao tecnica necessaria
 
-### 2. Adicionar secret da URL do webhook
+Independente da URL, o codigo da Edge Function precisa ser corrigido:
 
-Usar `add_secret` para armazenar a URL do webhook n8n como `N8N_WEBHOOK_URL` para que não fique hardcoded.
+1. **Substituir `getClaims`** por `getUser` na validacao JWT
+2. **Atualizar CORS headers** para incluir todos os headers necessarios
+3. **Adicionar tratamento** para quando o n8n retorna resposta nao-JSON (ex: HTML de erro)
 
-### 3. Atualizar `AiChatDialog.tsx`
-
-- Importar `useAuth` e `supabase`
-- No `handleSend`, após adicionar a mensagem do usuário:
-  - Adicionar mensagem placeholder "digitando..." do assistente
-  - Obter o access token via `supabase.auth.getSession()`
-  - Chamar a Edge Function via `supabase.functions.invoke('ai-chat', { body: { input } })`
-  - Substituir o placeholder pela resposta real
-  - Tratar erros com toast
-- Adicionar estado `loading` para desabilitar o botão enquanto aguarda resposta
-- Renderizar respostas da IA com `react-markdown` para suportar formatação
-
-### 4. Instalar `react-markdown`
-
-Necessário para renderizar as respostas formatadas da IA.
-
-## Detalhes técnicos
-
-**Edge Function (`ai-chat/index.ts`)**:
-```text
-POST { input: string }
-→ Valida JWT
-→ Extrai access_token da sessão
-→ POST n8n webhook com Authorization: Bearer <token>
-→ Retorna { output: string }
-```
-
-**Frontend flow**:
-```text
-User digita → handleSend()
-→ Adiciona msg user no state
-→ setState loading=true
-→ supabase.functions.invoke('ai-chat', { body: { input } })
-→ Adiciona msg assistant no state
-→ setState loading=false
-```
-
-O chat não precisa de rota própria — funciona como overlay global em qualquer página da aplicação.
+Apos aprovacao, farei a correcao no codigo e redeployarei a funcao.
 
