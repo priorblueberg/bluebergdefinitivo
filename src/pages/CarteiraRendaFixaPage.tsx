@@ -445,8 +445,6 @@ export default function CarteiraRendaFixaPage() {
   const chartData = useMemo(() => {
     if (!carteiraInfo?.data_inicio || carteiraRows.length === 0) return [];
 
-    const cdiSeries = buildCdiSeries(cdiRecords, carteiraInfo.data_inicio, carteiraInfo.data_calculo ?? undefined);
-
     const enginePoints = carteiraRows
       .filter(r => r.liquido > 0 || r.liquido2 > 0)
       .map(r => ({
@@ -455,11 +453,19 @@ export default function CarteiraRendaFixaPage() {
         titulo_acumulado: parseFloat((r.rentAcumuladaPct * 100).toFixed(4)),
       }));
 
-    // Build Ibovespa accumulated series
+    // Limitar séries comparativas à última data efetiva da carteira
+    const lastCarteiraDate = enginePoints.length > 0
+      ? enginePoints[enginePoints.length - 1].data
+      : carteiraInfo.data_calculo ?? undefined;
+
+    const cdiSeries = buildCdiSeries(cdiRecords, carteiraInfo.data_inicio, lastCarteiraDate);
+
+    // Build Ibovespa accumulated series (limitado à última data da carteira)
     const ibovMap = new Map<string, number>();
     if (ibovespaData.length > 0) {
       const basePoints = ibovespaData[0].pontos;
       for (const item of ibovespaData) {
+        if (lastCarteiraDate && item.data > lastCarteiraDate) continue;
         ibovMap.set(item.data, parseFloat(((item.pontos / basePoints - 1) * 100).toFixed(4)));
       }
     }
